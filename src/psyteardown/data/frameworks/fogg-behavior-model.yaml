@@ -1,0 +1,21 @@
+id: fogg-behavior-model
+name: Fogg 行为模型
+category: motivation
+summary: 行为 = 动机 × 能力 × 提示,三者同时满足才发生。
+tags: [行为触发, 习惯养成, 转化, onboarding, 推送]
+principles:
+  - id: motivation
+    name: 动机(Motivation)
+    description: 用户完成行为的意愿强度,受快感、希望、归属驱动。
+    look_for: [奖励, 进度激励, 社交认可, 损失规避文案]
+  - id: ability
+    name: 能力(Ability)
+    description: 降低完成行为所需的努力与成本。
+    look_for: [一键操作, 默认值, 减少步骤, 自动填充]
+  - id: trigger
+    name: 提示(Trigger)
+    description: 在动机与能力都足够时,需要提示来触发行为。
+    look_for: [推送通知, 红点, 空状态引导, 按钮显著性]
+references:
+  - "Fogg, B.J. (2009). A behavior model for persuasive design."
+ethics_notes: 可被用于暗黑模式(如制造虚假紧迫或滥用推送),拆解时需标注。

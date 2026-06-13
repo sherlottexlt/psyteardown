@@ -1,0 +1,25 @@
+id: hook-model
+name: 上瘾模型(Hook)
+category: habit
+summary: 触发 → 行动 → 多变奖励 → 投入,四步循环形成习惯。
+tags: [习惯养成, 留存, 通知, 社交, 内容流]
+principles:
+  - id: trigger
+    name: 触发(Trigger)
+    description: 外部触发(通知)与内部触发(情绪)驱动用户回到产品。
+    look_for: [推送, 邮件召回, 无聊/孤独时的入口]
+  - id: action
+    name: 行动(Action)
+    description: 用户为获取奖励所做的最简单行为。
+    look_for: [下拉刷新, 滑动, 一键点赞]
+  - id: variable_reward
+    name: 多变奖励(Variable Reward)
+    description: 不可预测的奖励最能维持参与。
+    look_for: [信息流, 抽奖/盲盒, 点赞数波动]
+  - id: investment
+    name: 投入(Investment)
+    description: 用户投入越多(内容、关系、数据),越难离开。
+    look_for: [发帖, 关注关系, 个性化设置, 积累数据]
+references:
+  - "Eyal, N. (2014). Hooked: How to Build Habit-Forming Products."
+ethics_notes: 多变奖励与投入机制易滑向成瘾设计,需评估对用户福祉的影响。

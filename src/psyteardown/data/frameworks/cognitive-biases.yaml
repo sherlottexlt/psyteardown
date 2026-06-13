@@ -1,0 +1,27 @@
+id: cognitive-biases
+name: 认知偏误精选
+category: cognition
+summary: 锚定、默认效应、损失规避、从众等系统性判断偏差被产品广泛利用。
+tags: [定价, 决策, 默认项, 文案, 转化]
+principles:
+  - id: anchoring
+    name: 锚定效应
+    description: 首个数字成为后续判断的参照锚。
+    look_for: [划线原价, 推荐套餐高价在先]
+  - id: default_effect
+    name: 默认效应
+    description: 用户倾向于保持默认选项。
+    look_for: [默认勾选, 默认套餐, 默认订阅]
+  - id: loss_aversion
+    name: 损失规避
+    description: 损失带来的痛苦约为同等收益快感的两倍。
+    look_for: ["将失去", 连续打卡中断警告, 限免到期]
+  - id: bandwagon
+    name: 从众效应
+    description: 倾向跟随多数人的选择。
+    look_for:
+      - '"最受欢迎"标签'
+      - 热度排序
+references:
+  - "Tversky, A. & Kahneman, D. (1974). Judgment under Uncertainty."
+ethics_notes: 默认效应与损失规避是暗黑模式高发区(默认订阅、强制流失挽留),需逐项标注。

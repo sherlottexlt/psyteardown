@@ -1,0 +1,17 @@
+id: peak-end-rule
+name: 峰终定律
+category: emotion
+summary: 人对体验的记忆主要由情绪峰值与结尾决定,而非整体平均。
+tags: [情绪曲线, 体验设计, onboarding, 结算, 流失]
+principles:
+  - id: peak
+    name: 峰值(Peak)
+    description: 设计强烈的正向情绪高点。
+    look_for: [惊喜时刻, 成就动画, 里程碑庆祝]
+  - id: end
+    name: 结尾(End)
+    description: 体验结尾的情绪强烈影响整体记忆。
+    look_for: [完成页, 离开挽留, 结算反馈, 退订体验]
+references:
+  - "Kahneman, D. (2011). Thinking, Fast and Slow."
+ethics_notes: 一般为正向设计;但用结尾情绪操纵(如退订设障)可构成暗黑模式。

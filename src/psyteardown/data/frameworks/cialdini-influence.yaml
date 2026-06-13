@@ -1,0 +1,33 @@
+id: cialdini-influence
+name: Cialdini 说服六原则
+category: persuasion
+summary: 互惠、承诺一致、社会认同、权威、喜好、稀缺六条说服杠杆。
+tags: [转化, 付费, 文案, 社交证明, 促销]
+principles:
+  - id: reciprocity
+    name: 互惠
+    description: 先给予,用户更倾向回报。
+    look_for: [免费试用, 赠品, 先给价值再要求]
+  - id: commitment
+    name: 承诺与一致
+    description: 小承诺引导大承诺,保持自我一致。
+    look_for: [分步注册, 先点小目标, 进度条承诺]
+  - id: social_proof
+    name: 社会认同
+    description: 人们参照他人行为决定自身行为。
+    look_for: [用户数, 评价, "X 人正在看", 热门榜]
+  - id: authority
+    name: 权威
+    description: 权威背书提升信任。
+    look_for: [专家认证, 媒体标识, 奖项徽章]
+  - id: liking
+    name: 喜好
+    description: 越喜欢越容易被说服。
+    look_for: [拟人化, 相似性文案, 亲和视觉]
+  - id: scarcity
+    name: 稀缺
+    description: 稀缺与紧迫提升即时行动意愿。
+    look_for: [限时, 限量, 倒计时, "仅剩 N 件"]
+references:
+  - "Cialdini, R. (2006). Influence: The Psychology of Persuasion."
+ethics_notes: 稀缺/社会认同极易被伪造(假倒计时、刷量),构成暗黑模式,需重点标注。
