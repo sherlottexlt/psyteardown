@@ -1,0 +1,31 @@
+[project]
+name = "psyteardown"
+version = "0.1.0"
+description = "心理驱动型产品拆解 Agent(v1):基于心理学框架拆解产品体验"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "anthropic>=0.69",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+psyteardown = "psyteardown.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+psyteardown = ["data/frameworks/*.yaml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
