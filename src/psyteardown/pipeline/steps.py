@@ -51,7 +51,7 @@ def map_features(
     """Step 3:逐功能/触点映射到框架原则。单项失败标 error 并继续。"""
     brief = _frameworks_brief(frameworks)
     valid_ids = ", ".join(fw.id for fw in frameworks)
-    targets = [f.name for f in profile.features]
+    targets = [f.name for f in profile.features] + profile.touchpoints
     mappings: list[Mapping] = []
     for target in targets:
         prompt = (

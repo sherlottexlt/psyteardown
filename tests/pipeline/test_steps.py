@@ -42,17 +42,20 @@ def test_step3_maps_each_feature():
         feature="签到", framework_id="habit", principle_id="p",
         rationale="r", evidence="e", confidence=0.9,
     )
-    provider = FakeProvider(structured_responses=[MappingList(mappings=[mapping])])
+    provider = FakeProvider(structured_responses=[
+        MappingList(mappings=[mapping]),
+        MappingList(mappings=[]),  # 触点「推送」无映射
+    ])
     mappings = steps.map_features(provider, _profile(), [_fw("habit", ["习惯养成"])])
     assert mappings[0].feature == "签到"
 
 
 def test_step3_failure_marks_error_and_continues():
-    # 队列耗尽 → 该次映射失败,应返回带 error 的占位 mapping 而非崩溃
+    # 队列耗尽 → 每个目标映射失败,应返回带 error 的占位 mapping 而非崩溃
     provider = FakeProvider(structured_responses=[])
     mappings = steps.map_features(provider, _profile(), [_fw("habit", ["习惯养成"])])
-    assert len(mappings) == 1
-    assert mappings[0].error is not None
+    assert len(mappings) == 2  # 1 feature + 1 touchpoint
+    assert all(m.error is not None for m in mappings)
 
 
 def test_step4_assess_experience():
