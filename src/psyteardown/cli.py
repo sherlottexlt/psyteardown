@@ -10,7 +10,7 @@ from psyteardown.llm.base import FakeProvider, LLMProvider
 from psyteardown.pipeline.orchestrator import run_teardown
 from psyteardown.report.render import render_json, render_markdown
 from psyteardown.pipeline.schemas import (
-    ProductProfile, MappingList, ExperienceAssessment, Synthesis,
+    ProductProfile, ExperienceAssessment, Synthesis,
 )
 
 app = typer.Typer(help="心理驱动型产品拆解 Agent(v1)")
