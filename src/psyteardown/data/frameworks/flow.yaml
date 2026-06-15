@@ -1,0 +1,21 @@
+id: flow
+name: 心流(Flow)
+category: emotion
+summary: 当挑战与技能匹配、目标清晰、反馈即时时,用户进入高度专注的沉浸状态。
+tags: [沉浸, 游戏化, 学习, 创作工具, 专注]
+principles:
+  - id: challenge_skill_balance
+    name: 挑战-技能平衡
+    description: 难度略高于当前技能时最易进入心流。
+    look_for: [动态难度, 分级关卡, 个性化推荐难度]
+  - id: clear_goals
+    name: 清晰目标
+    description: 每一步该做什么明确无歧义。
+    look_for: [任务清单, 单一主行动, 进度指示]
+  - id: immediate_feedback
+    name: 即时反馈
+    description: 行为后立刻获得结果反馈。
+    look_for: [实时校验, 动效反馈, 即时得分]
+references:
+  - "Csikszentmihalyi, M. (1990). Flow: The Psychology of Optimal Experience."
+ethics_notes: 心流可被用于延长停留时长(无尽关卡),需评估是否损害用户时间自主。
