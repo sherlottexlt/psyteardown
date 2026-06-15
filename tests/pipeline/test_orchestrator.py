@@ -44,5 +44,7 @@ def test_run_teardown_full_pipeline():
     assert result.product.name == "Demo"
     assert result.executive_summary == "总结"
     assert "habit" in result.frameworks_used
+    assert result.citations[0].id == "habit"
+    assert result.citations[0].references == ["r"]  # 出处从库带入结果
     assert result.assessment.ethics_warnings == ["伦"]
     assert result.meta.model == "fake"

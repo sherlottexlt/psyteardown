@@ -55,9 +55,18 @@ class TeardownMeta(BaseModel):
     elapsed_seconds: float = 0.0
 
 
+class FrameworkCitation(BaseModel):
+    """报告附录用:某框架的 id、名称与学术出处。"""
+
+    id: str
+    name: str
+    references: list[str] = Field(default_factory=list)
+
+
 class TeardownResult(BaseModel):
     product: ProductProfile
     frameworks_used: list[str] = Field(default_factory=list)
+    citations: list[FrameworkCitation] = Field(default_factory=list)
     mappings: list[Mapping] = Field(default_factory=list)
     assessment: ExperienceAssessment
     executive_summary: str

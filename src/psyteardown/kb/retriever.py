@@ -23,9 +23,6 @@ def retrieve_frameworks(
     top_n: int = 5,
 ) -> list[Framework]:
     """按关键词与 tags 的匹配度返回 Top-N 框架;无匹配则返回前 top_n(稳定不空转)。"""
-    ranked = sorted(
-        library,
-        key=lambda f: (_score(f, keywords), -ord(f.id[0]) if f.id else 0),
-        reverse=True,
-    )
+    # 仅按匹配分降序;Python 的 sort 稳定,同分时保持原库顺序。
+    ranked = sorted(library, key=lambda f: _score(f, keywords), reverse=True)
     return ranked[:top_n]

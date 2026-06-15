@@ -1,7 +1,8 @@
 import json
 
 from psyteardown.pipeline.schemas import (
-    ProductProfile, Feature, Mapping, ExperienceAssessment, TeardownResult, TeardownMeta,
+    ProductProfile, Feature, Mapping, ExperienceAssessment, TeardownResult,
+    TeardownMeta, FrameworkCitation,
 )
 from psyteardown.report.render import render_markdown, render_json
 
@@ -14,6 +15,10 @@ def _result():
             touchpoints=["推送"],
         ),
         frameworks_used=["hook-model"],
+        citations=[
+            FrameworkCitation(id="hook-model", name="上瘾模型(Hook)",
+                              references=["Eyal, N. (2014). Hooked."]),
+        ],
         mappings=[
             Mapping(feature="签到", framework_id="hook-model", principle_id="trigger",
                     rationale="形成回访习惯", evidence="每日推送提醒", confidence=0.9),
@@ -35,6 +40,11 @@ def test_render_json_is_valid_and_complete():
     data = json.loads(render_json(_result()))
     assert data["executive_summary"]
     assert data["frameworks_used"] == ["hook-model"]
+
+
+def test_markdown_appendix_includes_references():
+    md = render_markdown(_result())
+    assert "Eyal, N. (2014). Hooked." in md  # 出处必须出现在附录
 
 
 def test_markdown_has_all_sections():

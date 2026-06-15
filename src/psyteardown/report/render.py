@@ -65,10 +65,16 @@ def render_markdown(result: TeardownResult) -> str:
         out.append(f"- {o}")
     out.append("")
 
-    # 7. 附录
+    # 7. 附录:引用框架 + 出处
     out.append("## 附录:引用框架\n")
-    for fid in result.frameworks_used:
-        out.append(f"- {fid}")
+    if result.citations:
+        for c in result.citations:
+            out.append(f"- **{c.name}** (`{c.id}`)")
+            for ref in c.references:
+                out.append(f"  - {ref}")
+    else:
+        for fid in result.frameworks_used:
+            out.append(f"- {fid}")
     out.append(f"\n_模型:{result.meta.model} · 生成时间:{result.meta.generated_at}_")
 
     return "\n".join(out)

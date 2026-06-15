@@ -4,7 +4,11 @@ from psyteardown.kb.models import Framework
 from psyteardown.llm.base import LLMProvider
 from psyteardown.llm.claude import DEFAULT_MODEL
 from psyteardown.pipeline import steps
-from psyteardown.pipeline.schemas import TeardownMeta, TeardownResult
+from psyteardown.pipeline.schemas import (
+    FrameworkCitation,
+    TeardownMeta,
+    TeardownResult,
+)
 
 
 def run_teardown(
@@ -26,6 +30,10 @@ def run_teardown(
     return TeardownResult(
         product=profile,
         frameworks_used=[fw.id for fw in frameworks],
+        citations=[
+            FrameworkCitation(id=fw.id, name=fw.name, references=fw.references)
+            for fw in frameworks
+        ],
         mappings=mappings,
         assessment=assessment,
         executive_summary=summary,
