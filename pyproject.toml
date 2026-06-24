@@ -8,10 +8,12 @@ dependencies = [
     "pyyaml>=6.0",
     "typer>=0.12",
     "anthropic>=0.69",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+embed = ["sentence-transformers>=2.2"]
 
 [project.scripts]
 psyteardown = "psyteardown.cli:app"
