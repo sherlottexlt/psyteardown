@@ -47,15 +47,24 @@ def map_features(
     provider: LLMProvider,
     profile: ProductProfile,
     frameworks: list[Framework],
+    prior_summary: str | None = None,
 ) -> list[Mapping]:
-    """Step 3:逐功能/触点映射到框架原则。单项失败标 error 并继续。"""
+    """Step 3:逐功能/触点映射到框架原则。单项失败标 error 并继续。
+    prior_summary 提供时,作为"仅供参考的历史相似案例"注入(不污染产品画像)。"""
     brief = _frameworks_brief(frameworks)
     valid_ids = ", ".join(fw.id for fw in frameworks)
+    ref_block = ""
+    if prior_summary:
+        ref_block = (
+            "\n以下是仅供参考的历史相似案例,请独立判断当前产品,不要照搬:\n"
+            f"{prior_summary}\n"
+        )
     targets = [f.name for f in profile.features] + profile.touchpoints
     mappings: list[Mapping] = []
     for target in targets:
         prompt = (
-            f"可用心理学框架:\n{brief}\n\n"
+            f"可用心理学框架:\n{brief}\n"
+            f"{ref_block}\n"
             f"产品「{profile.name}」的功能/触点:「{target}」。\n"
             "请判断它用到了哪个框架的哪条原则、在产品中的具体体现、为何有效,"
             "并给出 0-1 的置信度。framework_id 必须来自这些 id: "
