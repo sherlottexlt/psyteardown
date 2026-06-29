@@ -52,6 +52,30 @@ def test_similar_empty_store_message(tmp_path):
     assert "空" in r.stdout
 
 
+def test_analyze_survives_embedder_failure(tmp_path, monkeypatch):
+    # 记忆是增强:嵌入器不可用(如离线无模型)时,核心拆解仍须产出,案例跳过落盘
+    import psyteardown.cli as cli
+    from psyteardown.memory.store import CaseStore
+
+    class _Boom:
+        @property
+        def dim(self):
+            raise OSError("offline")
+
+        def embed(self, texts):
+            raise OSError("offline: 无法加载模型")
+
+    monkeypatch.setattr(cli, "_build_embed_provider", lambda name: _Boom())
+    src = _write(tmp_path)
+    out = tmp_path / "r.md"
+    db = tmp_path / "cases.db"
+    r = runner.invoke(app, ["analyze", "--input", str(src), "--store", str(db),
+                            "--out", str(out), "--provider", "fake"])  # 默认 save 开
+    assert r.exit_code == 0, r.stdout
+    assert out.exists()                       # 报告照常产出
+    assert CaseStore(db).count() == 0         # 案例未落盘(优雅降级)
+
+
 def test_use_memory_runs_without_error(tmp_path):
     src = _write(tmp_path)
     db = tmp_path / "cases.db"

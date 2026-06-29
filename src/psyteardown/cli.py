@@ -67,16 +67,24 @@ def analyze(
     library = load_frameworks()
     llm = _build_provider(provider)
 
+    # 记忆是增强,不应让其失败(如离线无嵌入模型)拖垮核心拆解。
     emb: EmbeddingProvider | None = None
     case_store: CaseStore | None = None
     if use_memory or not no_save:
-        emb = _build_embed_provider(embed_provider)
-        case_store = CaseStore(store)
+        try:
+            emb = _build_embed_provider(embed_provider)
+            case_store = CaseStore(store)
+        except Exception as e:  # noqa: BLE001 — 记忆不可用时降级,不中断拆解
+            typer.echo(f"提示:记忆功能不可用({e}),本次跳过案例库。", err=True)
+            emb = case_store = None
 
     prior_summary: str | None = None
     if use_memory and case_store is not None and emb is not None:
-        hits = search_similar(case_store, emb, text, top_k=3)
-        prior_summary = summarize_cases([c for c, _ in hits]) or None
+        try:
+            hits = search_similar(case_store, emb, text, top_k=3)
+            prior_summary = summarize_cases([c for c, _ in hits]) or None
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:相似案例检索失败({e}),本次不注入历史参考。", err=True)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     result = run_teardown(llm, text, library=library, generated_at=now,
@@ -90,9 +98,12 @@ def analyze(
         typer.echo(rendered)
 
     if not no_save and case_store is not None and emb is not None:
-        case = Case.from_result(result, description=text, created_at=now)
-        case_store.save(case, emb.embed([text])[0])
-        typer.echo(f"已落盘案例 {case.case_id}")
+        try:
+            case = Case.from_result(result, description=text, created_at=now)
+            case_store.save(case, emb.embed([text])[0])
+            typer.echo(f"已落盘案例 {case.case_id}")
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:案例落盘失败({e}),报告已照常产出。", err=True)
 
 
 @app.command()
