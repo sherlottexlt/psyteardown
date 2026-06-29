@@ -30,7 +30,7 @@ def test_analyze_with_fake_provider_writes_json(tmp_path):
     out = tmp_path / "result.json"
     result = runner.invoke(app, [
         "analyze", "--input", str(src), "--format", "json",
-        "--out", str(out), "--provider", "fake",
+        "--out", str(out), "--provider", "fake", "--no-save",
     ])
     assert result.exit_code == 0, result.stdout
     data = json.loads(out.read_text(encoding="utf-8"))
