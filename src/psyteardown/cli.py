@@ -7,24 +7,31 @@ import typer
 
 from psyteardown.kb.loader import load_frameworks
 from psyteardown.llm.base import FakeProvider, LLMProvider
+from psyteardown.embed.base import EmbeddingProvider, FakeEmbeddingProvider
+from psyteardown.memory.models import Case
+from psyteardown.memory.store import CaseStore
+from psyteardown.memory.retrieval import search_similar, summarize_cases
 from psyteardown.pipeline.orchestrator import run_teardown
 from psyteardown.report.render import render_json, render_markdown
 from psyteardown.pipeline.schemas import (
     ProductProfile, ExperienceAssessment, Synthesis,
 )
 
-app = typer.Typer(help="心理驱动型产品拆解 Agent(v1)")
+app = typer.Typer(help="心理驱动型产品拆解 Agent(v2)")
 kb_app = typer.Typer(help="知识库操作")
+memory_app = typer.Typer(help="案例库操作")
 app.add_typer(kb_app, name="kb")
+app.add_typer(memory_app, name="memory")
+
+DEFAULT_STORE = Path(".psyteardown/cases.db")
 
 
 def _build_provider(name: str) -> LLMProvider:
     if name == "fake":
-        # 仅用于测试:返回可跑通流水线的固定结构(无需真实 API)
         return FakeProvider(structured_responses=[
             ProductProfile(name="样例产品", product_type="App",
                            one_liner="自动生成的占位画像", features=[], touchpoints=[]),
-            ExperienceAssessment(),  # 无功能/触点 → 无 step3 调用,直接 step4
+            ExperienceAssessment(),
             Synthesis(executive_summary="(fake provider 占位摘要)"),
         ])
     from psyteardown.llm.claude import ClaudeProvider
@@ -32,14 +39,26 @@ def _build_provider(name: str) -> LLMProvider:
     return ClaudeProvider()
 
 
+def _build_embed_provider(name: str) -> EmbeddingProvider:
+    if name == "fake":
+        return FakeEmbeddingProvider()
+    from psyteardown.embed.local import LocalEmbeddingProvider
+
+    return LocalEmbeddingProvider()
+
+
 @app.command()
 def analyze(
     input: Path = typer.Option(..., "--input", "-i", help="产品描述文本文件"),
-    out: Path | None = typer.Option(None, "--out", "-o", help="输出文件;省略则打印到终端"),
+    out: Path | None = typer.Option(None, "--out", "-o", help="输出文件;省略则打印"),
     fmt: str = typer.Option("md", "--format", "-f", help="md 或 json"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    use_memory: bool = typer.Option(False, "--use-memory", help="检索相似历史案例并注入分析"),
+    no_save: bool = typer.Option(False, "--no-save", help="不把本次结果落盘案例库"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
+    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
 ):
-    """拆解一个产品描述,输出结构化报告。"""
+    """拆解一个产品描述,输出结构化报告;默认落盘为案例。"""
     text = input.read_text(encoding="utf-8").strip()
     if not text:
         typer.echo("错误:输入为空。", err=True)
@@ -47,10 +66,29 @@ def analyze(
 
     library = load_frameworks()
     llm = _build_provider(provider)
-    result = run_teardown(
-        llm, text, library=library,
-        generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
-    )
+
+    # 记忆是增强,不应让其失败(如离线无嵌入模型)拖垮核心拆解。
+    emb: EmbeddingProvider | None = None
+    case_store: CaseStore | None = None
+    if use_memory or not no_save:
+        try:
+            emb = _build_embed_provider(embed_provider)
+            case_store = CaseStore(store)
+        except Exception as e:  # noqa: BLE001 — 记忆不可用时降级,不中断拆解
+            typer.echo(f"提示:记忆功能不可用({e}),本次跳过案例库。", err=True)
+            emb = case_store = None
+
+    prior_summary: str | None = None
+    if use_memory and case_store is not None and emb is not None:
+        try:
+            hits = search_similar(case_store, emb, text, top_k=3)
+            prior_summary = summarize_cases([c for c, _ in hits]) or None
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:相似案例检索失败({e}),本次不注入历史参考。", err=True)
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    result = run_teardown(llm, text, library=library, generated_at=now,
+                          prior_summary=prior_summary)
 
     rendered = render_json(result) if fmt == "json" else render_markdown(result)
     if out:
@@ -58,6 +96,46 @@ def analyze(
         typer.echo(f"已写入 {out}")
     else:
         typer.echo(rendered)
+
+    if not no_save and case_store is not None and emb is not None:
+        try:
+            case = Case.from_result(result, description=text, created_at=now)
+            case_store.save(case, emb.embed([text])[0])
+            typer.echo(f"已落盘案例 {case.case_id}")
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:案例落盘失败({e}),报告已照常产出。", err=True)
+
+
+@app.command()
+def similar(
+    input: Path = typer.Option(..., "--input", "-i", help="产品描述文本文件"),
+    top_k: int = typer.Option(3, "--top-k", help="返回最相似的前 K 个案例"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
+):
+    """检索与给定描述最相似的历史案例。"""
+    text = input.read_text(encoding="utf-8").strip()
+    if not text:
+        typer.echo("错误:输入为空。", err=True)
+        raise typer.Exit(code=1)
+    emb = _build_embed_provider(embed_provider)
+    case_store = CaseStore(store)
+    hits = search_similar(case_store, emb, text, top_k=top_k)
+    if not hits:
+        typer.echo("案例库为空或无相似案例。")
+        return
+    for case, score in hits:
+        fw = ", ".join(case.frameworks_used) or "—"
+        typer.echo(f"{score:.3f}  {case.product_name} — {case.one_liner}  ({fw})")
+
+
+@memory_app.command("stats")
+def memory_stats(
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+):
+    """显示案例库统计。"""
+    case_store = CaseStore(store)
+    typer.echo(f"案例数:{case_store.count()}")
 
 
 @kb_app.command("list")

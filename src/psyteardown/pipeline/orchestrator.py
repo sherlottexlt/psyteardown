@@ -19,11 +19,13 @@ def run_teardown(
     generated_at: str,
     model_label: str | None = None,
     top_n: int = 5,
+    prior_summary: str | None = None,
 ) -> TeardownResult:
-    """跑完整流水线。generated_at 由调用方传入(脚本环境禁用 datetime.now)。"""
+    """跑完整流水线。generated_at 由调用方传入(脚本环境禁用 datetime.now)。
+    prior_summary 提供时作为历史参考注入 step3(map_features)。"""
     profile = steps.parse_product(provider, description)
     frameworks = steps.retrieve(profile, library, top_n=top_n)
-    mappings = steps.map_features(provider, profile, frameworks)
+    mappings = steps.map_features(provider, profile, frameworks, prior_summary=prior_summary)
     assessment = steps.assess_experience(provider, profile, mappings)
     summary = steps.synthesize(provider, profile, mappings, assessment)
 
