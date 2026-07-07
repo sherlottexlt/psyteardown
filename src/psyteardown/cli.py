@@ -157,9 +157,12 @@ def kb_list(
 
 
 @kb_app.command("show")
-def kb_show(framework_id: str = typer.Argument(..., help="框架 id")):
-    """查看某框架详情。"""
-    for fw in load_frameworks():
+def kb_show(
+    framework_id: str = typer.Argument(..., help="框架 id"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径(用于合并习得框架)"),
+):
+    """查看某框架详情(含已批准的习得框架)。"""
+    for fw in load_frameworks(learned_dir=_growth_store(store).learned_dir()):
         if fw.id == framework_id:
             typer.echo(f"# {fw.name} ({fw.id})\n{fw.summary}\n")
             for p in fw.principles:

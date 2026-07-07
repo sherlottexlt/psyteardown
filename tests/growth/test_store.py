@@ -62,3 +62,20 @@ def test_reject_missing_raises(tmp_path):
     store = GrowthStore(tmp_path)
     with pytest.raises(GrowthError):
         store.reject("nope")
+
+
+def test_reject_records_and_save_skips_rejected(tmp_path):
+    store = GrowthStore(tmp_path)
+    store.save_candidate(_cand())
+    store.reject("dark-urgency")
+    assert store.is_rejected("dark-urgency")
+    # 再次提炼出同一 id → save_candidate 应跳过(不复活被驳回的候选)
+    store.save_candidate(_cand())
+    assert store.get_candidate("dark-urgency") is None
+
+
+def test_invalid_id_with_separator_raises(tmp_path):
+    store = GrowthStore(tmp_path)
+    bad = _cand("../evil")
+    with pytest.raises(GrowthError):
+        store.save_candidate(bad)

@@ -64,6 +64,10 @@ def test_learn_then_candidates_flow(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.stdout
     r = runner.invoke(app, ["kb", "list", "--store", str(db)])
     assert "novelty-loop" in r.stdout
+    # kb show 也应能看到已批准的习得框架(与 list/analyze 一致)
+    r = runner.invoke(app, ["kb", "show", "novelty-loop", "--store", str(db)])
+    assert r.exit_code == 0, r.stdout
+    assert "新奇回路" in r.stdout
 
 
 def test_candidates_reject(tmp_path, monkeypatch):
