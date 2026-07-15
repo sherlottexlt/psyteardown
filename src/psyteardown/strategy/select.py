@@ -11,6 +11,8 @@ def _applies(card: StrategyCard, profile: ProductProfile) -> bool:
         return True                      # 空 = 通配
     haystacks = [profile.product_type] + [f.name for f in profile.features]
     for term in card.applies_to:
+        if not term:                     # 跳过空串,避免误通配
+            continue
         for h in haystacks:
             if term in h or h in term:   # 子串双向匹配(同 v1 检索器风格)
                 return True

@@ -341,7 +341,13 @@ def strategies_show(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
 ):
     """查看策略卡详情。"""
-    c = _strategy_store(store).get_candidate(strategy_id)
+    from psyteardown.strategy.store import StrategyError
+
+    try:
+        c = _strategy_store(store).get_candidate(strategy_id)
+    except StrategyError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
     if c is None:
         typer.echo(f"候选不存在:{strategy_id}", err=True)
         raise typer.Exit(code=1)

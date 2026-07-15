@@ -71,4 +71,5 @@ def test_run_teardown_none_matches_prior_behavior():
     provider = FakeProvider(structured_responses=_queue())
     result = run_teardown(provider, "desc", library=[_fw()], generated_at="t")
     assert result.executive_summary == "总结"
-    assert "供参考的拆解策略" not in provider.calls[1]["prompt"]
+    assert "历史归纳的拆解策略" not in provider.calls[1]["prompt"]   # step3 无策略注入
+    assert "历史归纳的拆解策略" not in provider.calls[2]["prompt"]   # step4 无策略注入

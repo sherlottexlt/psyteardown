@@ -60,6 +60,7 @@ class StrategyStore:
         return [self._read(p) for p in sorted(self._approved.glob("*.yaml"))]
 
     def get_candidate(self, sid: str) -> StrategyCard | None:
+        _check_id(sid)
         p = self._candidates / f"{sid}.yaml"
         return self._read(p) if p.is_file() else None
 

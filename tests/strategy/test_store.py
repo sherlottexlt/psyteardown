@@ -52,6 +52,12 @@ def test_invalid_id_raises(tmp_path):
         store.save_candidate(_card("../evil"))
 
 
+def test_get_candidate_invalid_id_raises(tmp_path):
+    store = StrategyStore(tmp_path)
+    with pytest.raises(StrategyError):
+        store.get_candidate("../../etc/passwd")
+
+
 def test_approve_missing_raises(tmp_path):
     store = StrategyStore(tmp_path)
     with pytest.raises(StrategyError):

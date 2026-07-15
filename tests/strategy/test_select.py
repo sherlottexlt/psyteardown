@@ -47,3 +47,8 @@ def test_applies_to_hit_by_substring():
 def test_applies_to_miss_excluded():
     cards = [_card("m", "mapping", applies=["理财"])]
     assert select_for(cards, _profile(ptype="社交App", features=("动态",)), "mapping") == ""
+
+
+def test_empty_string_term_is_not_wildcard():
+    cards = [_card("m", "mapping", applies=[""])]      # 空串不应误通配
+    assert select_for(cards, _profile(ptype="理财App", features=("持仓",)), "mapping") == ""
