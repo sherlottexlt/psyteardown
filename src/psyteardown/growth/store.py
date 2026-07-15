@@ -63,6 +63,7 @@ class GrowthStore:
         return out
 
     def get_candidate(self, fid: str) -> FrameworkCandidate | None:
+        _check_id(fid)
         p = self._candidates / f"{fid}.yaml"
         if not p.is_file():
             return None

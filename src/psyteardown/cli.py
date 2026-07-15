@@ -240,7 +240,13 @@ def candidates_show(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
 ):
     """查看候选详情。"""
-    c = _growth_store(store).get_candidate(framework_id)
+    from psyteardown.growth.store import GrowthError
+
+    try:
+        c = _growth_store(store).get_candidate(framework_id)
+    except GrowthError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
     if c is None:
         typer.echo(f"候选不存在:{framework_id}", err=True)
         raise typer.Exit(code=1)

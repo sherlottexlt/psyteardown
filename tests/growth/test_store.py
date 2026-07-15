@@ -52,6 +52,12 @@ def test_reject_deletes(tmp_path):
     assert store.get_candidate("dark-urgency") is None
 
 
+def test_get_candidate_invalid_id_raises(tmp_path):
+    store = GrowthStore(tmp_path)
+    with pytest.raises(GrowthError):
+        store.get_candidate("../../etc/passwd")
+
+
 def test_approve_missing_raises(tmp_path):
     store = GrowthStore(tmp_path)
     with pytest.raises(GrowthError):
