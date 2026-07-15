@@ -19,20 +19,29 @@ from psyteardown.pipeline.schemas import (
 from psyteardown.growth.store import GrowthStore
 from psyteardown.growth.proposer import propose_frameworks
 from psyteardown.growth.dedup import filter_duplicates
+from psyteardown.strategy.store import StrategyStore
+from psyteardown.strategy.proposer import propose_strategies
+from psyteardown.strategy.distill import distill_from_note
 
-app = typer.Typer(help="心理驱动型产品拆解 Agent(v3)")
+app = typer.Typer(help="心理驱动型产品拆解 Agent(v4)")
 kb_app = typer.Typer(help="知识库操作")
 memory_app = typer.Typer(help="案例库操作")
 candidates_app = typer.Typer(help="习得框架候选:审阅/批准/驳回")
+strategies_app = typer.Typer(help="拆解策略卡:审阅/批准/驳回")
 app.add_typer(kb_app, name="kb")
 app.add_typer(memory_app, name="memory")
 app.add_typer(candidates_app, name="candidates")
+app.add_typer(strategies_app, name="strategies")
 
 DEFAULT_STORE = Path(".psyteardown/cases.db")
 
 
 def _growth_store(store: Path) -> GrowthStore:
     return GrowthStore(store.parent)
+
+
+def _strategy_store(store: Path) -> StrategyStore:
+    return StrategyStore(store.parent)
 
 
 def _build_provider(name: str) -> LLMProvider:
@@ -64,6 +73,7 @@ def analyze(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
     use_memory: bool = typer.Option(False, "--use-memory", help="检索相似历史案例并注入分析"),
     no_save: bool = typer.Option(False, "--no-save", help="不把本次结果落盘案例库"),
+    use_strategies: bool = typer.Option(False, "--use-strategies", help="注入已批准的拆解策略卡"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
 ):
@@ -95,9 +105,13 @@ def analyze(
         except Exception as e:  # noqa: BLE001
             typer.echo(f"提示:相似案例检索失败({e}),本次不注入历史参考。", err=True)
 
+    strategy_cards = None
+    if use_strategies:
+        strategy_cards = _strategy_store(store).list_approved()
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     result = run_teardown(llm, text, library=library, generated_at=now,
-                          prior_summary=prior_summary)
+                          prior_summary=prior_summary, strategy_cards=strategy_cards)
 
     rendered = render_json(result) if fmt == "json" else render_markdown(result)
     if out:
@@ -226,7 +240,13 @@ def candidates_show(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
 ):
     """查看候选详情。"""
-    c = _growth_store(store).get_candidate(framework_id)
+    from psyteardown.growth.store import GrowthError
+
+    try:
+        c = _growth_store(store).get_candidate(framework_id)
+    except GrowthError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
     if c is None:
         typer.echo(f"候选不存在:{framework_id}", err=True)
         raise typer.Exit(code=1)
@@ -268,3 +288,108 @@ def candidates_reject(
         typer.echo(f"错误:{e}", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"已驳回 {framework_id}")
+
+
+@app.command()
+def strategize(
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    min_support: int = typer.Option(3, "--min-support", help="策略卡需的最少支撑案例数"),
+    provider: str = typer.Option("claude", "--provider", hidden=True),
+):
+    """从案例库跨案例归纳候选策略卡(待人工审批)。"""
+    cases = [c for c, _ in CaseStore(store).all()]
+    if not cases:
+        typer.echo("案例库为空,先用 analyze 积累案例再 strategize。")
+        return
+    sstore = _strategy_store(store)
+    llm = _build_provider(provider)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    cards = propose_strategies(llm, cases, created_at=now, min_support=min_support)
+    for card in cards:
+        sstore.save_candidate(card)
+    typer.echo(f"提炼出 {len(cards)} 张候选策略卡(待审):"
+               + ", ".join(c.id for c in cards))
+
+
+@app.command()
+def reflect(
+    note: str = typer.Option(..., "--note", help="你的拆解复盘笔记"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    provider: str = typer.Option("claude", "--provider", hidden=True),
+):
+    """把自然语言复盘蒸馏成候选策略卡(待人工审批)。"""
+    sstore = _strategy_store(store)
+    llm = _build_provider(provider)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    cards = distill_from_note(llm, note, created_at=now)
+    for card in cards:
+        sstore.save_candidate(card)
+    typer.echo(f"蒸馏出 {len(cards)} 张候选策略卡(待审):"
+               + ", ".join(c.id for c in cards))
+
+
+@strategies_app.command("list")
+def strategies_list(
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+):
+    """列出待审策略卡。"""
+    cards = _strategy_store(store).list_candidates()
+    if not cards:
+        typer.echo("无候选策略卡。")
+        return
+    for c in cards:
+        typer.echo(f"{c.id}\t[{c.target_step}]\t{c.rule}")
+
+
+@strategies_app.command("show")
+def strategies_show(
+    strategy_id: str = typer.Argument(..., help="策略卡 id"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+):
+    """查看策略卡详情。"""
+    from psyteardown.strategy.store import StrategyError
+
+    try:
+        c = _strategy_store(store).get_candidate(strategy_id)
+    except StrategyError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
+    if c is None:
+        typer.echo(f"候选不存在:{strategy_id}", err=True)
+        raise typer.Exit(code=1)
+    applies = ", ".join(c.applies_to) or "(通用)"
+    typer.echo(f"# {c.id} [{c.target_step}] 适用:{applies}\n规则:{c.rule}\n")
+    typer.echo(f"依据:{c.rationale}")
+    typer.echo(f"支撑案例:{', '.join(c.source_case_ids) or '(人工复盘)'}")
+
+
+@strategies_app.command("approve")
+def strategies_approve(
+    strategy_id: str = typer.Argument(..., help="策略卡 id"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+):
+    """批准策略卡(此后 analyze --use-strategies 生效)。"""
+    from psyteardown.strategy.store import StrategyError
+
+    try:
+        path = _strategy_store(store).approve(strategy_id)
+    except StrategyError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"已批准 {strategy_id} → {path}")
+
+
+@strategies_app.command("reject")
+def strategies_reject(
+    strategy_id: str = typer.Argument(..., help="策略卡 id"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+):
+    """驳回并删除策略卡。"""
+    from psyteardown.strategy.store import StrategyError
+
+    try:
+        _strategy_store(store).reject(strategy_id)
+    except StrategyError as e:
+        typer.echo(f"错误:{e}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"已驳回 {strategy_id}")

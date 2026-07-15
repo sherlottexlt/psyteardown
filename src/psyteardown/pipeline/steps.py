@@ -48,9 +48,10 @@ def map_features(
     profile: ProductProfile,
     frameworks: list[Framework],
     prior_summary: str | None = None,
+    strategy_guidance: str | None = None,
 ) -> list[Mapping]:
     """Step 3:逐功能/触点映射到框架原则。单项失败标 error 并继续。
-    prior_summary 提供时,作为"仅供参考的历史相似案例"注入(不污染产品画像)。"""
+    prior_summary=历史相似案例;strategy_guidance=历史归纳的拆解策略(均仅供参考)。"""
     brief = _frameworks_brief(frameworks)
     valid_ids = ", ".join(fw.id for fw in frameworks)
     ref_block = ""
@@ -58,6 +59,11 @@ def map_features(
         ref_block = (
             "\n以下是仅供参考的历史相似案例,请独立判断当前产品,不要照搬:\n"
             f"{prior_summary}\n"
+        )
+    if strategy_guidance:
+        ref_block += (
+            "\n以下是历史归纳的拆解策略,供参考,请结合当前产品独立判断:\n"
+            f"{strategy_guidance}\n"
         )
     targets = [f.name for f in profile.features] + profile.touchpoints
     mappings: list[Mapping] = []
@@ -87,16 +93,23 @@ def assess_experience(
     provider: LLMProvider,
     profile: ProductProfile,
     mappings: list[Mapping],
+    strategy_guidance: str | None = None,
 ) -> ExperienceAssessment:
-    """Step 4:整体体验评估 + 暗黑模式/伦理标注。"""
+    """Step 4:整体体验评估 + 暗黑模式/伦理标注。
+    strategy_guidance=历史归纳的评估策略(仅供参考)。"""
     mapping_lines = "\n".join(
         f"- {m.feature}: {m.framework_id}.{m.principle_id} — {m.evidence}"
         for m in mappings
         if not m.error
     )
+    guide = ""
+    if strategy_guidance:
+        guide = ("\n以下是历史归纳的拆解策略,供参考,请结合当前产品独立判断:\n"
+                 f"{strategy_guidance}\n")
     prompt = (
         f"产品:{profile.name}({profile.one_liner})。\n"
-        f"已识别的心理学机制:\n{mapping_lines}\n\n"
+        f"已识别的心理学机制:\n{mapping_lines}\n"
+        f"{guide}\n"
         "请给出整体体验评估:优势、摩擦点、伦理/暗黑模式警示、机会点。"
     )
     return provider.structured_complete(prompt, ExperienceAssessment, system=_SYSTEM)

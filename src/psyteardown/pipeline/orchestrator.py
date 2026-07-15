@@ -9,6 +9,8 @@ from psyteardown.pipeline.schemas import (
     TeardownMeta,
     TeardownResult,
 )
+from psyteardown.strategy.models import StrategyCard
+from psyteardown.strategy.select import select_for
 
 
 def run_teardown(
@@ -20,13 +22,19 @@ def run_teardown(
     model_label: str | None = None,
     top_n: int = 5,
     prior_summary: str | None = None,
+    strategy_cards: list[StrategyCard] | None = None,
 ) -> TeardownResult:
     """跑完整流水线。generated_at 由调用方传入(脚本环境禁用 datetime.now)。
-    prior_summary 提供时作为历史参考注入 step3(map_features)。"""
+    prior_summary 注入 step3;strategy_cards 按 target_step 分发注入 step3/step4。"""
     profile = steps.parse_product(provider, description)
     frameworks = steps.retrieve(profile, library, top_n=top_n)
-    mappings = steps.map_features(provider, profile, frameworks, prior_summary=prior_summary)
-    assessment = steps.assess_experience(provider, profile, mappings)
+    map_guide = select_for(strategy_cards, profile, "mapping") if strategy_cards else None
+    assess_guide = select_for(strategy_cards, profile, "assessment") if strategy_cards else None
+    mappings = steps.map_features(provider, profile, frameworks,
+                                  prior_summary=prior_summary,
+                                  strategy_guidance=map_guide or None)
+    assessment = steps.assess_experience(provider, profile, mappings,
+                                         strategy_guidance=assess_guide or None)
     summary = steps.synthesize(provider, profile, mappings, assessment)
 
     return TeardownResult(
