@@ -1,15 +1,22 @@
 """把 TeardownResult 渲染成 Markdown 或 JSON。"""
 
+import json
+
 from psyteardown.pipeline.schemas import TeardownResult
+from psyteardown.review.models import CaseReview
 
 LOW_CONFIDENCE = 0.5
 
 
-def render_json(result: TeardownResult) -> str:
-    return result.model_dump_json(indent=2)
+def render_json(result: TeardownResult, *, review: CaseReview | None = None) -> str:
+    if review is None:
+        return result.model_dump_json(indent=2)
+    payload = result.model_dump()
+    payload["review"] = review.model_dump()
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def render_markdown(result: TeardownResult) -> str:
+def render_markdown(result: TeardownResult, *, review: CaseReview | None = None) -> str:
     p = result.product
     out: list[str] = []
 
@@ -64,6 +71,15 @@ def render_markdown(result: TeardownResult) -> str:
     for o in a.opportunities or ["—"]:
         out.append(f"- {o}")
     out.append("")
+
+    # 6.5 拆解自评(v5,可选)
+    if review is not None:
+        out.append("## 拆解自评\n")
+        out.append(f"- 总体评分:{review.score:.2f}")
+        out.append(f"- 亮点:{_join(review.strengths)}")
+        out.append(f"- 缺陷:{_join(review.weaknesses)}")
+        out.append(f"- 改进建议:{_join(review.suggestions)}")
+        out.append("")
 
     # 7. 附录:引用框架 + 出处
     out.append("## 附录:引用框架\n")
