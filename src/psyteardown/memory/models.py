@@ -5,6 +5,7 @@ import hashlib
 from pydantic import BaseModel, Field
 
 from psyteardown.pipeline.schemas import TeardownResult
+from psyteardown.review.models import CaseReview
 
 
 def case_id_for(description: str) -> str:
@@ -21,6 +22,7 @@ class Case(BaseModel):
     description: str           # 被嵌入的原始产品描述(可追溯、可重算向量)
     result: TeardownResult     # v1 完整产物,原样嵌套
     created_at: str            # 调用方注入
+    review: CaseReview | None = None   # v5 单案例自评;旧数据自动 None
 
     @classmethod
     def from_result(

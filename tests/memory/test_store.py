@@ -66,3 +66,21 @@ def test_creates_parent_dir(tmp_path):
     store = CaseStore(tmp_path / "nested" / "dir" / "cases.db")
     store.save(_case("产品A"), [0.1])
     assert (tmp_path / "nested" / "dir" / "cases.db").exists()
+
+
+def test_get_with_embedding_hit(tmp_path):
+    case = _case("产品A")
+    store = CaseStore(tmp_path / "cases.db")
+    store.save(case, [0.1, 0.2, 0.3])
+
+    hit = store.get_with_embedding(case.case_id)
+    assert hit is not None
+    got_case, vec = hit
+    assert got_case.case_id == case.case_id
+    assert len(vec) == 3
+    assert abs(vec[1] - 0.2) < 1e-6           # float32 往返有精度损失
+
+
+def test_get_with_embedding_missing(tmp_path):
+    store = CaseStore(tmp_path / "cases.db")
+    assert store.get_with_embedding("nope") is None

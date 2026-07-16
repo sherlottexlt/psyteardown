@@ -13,6 +13,8 @@ from psyteardown.memory.store import CaseStore
 from psyteardown.memory.retrieval import search_similar, summarize_cases
 from psyteardown.pipeline.orchestrator import run_teardown
 from psyteardown.report.render import render_json, render_markdown
+from psyteardown.review.critic import review_case
+from psyteardown.review.models import CaseReview
 from psyteardown.pipeline.schemas import (
     ProductProfile, ExperienceAssessment, Synthesis,
 )
@@ -23,7 +25,7 @@ from psyteardown.strategy.store import StrategyStore
 from psyteardown.strategy.proposer import propose_strategies
 from psyteardown.strategy.distill import distill_from_note
 
-app = typer.Typer(help="心理驱动型产品拆解 Agent(v4)")
+app = typer.Typer(help="心理驱动型产品拆解 Agent(v5)")
 kb_app = typer.Typer(help="知识库操作")
 memory_app = typer.Typer(help="案例库操作")
 candidates_app = typer.Typer(help="习得框架候选:审阅/批准/驳回")
@@ -51,6 +53,7 @@ def _build_provider(name: str) -> LLMProvider:
                            one_liner="自动生成的占位画像", features=[], touchpoints=[]),
             ExperienceAssessment(),
             Synthesis(executive_summary="(fake provider 占位摘要)"),
+            CaseReview(score=0.5, suggestions=["(fake) 占位改进建议"]),
         ])
     from psyteardown.llm.claude import ClaudeProvider
 
@@ -74,6 +77,8 @@ def analyze(
     use_memory: bool = typer.Option(False, "--use-memory", help="检索相似历史案例并注入分析"),
     no_save: bool = typer.Option(False, "--no-save", help="不把本次结果落盘案例库"),
     use_strategies: bool = typer.Option(False, "--use-strategies", help="注入已批准的拆解策略卡"),
+    self_review: bool = typer.Option(False, "--self-review",
+                                     help="拆解后追加一次 LLM 自评(默认关)"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
 ):
@@ -113,7 +118,17 @@ def analyze(
     result = run_teardown(llm, text, library=library, generated_at=now,
                           prior_summary=prior_summary, strategy_cards=strategy_cards)
 
-    rendered = render_json(result) if fmt == "json" else render_markdown(result)
+    # 自评是增强:失败降级,不拖垮报告(与记忆功能同风格)。
+    review_obj: CaseReview | None = None
+    if self_review:
+        try:
+            review_obj = review_case(llm, result, reviewed_at=now,
+                                     model_label=result.meta.model)
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:自评失败({e}),报告不含自评节。", err=True)
+
+    rendered = (render_json(result, review=review_obj) if fmt == "json"
+                else render_markdown(result, review=review_obj))
     if out:
         out.write_text(rendered, encoding="utf-8")
         typer.echo(f"已写入 {out}")
@@ -123,10 +138,60 @@ def analyze(
     if not no_save and case_store is not None and emb is not None:
         try:
             case = Case.from_result(result, description=text, created_at=now)
+            case.review = review_obj
+            if review_obj is None:
+                old = case_store.get(case.case_id)
+                if old is not None and old.review is not None:
+                    typer.echo("提示:同描述旧案例含自评,本次未开自评,旧自评将被覆盖丢弃。",
+                               err=True)
             case_store.save(case, emb.embed([text])[0])
             typer.echo(f"已落盘案例 {case.case_id}")
         except Exception as e:  # noqa: BLE001
             typer.echo(f"提示:案例落盘失败({e}),报告已照常产出。", err=True)
+
+
+@app.command()
+def review(
+    case_id: str = typer.Argument(..., help="案例 id(见 analyze 落盘输出)"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    to_reflect: bool = typer.Option(False, "--to-reflect",
+                                    help="把自评改进建议蒸馏成候选策略卡(待人工审批)"),
+    provider: str = typer.Option("claude", "--provider", hidden=True),
+):
+    """对历史案例补做批判自评(覆盖旧自评);可选直达策略蒸馏管道。"""
+    case_store = CaseStore(store)
+    hit = case_store.get_with_embedding(case_id)
+    if hit is None:
+        typer.echo(f"案例不存在:{case_id}", err=True)
+        raise typer.Exit(code=1)
+    case, emb = hit
+
+    llm = _build_provider(provider)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # 用户显式要求自评:失败直接报错,不静默(与 analyze 内降级不同)。
+    rev = review_case(llm, case.result, reviewed_at=now,
+                      model_label=case.result.meta.model)
+    case.review = rev
+    case_store.save(case, emb)
+
+    typer.echo(f"自评完成:{case_id} 总体评分 {rev.score:.2f}")
+    for w in rev.weaknesses:
+        typer.echo(f"- 缺陷:{w}")
+    for s in rev.suggestions:
+        typer.echo(f"- 建议:{s}")
+
+    if to_reflect:
+        if not rev.suggestions:
+            typer.echo("无改进建议,跳过策略蒸馏。")
+            return
+        note = (f"对案例「{case.product_name}」拆解的自评改进建议:\n"
+                + "\n".join(f"- {s}" for s in rev.suggestions))
+        cards = distill_from_note(llm, note, created_at=now)
+        sstore = _strategy_store(store)
+        for card in cards:
+            sstore.save_candidate(card)
+        typer.echo(f"蒸馏出 {len(cards)} 张候选策略卡(待审):"
+                   + ", ".join(c.id for c in cards))
 
 
 @app.command()

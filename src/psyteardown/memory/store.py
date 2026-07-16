@@ -60,5 +60,16 @@ class CaseStore:
         ).fetchone()
         return Case.model_validate_json(row[0]) if row else None
 
+    def get_with_embedding(self, case_id: str) -> tuple[Case, list[float]] | None:
+        """按 id 取案例及其向量(供补评 upsert 回写);不存在 → None。"""
+        row = self._conn.execute(
+            "SELECT case_json, embedding FROM cases WHERE case_id = ?", (case_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        case = Case.model_validate_json(row[0])
+        vec = np.frombuffer(row[1], dtype=np.float32).tolist()
+        return case, vec
+
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM cases").fetchone()[0])

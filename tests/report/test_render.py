@@ -62,3 +62,49 @@ def test_markdown_flags_low_confidence():
 def test_markdown_notes_failed_mapping():
     md = render_markdown(_result())
     assert "解析失败" in md  # 失败的映射如实呈现,不假装成功
+
+
+import json as _json
+
+from psyteardown.review.models import CaseReview
+
+
+def _result_for_review():
+    from psyteardown.pipeline.schemas import (
+        ProductProfile, ExperienceAssessment, TeardownResult, TeardownMeta,
+    )
+    return TeardownResult(
+        product=ProductProfile(name="Demo", product_type="App", one_liner="x",
+                               features=[], touchpoints=[]),
+        frameworks_used=[], mappings=[],
+        assessment=ExperienceAssessment(), executive_summary="s",
+        meta=TeardownMeta(model="fake", generated_at="t"),
+    )
+
+
+def test_markdown_renders_review_section():
+    review = CaseReview(score=0.65, strengths=["框架选得准"],
+                        weaknesses=["证据薄弱"], suggestions=["补充数据"])
+    md = render_markdown(_result_for_review(), review=review)
+    assert "## 拆解自评" in md
+    assert "0.65" in md
+    assert "框架选得准" in md
+    assert "证据薄弱" in md
+    assert "补充数据" in md
+
+
+def test_markdown_without_review_unchanged():
+    result = _result_for_review()
+    assert render_markdown(result) == render_markdown(result, review=None)
+    assert "拆解自评" not in render_markdown(result)
+
+
+def test_json_with_review_adds_top_level_key():
+    review = CaseReview(score=0.65)
+    payload = _json.loads(render_json(_result_for_review(), review=review))
+    assert payload["review"]["score"] == 0.65
+
+
+def test_json_without_review_no_key():
+    payload = _json.loads(render_json(_result_for_review()))
+    assert "review" not in payload
