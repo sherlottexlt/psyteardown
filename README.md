@@ -1,8 +1,8 @@
-# psyteardown — 心理驱动型产品拆解 Agent(v4)
+# psyteardown — 心理驱动型产品拆解 Agent(v5)
 
 基于精选心理学框架知识库,把产品文字描述拆解成结构化报告(Markdown / JSON)。
 含三层记忆:v2 情景记忆(案例库 + 向量检索)、v3 语义记忆(框架知识增长)、
-v4 程序性记忆(拆解策略卡)。
+v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策略闭环)。
 
 ## 安装
 
@@ -29,6 +29,9 @@ v4 程序性记忆(拆解策略卡)。
     psyteardown strategies approve <id>                          # 批准
     psyteardown strategies reject <id>                           # 驳回
     psyteardown analyze --input product.txt --use-strategies     # 注入已批准策略卡(默认关)
+    psyteardown analyze --input product.txt --self-review         # 拆解后追加 LLM 自评(默认关)
+    psyteardown review <case_id>                                  # 历史案例补评(覆盖旧自评)
+    psyteardown review <case_id> --to-reflect                     # 补评 + 建议直达策略候选
     psyteardown kb list
     psyteardown kb show fogg-behavior-model
 
@@ -51,5 +54,6 @@ v4 程序性记忆(拆解策略卡)。
 - `memory` — 情景记忆:Case 模型、SQLite 案例库、向量检索
 - `growth` — 语义记忆:从案例提炼候选新框架,人工审批后回填知识库(种子库永不被动)
 - `strategy` — 程序性记忆:从案例/复盘归纳拆解策略卡,人工审批后按步骤注入拆解流程
+- `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
 
 CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v4 设计文档)。
