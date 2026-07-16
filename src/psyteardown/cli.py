@@ -139,6 +139,11 @@ def analyze(
         try:
             case = Case.from_result(result, description=text, created_at=now)
             case.review = review_obj
+            if review_obj is None:
+                old = case_store.get(case.case_id)
+                if old is not None and old.review is not None:
+                    typer.echo("提示:同描述旧案例含自评,本次未开自评,旧自评将被覆盖丢弃。",
+                               err=True)
             case_store.save(case, emb.embed([text])[0])
             typer.echo(f"已落盘案例 {case.case_id}")
         except Exception as e:  # noqa: BLE001

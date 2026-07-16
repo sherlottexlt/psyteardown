@@ -103,6 +103,25 @@ def test_review_missing_case_errors(tmp_path):
     db = tmp_path / "cases.db"
     r = runner.invoke(app, ["review", "nope", "--store", str(db), "--provider", "fake"])
     assert r.exit_code == 1
+    assert "案例不存在" in (r.stdout + str(r.stderr or ""))
+
+
+def test_reanalyze_without_self_review_warns_on_losing_old_review(tmp_path, monkeypatch):
+    """同描述重跑 analyze 不开自评 → 覆盖丢旧自评前给出警告。"""
+    import psyteardown.cli as cli
+    from psyteardown.review.models import CaseReview
+
+    db, cid = _seed_case(tmp_path)
+    monkeypatch.setattr(cli, "_build_provider",
+                        lambda name: _FakeLLM([CaseReview(score=0.4)]))
+    r = runner.invoke(app, ["review", cid, "--store", str(db), "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    monkeypatch.undo()
+
+    r, db, _ = _analyze(tmp_path)          # 同描述 → 同 case_id,未开自评
+    assert r.exit_code == 0, r.stdout
+    assert "旧自评将被覆盖丢弃" in (r.stdout + str(r.stderr or ""))
+    assert CaseStore(db).get(cid).review is None
 
 
 def test_review_to_reflect_creates_strategy_candidate(tmp_path, monkeypatch):
