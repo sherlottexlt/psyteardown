@@ -66,3 +66,26 @@ def test_drops_invalid_target_step():
     provider = FakeProvider(structured_responses=[CardList(cards=[bad])])
     out = propose_strategies(provider, cases, created_at="t", min_support=3)
     assert out == []
+
+
+def test_case_brief_includes_review_signal():
+    from psyteardown.review.models import CaseReview
+    cases = [_case(str(i)) for i in range(3)]
+    cases[0].review = CaseReview(score=0.6,
+                                 weaknesses=["社交证明置信虚高"],
+                                 suggestions=["先核对留存数据"])
+    card = _card("prefer-x", ["0", "1", "2"])
+    provider = FakeProvider(structured_responses=[CardList(cards=[card])])
+    propose_strategies(provider, cases, created_at="t", min_support=3)
+    prompt = provider.calls[0]["prompt"]
+    assert "自评 0.6" in prompt
+    assert "社交证明置信虚高" in prompt
+    assert "先核对留存数据" in prompt
+
+
+def test_case_brief_without_review_unchanged():
+    cases = [_case(str(i)) for i in range(3)]
+    card = _card("prefer-x", ["0", "1", "2"])
+    provider = FakeProvider(structured_responses=[CardList(cards=[card])])
+    propose_strategies(provider, cases, created_at="t", min_support=3)
+    assert "自评" not in provider.calls[0]["prompt"]

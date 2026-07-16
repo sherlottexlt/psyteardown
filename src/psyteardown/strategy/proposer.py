@@ -19,7 +19,14 @@ def _case_brief(cases: list[Case]) -> str:
             + (",失败" if m.error else "") + ")"
             for m in c.result.mappings
         )
-        lines.append(f"- [{c.case_id}] {c.product_name}({c.result.product.product_type}):{mech}")
+        line = f"- [{c.case_id}] {c.product_name}({c.result.product.product_type}):{mech}"
+        if c.review is not None:
+            line += (
+                f"\n  自评 {c.review.score:.1f}:"
+                f"缺陷={'; '.join(c.review.weaknesses) or '—'}; "
+                f"建议={'; '.join(c.review.suggestions) or '—'}"
+            )
+        lines.append(line)
     return "\n".join(lines)
 
 
