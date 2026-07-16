@@ -13,6 +13,8 @@ from psyteardown.memory.store import CaseStore
 from psyteardown.memory.retrieval import search_similar, summarize_cases
 from psyteardown.pipeline.orchestrator import run_teardown
 from psyteardown.report.render import render_json, render_markdown
+from psyteardown.review.critic import review_case
+from psyteardown.review.models import CaseReview
 from psyteardown.pipeline.schemas import (
     ProductProfile, ExperienceAssessment, Synthesis,
 )
@@ -51,6 +53,7 @@ def _build_provider(name: str) -> LLMProvider:
                            one_liner="自动生成的占位画像", features=[], touchpoints=[]),
             ExperienceAssessment(),
             Synthesis(executive_summary="(fake provider 占位摘要)"),
+            CaseReview(score=0.5, suggestions=["(fake) 占位改进建议"]),
         ])
     from psyteardown.llm.claude import ClaudeProvider
 
@@ -74,6 +77,8 @@ def analyze(
     use_memory: bool = typer.Option(False, "--use-memory", help="检索相似历史案例并注入分析"),
     no_save: bool = typer.Option(False, "--no-save", help="不把本次结果落盘案例库"),
     use_strategies: bool = typer.Option(False, "--use-strategies", help="注入已批准的拆解策略卡"),
+    self_review: bool = typer.Option(False, "--self-review",
+                                     help="拆解后追加一次 LLM 自评(默认关)"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
 ):
@@ -113,7 +118,17 @@ def analyze(
     result = run_teardown(llm, text, library=library, generated_at=now,
                           prior_summary=prior_summary, strategy_cards=strategy_cards)
 
-    rendered = render_json(result) if fmt == "json" else render_markdown(result)
+    # 自评是增强:失败降级,不拖垮报告(与记忆功能同风格)。
+    review_obj: CaseReview | None = None
+    if self_review:
+        try:
+            review_obj = review_case(llm, result, reviewed_at=now,
+                                     model_label=result.meta.model)
+        except Exception as e:  # noqa: BLE001
+            typer.echo(f"提示:自评失败({e}),报告不含自评节。", err=True)
+
+    rendered = (render_json(result, review=review_obj) if fmt == "json"
+                else render_markdown(result, review=review_obj))
     if out:
         out.write_text(rendered, encoding="utf-8")
         typer.echo(f"已写入 {out}")
@@ -123,6 +138,7 @@ def analyze(
     if not no_save and case_store is not None and emb is not None:
         try:
             case = Case.from_result(result, description=text, created_at=now)
+            case.review = review_obj
             case_store.save(case, emb.embed([text])[0])
             typer.echo(f"已落盘案例 {case.case_id}")
         except Exception as e:  # noqa: BLE001
