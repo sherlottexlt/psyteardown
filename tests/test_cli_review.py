@@ -56,3 +56,84 @@ def test_analyze_self_review_failure_degrades(tmp_path, monkeypatch):
     cases = [c for c, _ in CaseStore(db).all()]
     assert len(cases) == 1                      # 案例照常落盘(review=None)
     assert cases[0].review is None
+
+
+class _FakeLLM:
+    """按队列返回预置结构化结果(monkeypatch _build_provider 用)。"""
+
+    def __init__(self, payloads):
+        self._p = list(payloads)
+        self.calls = []
+
+    def structured_complete(self, prompt, schema, *, system=None):
+        self.calls.append({"prompt": prompt, "system": system})
+        return self._p.pop(0)
+
+    def complete(self, prompt, *, system=None):
+        return ""
+
+
+def _seed_case(tmp_path):
+    """无自评落盘一个案例,返回 (db, case_id)。"""
+    r, db, _ = _analyze(tmp_path)
+    assert r.exit_code == 0, r.stdout
+    cases = [c for c, _ in CaseStore(db).all()]
+    return db, cases[0].case_id
+
+
+def test_review_backfills_and_overwrites(tmp_path, monkeypatch):
+    import psyteardown.cli as cli
+    from psyteardown.review.models import CaseReview
+
+    db, cid = _seed_case(tmp_path)
+    monkeypatch.setattr(cli, "_build_provider",
+                        lambda name: _FakeLLM([CaseReview(score=0.4)]))
+    r = runner.invoke(app, ["review", cid, "--store", str(db), "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    assert CaseStore(db).get(cid).review.score == 0.4
+
+    monkeypatch.setattr(cli, "_build_provider",
+                        lambda name: _FakeLLM([CaseReview(score=0.9)]))
+    r = runner.invoke(app, ["review", cid, "--store", str(db), "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    assert CaseStore(db).get(cid).review.score == 0.9      # 覆盖旧自评
+
+
+def test_review_missing_case_errors(tmp_path):
+    db = tmp_path / "cases.db"
+    r = runner.invoke(app, ["review", "nope", "--store", str(db), "--provider", "fake"])
+    assert r.exit_code == 1
+
+
+def test_review_to_reflect_creates_strategy_candidate(tmp_path, monkeypatch):
+    import psyteardown.cli as cli
+    from psyteardown.review.models import CaseReview
+    from psyteardown.strategy.models import StrategyCard, CardList
+
+    db, cid = _seed_case(tmp_path)
+    card = StrategyCard(id="check-retention-first", rule="定置信前先核对留存数据",
+                        rationale="自评建议", target_step="mapping")
+    monkeypatch.setattr(cli, "_build_provider", lambda name: _FakeLLM([
+        CaseReview(score=0.6, suggestions=["先核对留存数据再定置信"]),
+        CardList(cards=[card]),
+    ]))
+    r = runner.invoke(app, ["review", cid, "--store", str(db),
+                            "--to-reflect", "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    r = runner.invoke(app, ["strategies", "list", "--store", str(db)])
+    assert "check-retention-first" in r.stdout
+
+
+def test_review_to_reflect_empty_suggestions_skips(tmp_path, monkeypatch):
+    import psyteardown.cli as cli
+    from psyteardown.review.models import CaseReview
+
+    db, cid = _seed_case(tmp_path)
+    monkeypatch.setattr(cli, "_build_provider",
+                        lambda name: _FakeLLM([CaseReview(score=0.9)]))
+    r = runner.invoke(app, ["review", cid, "--store", str(db),
+                            "--to-reflect", "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    assert "跳过" in r.stdout
+    r = runner.invoke(app, ["strategies", "list", "--store", str(db)])
+    assert "无候选策略卡" in r.stdout

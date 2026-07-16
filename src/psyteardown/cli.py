@@ -146,6 +146,50 @@ def analyze(
 
 
 @app.command()
+def review(
+    case_id: str = typer.Argument(..., help="案例 id(见 analyze 落盘输出)"),
+    store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
+    to_reflect: bool = typer.Option(False, "--to-reflect",
+                                    help="把自评改进建议蒸馏成候选策略卡(待人工审批)"),
+    provider: str = typer.Option("claude", "--provider", hidden=True),
+):
+    """对历史案例补做批判自评(覆盖旧自评);可选直达策略蒸馏管道。"""
+    case_store = CaseStore(store)
+    hit = case_store.get_with_embedding(case_id)
+    if hit is None:
+        typer.echo(f"案例不存在:{case_id}", err=True)
+        raise typer.Exit(code=1)
+    case, emb = hit
+
+    llm = _build_provider(provider)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # 用户显式要求自评:失败直接报错,不静默(与 analyze 内降级不同)。
+    rev = review_case(llm, case.result, reviewed_at=now,
+                      model_label=case.result.meta.model)
+    case.review = rev
+    case_store.save(case, emb)
+
+    typer.echo(f"自评完成:{case_id} 总体评分 {rev.score:.2f}")
+    for w in rev.weaknesses:
+        typer.echo(f"- 缺陷:{w}")
+    for s in rev.suggestions:
+        typer.echo(f"- 建议:{s}")
+
+    if to_reflect:
+        if not rev.suggestions:
+            typer.echo("无改进建议,跳过策略蒸馏。")
+            return
+        note = (f"对案例「{case.product_name}」拆解的自评改进建议:\n"
+                + "\n".join(f"- {s}" for s in rev.suggestions))
+        cards = distill_from_note(llm, note, created_at=now)
+        sstore = _strategy_store(store)
+        for card in cards:
+            sstore.save_candidate(card)
+        typer.echo(f"蒸馏出 {len(cards)} 张候选策略卡(待审):"
+                   + ", ".join(c.id for c in cards))
+
+
+@app.command()
 def similar(
     input: Path = typer.Option(..., "--input", "-i", help="产品描述文本文件"),
     top_k: int = typer.Option(3, "--top-k", help="返回最相似的前 K 个案例"),
