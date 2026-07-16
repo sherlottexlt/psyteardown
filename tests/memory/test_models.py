@@ -2,6 +2,7 @@ from psyteardown.memory.models import Case, case_id_for
 from psyteardown.pipeline.schemas import (
     ProductProfile, ExperienceAssessment, TeardownResult, TeardownMeta,
 )
+from psyteardown.review.models import CaseReview
 
 
 def _result():
@@ -40,3 +41,26 @@ def test_case_json_roundtrip():
     again = Case.model_validate_json(case.model_dump_json())
     assert again.case_id == case.case_id
     assert again.result.product.name == "Demo"
+
+
+def test_case_review_defaults_none():
+    c = Case.from_result(_result(), description="d", created_at="t")
+    assert c.review is None
+
+
+def test_case_old_json_without_review_loads():
+    """旧库的 case_json 没有 review 键 → 加载后 review 为 None(零迁移)。"""
+    c = Case.from_result(_result(), description="d", created_at="t")
+    data = c.model_dump()
+    data.pop("review")                       # 模拟 v4 及以前的存量数据
+    old = Case.model_validate(data)
+    assert old.review is None
+
+
+def test_case_review_roundtrip():
+    c = Case.from_result(_result(), description="d", created_at="t")
+    c.review = CaseReview(score=0.8, suggestions=["建议1"])
+    again = Case.model_validate_json(c.model_dump_json())
+    assert again.review is not None
+    assert again.review.score == 0.8
+    assert again.review.suggestions == ["建议1"]
