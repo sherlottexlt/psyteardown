@@ -5,6 +5,7 @@ mcp 包只在本模块内 import(可选依赖);tools.py 保持零 mcp 依赖。
 
 import os
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from psyteardown.mcp_server import tools
@@ -14,12 +15,19 @@ def _store() -> Path:
     return Path(os.environ.get("PSYTEARDOWN_STORE", str(tools.DEFAULT_STORE)))
 
 
+@lru_cache(maxsize=1)
 def _llm():
     return tools.build_llm_provider(os.environ.get("PSYTEARDOWN_LLM", "claude"))
 
 
-def _embed():
+@lru_cache(maxsize=1)
+def _embed_provider():
     return tools.build_embed_provider(os.environ.get("PSYTEARDOWN_EMBED", "local"))
+
+
+def _embed():
+    """embed_factory 契约:返回 provider(缓存的单例)。"""
+    return _embed_provider()
 
 
 def build_server():
