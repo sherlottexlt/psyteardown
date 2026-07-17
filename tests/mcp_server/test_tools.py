@@ -55,3 +55,40 @@ def test_analyze_product_self_review(tmp_path):
                         store=store, now="t", embed_factory=_fake_embed_factory,
                         self_review=True)
     assert "拆解自评" in o.rendered
+
+
+def test_teardown_tool_happy_path(tmp_path):
+    from psyteardown.mcp_server.tools import teardown_tool
+    store = tmp_path / "cases.db"
+    out = teardown_tool("社交产品:动态推送点赞", store=store,
+                        llm=_fake_llm(), embed_factory=_fake_embed_factory)
+    assert "# 心理学拆解报告" in out
+    assert "已落盘案例" in out
+
+
+def test_teardown_tool_empty_description(tmp_path):
+    from psyteardown.mcp_server.tools import teardown_tool
+    out = teardown_tool("   ", store=tmp_path / "cases.db",
+                        llm=_fake_llm(), embed_factory=_fake_embed_factory)
+    assert out == "错误:输入为空。"
+
+
+def test_teardown_tool_self_review(tmp_path):
+    from psyteardown.mcp_server.tools import teardown_tool
+    out = teardown_tool("社交产品:动态推送点赞", store=tmp_path / "cases.db",
+                        llm=_fake_llm(), embed_factory=_fake_embed_factory,
+                        self_review=True)
+    assert "拆解自评" in out
+
+
+def test_teardown_tool_degrades_with_warning_in_text(tmp_path):
+    from psyteardown.mcp_server.tools import teardown_tool
+
+    def _boom():
+        raise OSError("offline")
+
+    out = teardown_tool("社交产品:动态推送点赞", store=tmp_path / "cases.db",
+                        llm=_fake_llm(), embed_factory=_boom)
+    assert "# 心理学拆解报告" in out
+    assert "记忆功能不可用" in out          # 警告并入返回文本
+    assert "已落盘案例" not in out

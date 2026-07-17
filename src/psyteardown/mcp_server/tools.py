@@ -136,3 +136,28 @@ def analyze_product(
             warnings.append(f"提示:案例落盘失败({e}),报告已照常产出。")
 
     return AnalyzeOutcome(rendered=rendered, case_id=case_id, warnings=warnings)
+
+
+def teardown_tool(
+    description: str,
+    *,
+    store: Path,
+    llm: LLMProvider,
+    embed_factory: Callable[[], EmbeddingProvider],
+    use_memory: bool = False,
+    use_strategies: bool = False,
+    self_review: bool = False,
+) -> str:
+    """MCP teardown:拆解产品描述 → Markdown 报告文本(默认落盘案例)。"""
+    text = (description or "").strip()
+    if not text:
+        return "错误:输入为空。"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    o = analyze_product(llm, text, store=store, now=now,
+                        embed_factory=embed_factory, use_memory=use_memory,
+                        use_strategies=use_strategies, self_review=self_review)
+    parts = [o.rendered]
+    if o.case_id:
+        parts.append(f"已落盘案例 {o.case_id}")
+    parts.extend(o.warnings)
+    return "\n\n".join(parts)
