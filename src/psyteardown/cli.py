@@ -22,7 +22,7 @@ from psyteardown.mcp_server.tools import (
     build_llm_provider as _build_provider,
 )
 
-app = typer.Typer(help="心理驱动型产品拆解 Agent(v5)")
+app = typer.Typer(help="心理驱动型产品拆解 Agent(v6)")
 kb_app = typer.Typer(help="知识库操作")
 memory_app = typer.Typer(help="案例库操作")
 candidates_app = typer.Typer(help="习得框架候选:审阅/批准/驳回")
