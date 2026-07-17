@@ -6,24 +6,21 @@ from pathlib import Path
 import typer
 
 from psyteardown.kb.loader import load_frameworks
-from psyteardown.llm.base import FakeProvider, LLMProvider
-from psyteardown.embed.base import EmbeddingProvider, FakeEmbeddingProvider
-from psyteardown.memory.models import Case
+from psyteardown.embed.base import EmbeddingProvider
 from psyteardown.memory.store import CaseStore
-from psyteardown.memory.retrieval import search_similar, summarize_cases
-from psyteardown.pipeline.orchestrator import run_teardown
-from psyteardown.report.render import render_json, render_markdown
+from psyteardown.memory.retrieval import search_similar
 from psyteardown.review.critic import review_case
-from psyteardown.review.models import CaseReview
-from psyteardown.pipeline.schemas import (
-    ProductProfile, ExperienceAssessment, Synthesis,
-)
 from psyteardown.growth.store import GrowthStore
 from psyteardown.growth.proposer import propose_frameworks
 from psyteardown.growth.dedup import filter_duplicates
 from psyteardown.strategy.store import StrategyStore
 from psyteardown.strategy.proposer import propose_strategies
 from psyteardown.strategy.distill import distill_from_note
+from psyteardown.mcp_server.tools import (
+    analyze_product,
+    build_embed_provider as _build_embed_provider,
+    build_llm_provider as _build_provider,
+)
 
 app = typer.Typer(help="心理驱动型产品拆解 Agent(v5)")
 kb_app = typer.Typer(help="知识库操作")
@@ -44,36 +41,6 @@ def _growth_store(store: Path) -> GrowthStore:
 
 def _strategy_store(store: Path) -> StrategyStore:
     return StrategyStore(store.parent)
-
-
-def _build_provider(name: str) -> LLMProvider:
-    if name == "fake":
-        return FakeProvider(structured_responses=[
-            ProductProfile(name="样例产品", product_type="App",
-                           one_liner="自动生成的占位画像", features=[], touchpoints=[]),
-            ExperienceAssessment(),
-            Synthesis(executive_summary="(fake provider 占位摘要)"),
-            CaseReview(score=0.5, suggestions=["(fake) 占位改进建议"]),
-        ])
-    if name == "deepseek":
-        from psyteardown.llm.deepseek import DeepSeekProvider
-
-        return DeepSeekProvider()
-    from psyteardown.llm.claude import ClaudeProvider
-
-    return ClaudeProvider()
-
-
-def _build_embed_provider(name: str) -> EmbeddingProvider:
-    if name == "fake":
-        return FakeEmbeddingProvider()
-    if name == "ollama":
-        from psyteardown.embed.ollama import OllamaEmbeddingProvider
-
-        return OllamaEmbeddingProvider()
-    from psyteardown.embed.local import LocalEmbeddingProvider
-
-    return LocalEmbeddingProvider()
 
 
 @app.command()
@@ -98,67 +65,25 @@ def analyze(
         typer.echo("错误:输入为空。", err=True)
         raise typer.Exit(code=1)
 
-    library = load_frameworks(learned_dir=_growth_store(store).learned_dir())
     llm = _build_provider(provider)
-
-    # 记忆是增强,不应让其失败(如离线无嵌入模型)拖垮核心拆解。
-    emb: EmbeddingProvider | None = None
-    case_store: CaseStore | None = None
-    if use_memory or not no_save:
-        try:
-            emb = _build_embed_provider(embed_provider)
-            case_store = CaseStore(store)
-        except Exception as e:  # noqa: BLE001 — 记忆不可用时降级,不中断拆解
-            typer.echo(f"提示:记忆功能不可用({e}),本次跳过案例库。", err=True)
-            emb = case_store = None
-
-    prior_summary: str | None = None
-    if use_memory and case_store is not None and emb is not None:
-        try:
-            hits = search_similar(case_store, emb, text, top_k=3)
-            prior_summary = summarize_cases([c for c, _ in hits]) or None
-        except Exception as e:  # noqa: BLE001
-            typer.echo(f"提示:相似案例检索失败({e}),本次不注入历史参考。", err=True)
-
-    strategy_cards = None
-    if use_strategies:
-        strategy_cards = _strategy_store(store).list_approved()
-
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    result = run_teardown(llm, text, library=library, generated_at=now,
-                          prior_summary=prior_summary, strategy_cards=strategy_cards)
-
-    # 自评是增强:失败降级,不拖垮报告(与记忆功能同风格)。
-    review_obj: CaseReview | None = None
-    if self_review:
-        try:
-            review_obj = review_case(llm, result, reviewed_at=now,
-                                     model_label=result.meta.model)
-        except Exception as e:  # noqa: BLE001
-            typer.echo(f"提示:自评失败({e}),报告不含自评节。", err=True)
-
-    rendered = (render_json(result, review=review_obj) if fmt == "json"
-                else render_markdown(result, review=review_obj))
+    outcome = analyze_product(
+        llm, text, store=store, now=now,
+        embed_factory=lambda: _build_embed_provider(embed_provider),
+        use_memory=use_memory, no_save=no_save,
+        use_strategies=use_strategies, self_review=self_review, fmt=fmt,
+        review_fn=review_case,
+    )
+    for w in outcome.warnings:
+        typer.echo(w, err=True)
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(rendered, encoding="utf-8")
+        out.write_text(outcome.rendered, encoding="utf-8")
         typer.echo(f"已写入 {out}")
     else:
-        typer.echo(rendered)
-
-    if not no_save and case_store is not None and emb is not None:
-        try:
-            case = Case.from_result(result, description=text, created_at=now)
-            case.review = review_obj
-            if review_obj is None:
-                old = case_store.get(case.case_id)
-                if old is not None and old.review is not None:
-                    typer.echo("提示:同描述旧案例含自评,本次未开自评,旧自评将被覆盖丢弃。",
-                               err=True)
-            case_store.save(case, emb.embed([text])[0])
-            typer.echo(f"已落盘案例 {case.case_id}")
-        except Exception as e:  # noqa: BLE001
-            typer.echo(f"提示:案例落盘失败({e}),报告已照常产出。", err=True)
+        typer.echo(outcome.rendered)
+    if outcome.case_id:
+        typer.echo(f"已落盘案例 {outcome.case_id}")
 
 
 @app.command()
