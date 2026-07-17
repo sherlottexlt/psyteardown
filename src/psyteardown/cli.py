@@ -140,6 +140,7 @@ def analyze(
     rendered = (render_json(result, review=review_obj) if fmt == "json"
                 else render_markdown(result, review=review_obj))
     if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(rendered, encoding="utf-8")
         typer.echo(f"已写入 {out}")
     else:

@@ -74,3 +74,13 @@ def test_llm_provider_default_from_env(tmp_path, monkeypatch):
                             "--embed-provider", "fake"])
     assert r.exit_code == 0, r.stdout
     assert seen == ["deepseek"]
+
+
+def test_analyze_out_creates_parent_dirs(tmp_path):
+    src = tmp_path / "p.txt"
+    src.write_text("一个每日签到App。", encoding="utf-8")
+    out = tmp_path / "deep" / "nested" / "r.md"      # 父目录不存在
+    r = runner.invoke(app, ["analyze", "--input", str(src), "--no-save",
+                            "--out", str(out), "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    assert out.exists()
