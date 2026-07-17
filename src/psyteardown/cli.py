@@ -55,6 +55,10 @@ def _build_provider(name: str) -> LLMProvider:
             Synthesis(executive_summary="(fake provider 占位摘要)"),
             CaseReview(score=0.5, suggestions=["(fake) 占位改进建议"]),
         ])
+    if name == "deepseek":
+        from psyteardown.llm.deepseek import DeepSeekProvider
+
+        return DeepSeekProvider()
     from psyteardown.llm.claude import ClaudeProvider
 
     return ClaudeProvider()
@@ -83,7 +87,8 @@ def analyze(
     use_strategies: bool = typer.Option(False, "--use-strategies", help="注入已批准的拆解策略卡"),
     self_review: bool = typer.Option(False, "--self-review",
                                      help="拆解后追加一次 LLM 自评(默认关)"),
-    provider: str = typer.Option("claude", "--provider", hidden=True),
+    provider: str = typer.Option("claude", "--provider", hidden=True,
+                                 envvar="PSYTEARDOWN_LLM"),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
                                        envvar="PSYTEARDOWN_EMBED"),
 ):
@@ -161,7 +166,8 @@ def review(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
     to_reflect: bool = typer.Option(False, "--to-reflect",
                                     help="把自评改进建议蒸馏成候选策略卡(待人工审批)"),
-    provider: str = typer.Option("claude", "--provider", hidden=True),
+    provider: str = typer.Option("claude", "--provider", hidden=True,
+                                 envvar="PSYTEARDOWN_LLM"),
 ):
     """对历史案例补做批判自评(覆盖旧自评);可选直达策略蒸馏管道。"""
     case_store = CaseStore(store)
@@ -261,7 +267,8 @@ def kb_show(
 def learn(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
     min_support: int = typer.Option(3, "--min-support", help="候选需的最少支撑案例数"),
-    provider: str = typer.Option("claude", "--provider", hidden=True),
+    provider: str = typer.Option("claude", "--provider", hidden=True,
+                                 envvar="PSYTEARDOWN_LLM"),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
                                        envvar="PSYTEARDOWN_EMBED"),
 ):
@@ -366,7 +373,8 @@ def candidates_reject(
 def strategize(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
     min_support: int = typer.Option(3, "--min-support", help="策略卡需的最少支撑案例数"),
-    provider: str = typer.Option("claude", "--provider", hidden=True),
+    provider: str = typer.Option("claude", "--provider", hidden=True,
+                                 envvar="PSYTEARDOWN_LLM"),
 ):
     """从案例库跨案例归纳候选策略卡(待人工审批)。"""
     cases = [c for c, _ in CaseStore(store).all()]
@@ -387,7 +395,8 @@ def strategize(
 def reflect(
     note: str = typer.Option(..., "--note", help="你的拆解复盘笔记"),
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
-    provider: str = typer.Option("claude", "--provider", hidden=True),
+    provider: str = typer.Option("claude", "--provider", hidden=True,
+                                 envvar="PSYTEARDOWN_LLM"),
 ):
     """把自然语言复盘蒸馏成候选策略卡(待人工审批)。"""
     sstore = _strategy_store(store)

@@ -12,6 +12,8 @@ v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策�
 ## 用法
 
     export ANTHROPIC_API_KEY=sk-ant-...
+    # 或用 DeepSeek:export DEEPSEEK_API_KEY=sk-... && export PSYTEARDOWN_LLM=deepseek
+    #(模型默认 deepseek-chat,可用 DEEPSEEK_MODEL / DEEPSEEK_BASE_URL 覆盖)
     psyteardown analyze --input product.txt --format md  --out report.md
     psyteardown analyze --input product.txt --use-memory          # 注入相似历史案例
     psyteardown analyze --input product.txt --no-save             # 不落盘
@@ -50,7 +52,7 @@ v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策�
 
 - `kb` — 知识库(精选心理学框架,YAML)
 - `pipeline` — 5 步拆解流水线
-- `llm` — 可插拔 LLM provider(默认 Claude)
+- `llm` — 可插拔 LLM provider(默认 Claude;可选 DeepSeek)
 - `report` — Markdown / JSON 渲染
 - `embed` — 可插拔嵌入 provider(默认本地 sentence-transformers;可选 Ollama)
 - `memory` — 情景记忆:Case 模型、SQLite 案例库、向量检索
