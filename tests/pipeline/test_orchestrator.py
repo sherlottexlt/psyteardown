@@ -48,3 +48,21 @@ def test_run_teardown_full_pipeline():
     assert result.citations[0].references == ["r"]  # 出处从库带入结果
     assert result.assessment.ethics_warnings == ["伦"]
     assert result.meta.model == "fake"
+
+
+def test_provider_label_deepseek(monkeypatch):
+    from psyteardown.pipeline.orchestrator import _provider_label
+    from psyteardown.llm.deepseek import DeepSeekProvider
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
+    assert _provider_label(DeepSeekProvider()) == "deepseek-chat"
+
+
+def test_provider_label_unknown_class_uses_class_name():
+    from psyteardown.pipeline.orchestrator import _provider_label
+
+    class SomeNewProvider:
+        pass
+
+    assert _provider_label(SomeNewProvider()) == "SomeNewProvider"

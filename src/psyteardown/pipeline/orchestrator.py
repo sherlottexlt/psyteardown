@@ -57,6 +57,9 @@ def run_teardown(
 def _provider_label(provider: LLMProvider) -> str:
     """从 provider 取一个可读模型标签;FakeProvider → 'fake'。"""
     cls = type(provider).__name__
+    if cls == "FakeProvider":
+        return "fake"
     if cls == "ClaudeProvider":
         return getattr(provider, "_model", DEFAULT_MODEL)
-    return "fake"
+    # 其他 provider(如 DeepSeekProvider)约定公开 model 属性;都没有则回退类名
+    return getattr(provider, "model", cls)
