@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .psyteardown/
+.env.local
+.field-test/store/
