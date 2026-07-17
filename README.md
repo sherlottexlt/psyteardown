@@ -37,6 +37,8 @@ v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策�
 
 案例库默认存于 `./.psyteardown/cases.db`(可用 `--store` 覆盖)。
 向量检索默认用本地嵌入模型(需 `pip install -e ".[embed]"`,首次会下载模型);
+也可用本地 Ollama 嵌入(零下载,推荐已装 Ollama 者):`set PSYTEARDOWN_EMBED=ollama`
+(默认模型 `bge-m3:567m`,服务地址可用 `OLLAMA_HOST` 覆盖);
 若嵌入模型不可用(如离线),`analyze` 会跳过案例库并照常产出报告,不会失败。
 
 ## 测试
@@ -50,7 +52,7 @@ v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策�
 - `pipeline` — 5 步拆解流水线
 - `llm` — 可插拔 LLM provider(默认 Claude)
 - `report` — Markdown / JSON 渲染
-- `embed` — 可插拔嵌入 provider(默认本地 sentence-transformers)
+- `embed` — 可插拔嵌入 provider(默认本地 sentence-transformers;可选 Ollama)
 - `memory` — 情景记忆:Case 模型、SQLite 案例库、向量检索
 - `growth` — 语义记忆:从案例提炼候选新框架,人工审批后回填知识库(种子库永不被动)
 - `strategy` — 程序性记忆:从案例/复盘归纳拆解策略卡,人工审批后按步骤注入拆解流程

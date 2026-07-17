@@ -85,3 +85,31 @@ def test_use_memory_runs_without_error(tmp_path):
     r = runner.invoke(app, ["analyze", "--input", str(src), "--store", str(db),
                             "--use-memory", "--out", str(tmp_path / "r2.md"), *FAKE])
     assert r.exit_code == 0, r.stdout
+
+
+def test_build_embed_provider_ollama():
+    from psyteardown.cli import _build_embed_provider
+    from psyteardown.embed.ollama import OllamaEmbeddingProvider
+
+    assert isinstance(_build_embed_provider("ollama"), OllamaEmbeddingProvider)
+
+
+def test_embed_provider_default_from_env(tmp_path, monkeypatch):
+    """PSYTEARDOWN_EMBED=ollama → 不传 --embed-provider 也走 Ollama。"""
+    import psyteardown.cli as cli
+
+    seen: list[str] = []
+    real = cli._build_embed_provider
+
+    def spy(name: str):
+        seen.append(name)
+        return real("fake")            # 测试中不真连 Ollama
+
+    monkeypatch.setenv("PSYTEARDOWN_EMBED", "ollama")
+    monkeypatch.setattr(cli, "_build_embed_provider", spy)
+    src = _write(tmp_path)
+    r = runner.invoke(app, ["analyze", "--input", str(src),
+                            "--store", str(tmp_path / "cases.db"),
+                            "--out", str(tmp_path / "r.md"), "--provider", "fake"])
+    assert r.exit_code == 0, r.stdout
+    assert seen == ["ollama"]

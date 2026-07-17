@@ -63,6 +63,10 @@ def _build_provider(name: str) -> LLMProvider:
 def _build_embed_provider(name: str) -> EmbeddingProvider:
     if name == "fake":
         return FakeEmbeddingProvider()
+    if name == "ollama":
+        from psyteardown.embed.ollama import OllamaEmbeddingProvider
+
+        return OllamaEmbeddingProvider()
     from psyteardown.embed.local import LocalEmbeddingProvider
 
     return LocalEmbeddingProvider()
@@ -80,7 +84,8 @@ def analyze(
     self_review: bool = typer.Option(False, "--self-review",
                                      help="拆解后追加一次 LLM 自评(默认关)"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
-    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
+    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
+                                       envvar="PSYTEARDOWN_EMBED"),
 ):
     """拆解一个产品描述,输出结构化报告;默认落盘为案例。"""
     text = input.read_text(encoding="utf-8").strip()
@@ -199,7 +204,8 @@ def similar(
     input: Path = typer.Option(..., "--input", "-i", help="产品描述文本文件"),
     top_k: int = typer.Option(3, "--top-k", help="返回最相似的前 K 个案例"),
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
-    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
+    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
+                                       envvar="PSYTEARDOWN_EMBED"),
 ):
     """检索与给定描述最相似的历史案例。"""
     text = input.read_text(encoding="utf-8").strip()
@@ -256,7 +262,8 @@ def learn(
     store: Path = typer.Option(DEFAULT_STORE, "--store", help="案例库路径"),
     min_support: int = typer.Option(3, "--min-support", help="候选需的最少支撑案例数"),
     provider: str = typer.Option("claude", "--provider", hidden=True),
-    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True),
+    embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
+                                       envvar="PSYTEARDOWN_EMBED"),
 ):
     """从案例库提炼现有框架盖不住的候选新框架(待人工审批)。"""
     cases = [c for c, _ in CaseStore(store).all()]
