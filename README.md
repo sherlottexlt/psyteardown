@@ -1,13 +1,38 @@
-# psyteardown — 心理驱动型产品拆解 Agent(v5)
+# psyteardown — 心理驱动型产品拆解 Agent(v6)
 
 基于精选心理学框架知识库,把产品文字描述拆解成结构化报告(Markdown / JSON)。
 含三层记忆:v2 情景记忆(案例库 + 向量检索)、v3 语义记忆(框架知识增长)、
-v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策略闭环)。
+v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策略闭环)。v6 交付层(MCP server,Claude 对话中直接调用)。
 
 ## 安装
 
     pip install -e ".[dev]"
     pip install -e ".[embed]"   # 可选:启用向量检索(本地嵌入模型,首次会下载)
+
+## MCP 接入(Claude Code / Claude Desktop)
+
+    pip install -e ".[mcp]"
+
+Claude Code 一条命令接入(环境变量按需增减;store 建议绝对路径):
+
+    claude mcp add psyteardown \
+      -e PSYTEARDOWN_LLM=deepseek -e DEEPSEEK_API_KEY=sk-... \
+      -e PSYTEARDOWN_EMBED=ollama \
+      -e PSYTEARDOWN_STORE=D:/app/app-mental/.psyteardown/cases.db \
+      -- psyteardown-mcp
+
+Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
+
+    "psyteardown": {
+      "command": "psyteardown-mcp",
+      "env": { "PSYTEARDOWN_LLM": "deepseek", "DEEPSEEK_API_KEY": "sk-...",
+               "PSYTEARDOWN_EMBED": "ollama",
+               "PSYTEARDOWN_STORE": "D:/app/app-mental/.psyteardown/cases.db" }
+    }
+
+对话中即可说「帮我拆解这个产品:……」触发 teardown 工具。
+暴露工具:teardown / similar / review_case / kb_list / kb_show / memory_stats。
+管理操作(learn / strategize / candidates / strategies 审批)仍走 CLI。
 
 ## 用法
 
@@ -59,5 +84,6 @@ v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策�
 - `growth` — 语义记忆:从案例提炼候选新框架,人工审批后回填知识库(种子库永不被动)
 - `strategy` — 程序性记忆:从案例/复盘归纳拆解策略卡,人工审批后按步骤注入拆解流程
 - `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
+- `mcp_server` — 交付层:MCP server(FastMCP/stdio),6 工具;与 CLI 共享编排
 
-CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v4 设计文档)。
+CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v6 设计文档)。

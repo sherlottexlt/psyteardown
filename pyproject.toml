@@ -14,9 +14,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 embed = ["sentence-transformers>=2.2"]
+mcp = ["mcp>=1.2"]
 
 [project.scripts]
 psyteardown = "psyteardown.cli:app"
+psyteardown-mcp = "psyteardown.mcp_server.server:main"
 
 [build-system]
 requires = ["setuptools>=68"]
