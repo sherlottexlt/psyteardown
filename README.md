@@ -86,4 +86,4 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
 - `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
 - `mcp_server` — 交付层:MCP server(FastMCP/stdio),6 工具;与 CLI 共享编排
 
-CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v4 设计文档)。
+CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v6 设计文档)。

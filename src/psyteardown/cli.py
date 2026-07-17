@@ -17,6 +17,7 @@ from psyteardown.strategy.store import StrategyStore
 from psyteardown.strategy.proposer import propose_strategies
 from psyteardown.strategy.distill import distill_from_note
 from psyteardown.mcp_server.tools import (
+    DEFAULT_STORE,
     analyze_product,
     build_embed_provider as _build_embed_provider,
     build_llm_provider as _build_provider,
@@ -31,8 +32,6 @@ app.add_typer(kb_app, name="kb")
 app.add_typer(memory_app, name="memory")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(strategies_app, name="strategies")
-
-DEFAULT_STORE = Path(".psyteardown/cases.db")
 
 
 def _growth_store(store: Path) -> GrowthStore:
