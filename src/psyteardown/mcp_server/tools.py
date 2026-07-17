@@ -161,3 +161,51 @@ def teardown_tool(
         parts.append(f"已落盘案例 {o.case_id}")
     parts.extend(o.warnings)
     return "\n\n".join(parts)
+
+
+def similar_tool(
+    description: str,
+    top_k: int = 3,
+    *,
+    store: Path,
+    embed_factory: Callable[[], EmbeddingProvider],
+) -> str:
+    """MCP similar:检索最相似的历史案例,返回文本列表。"""
+    text = (description or "").strip()
+    if not text:
+        return "错误:输入为空。"
+    emb = embed_factory()
+    hits = search_similar(CaseStore(store), emb, text, top_k=top_k)
+    if not hits:
+        return "案例库为空或无相似案例。"
+    return "\n".join(
+        f"{score:.3f}  {case.product_name} — {case.one_liner}"
+        f"  ({', '.join(case.frameworks_used) or '—'})"
+        for case, score in hits
+    )
+
+
+def kb_list_tool(*, store: Path) -> str:
+    """MCP kb_list:列出全部框架(含已批准习得框架)。"""
+    return "\n".join(
+        f"{fw.id}\t{fw.name}\t({fw.category})"
+        for fw in load_frameworks(learned_dir=GrowthStore(store.parent).learned_dir())
+    )
+
+
+def kb_show_tool(framework_id: str, *, store: Path) -> str:
+    """MCP kb_show:查看某框架详情;不存在 → 错误文本。"""
+    for fw in load_frameworks(learned_dir=GrowthStore(store.parent).learned_dir()):
+        if fw.id == framework_id:
+            lines = [f"# {fw.name} ({fw.id})", fw.summary, ""]
+            lines += [
+                f"- {p.name}:{p.description}(线索:{', '.join(p.look_for)})"
+                for p in fw.principles
+            ]
+            return "\n".join(lines)
+    return f"未找到框架:{framework_id}"
+
+
+def memory_stats_tool(*, store: Path) -> str:
+    """MCP memory_stats:案例库统计。"""
+    return f"案例数:{CaseStore(store).count()}"

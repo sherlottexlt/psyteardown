@@ -92,3 +92,49 @@ def test_teardown_tool_degrades_with_warning_in_text(tmp_path):
     assert "# 心理学拆解报告" in out
     assert "记忆功能不可用" in out          # 警告并入返回文本
     assert "已落盘案例" not in out
+
+
+def test_similar_tool_finds_seeded_case(tmp_path):
+    from psyteardown.mcp_server.tools import similar_tool, teardown_tool
+    store = tmp_path / "cases.db"
+    teardown_tool("社交产品:动态推送点赞", store=store,
+                  llm=_fake_llm(), embed_factory=_fake_embed_factory)
+    out = similar_tool("社交产品:群组动态", store=store,
+                       embed_factory=_fake_embed_factory)
+    assert "样例产品" in out                  # fake LLM 的产品名
+
+
+def test_similar_tool_empty_store(tmp_path):
+    from psyteardown.mcp_server.tools import similar_tool
+    out = similar_tool("任意描述", store=tmp_path / "empty.db",
+                       embed_factory=_fake_embed_factory)
+    assert "空" in out
+
+
+def test_similar_tool_empty_description(tmp_path):
+    from psyteardown.mcp_server.tools import similar_tool
+    out = similar_tool(" ", store=tmp_path / "cases.db",
+                       embed_factory=_fake_embed_factory)
+    assert out == "错误:输入为空。"
+
+
+def test_kb_list_tool_contains_seed(tmp_path):
+    from psyteardown.mcp_server.tools import kb_list_tool
+    out = kb_list_tool(store=tmp_path / "cases.db")
+    assert "fogg-behavior-model" in out
+
+
+def test_kb_show_tool_found_and_missing(tmp_path):
+    from psyteardown.mcp_server.tools import kb_show_tool
+    store = tmp_path / "cases.db"
+    assert "心流" in kb_show_tool("flow", store=store)
+    assert "未找到框架:nope" == kb_show_tool("nope", store=store)
+
+
+def test_memory_stats_tool(tmp_path):
+    from psyteardown.mcp_server.tools import memory_stats_tool, teardown_tool
+    store = tmp_path / "cases.db"
+    assert memory_stats_tool(store=store) == "案例数:0"
+    teardown_tool("社交产品:动态推送点赞", store=store,
+                  llm=_fake_llm(), embed_factory=_fake_embed_factory)
+    assert memory_stats_tool(store=store) == "案例数:1"
