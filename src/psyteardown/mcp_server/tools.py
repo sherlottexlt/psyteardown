@@ -209,3 +209,25 @@ def kb_show_tool(framework_id: str, *, store: Path) -> str:
 def memory_stats_tool(*, store: Path) -> str:
     """MCP memory_stats:案例库统计。"""
     return f"案例数:{CaseStore(store).count()}"
+
+
+def review_case_tool(case_id: str, *, store: Path, llm: LLMProvider) -> str:
+    """MCP review_case:对历史案例补做批判自评(覆盖旧自评,保留向量)。
+
+    用户显式要求自评:LLM 失败让异常向上抛(server 层转错误文本),不静默。
+    不含 --to-reflect(策略蒸馏属管理操作,留 CLI)。
+    """
+    case_store = CaseStore(store)
+    hit = case_store.get_with_embedding(case_id)
+    if hit is None:
+        return f"案例不存在:{case_id}"
+    case, emb = hit
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    rev = review_case(llm, case.result, reviewed_at=now,
+                      model_label=case.result.meta.model)
+    case.review = rev
+    case_store.save(case, emb)
+    lines = [f"自评完成:{case_id} 总体评分 {rev.score:.2f}"]
+    lines += [f"- 缺陷:{w}" for w in rev.weaknesses]
+    lines += [f"- 建议:{s}" for s in rev.suggestions]
+    return "\n".join(lines)

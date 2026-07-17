@@ -138,3 +138,29 @@ def test_memory_stats_tool(tmp_path):
     teardown_tool("社交产品:动态推送点赞", store=store,
                   llm=_fake_llm(), embed_factory=_fake_embed_factory)
     assert memory_stats_tool(store=store) == "案例数:1"
+
+
+def test_review_case_tool_backfills(tmp_path):
+    from psyteardown.llm.base import FakeProvider
+    from psyteardown.memory.store import CaseStore
+    from psyteardown.review.models import CaseReview
+    from psyteardown.mcp_server.tools import review_case_tool, teardown_tool
+
+    store = tmp_path / "cases.db"
+    teardown_tool("社交产品:动态推送点赞", store=store,
+                  llm=_fake_llm(), embed_factory=_fake_embed_factory)
+    cid = [c for c, _ in CaseStore(store).all()][0].case_id
+
+    review_llm = FakeProvider(structured_responses=[
+        CaseReview(score=0.4, weaknesses=["置信虚高"], suggestions=["核对数据"]),
+    ])
+    out = review_case_tool(cid, store=store, llm=review_llm)
+    assert "总体评分 0.40" in out
+    assert "置信虚高" in out
+    assert CaseStore(store).get(cid).review.score == 0.4
+
+
+def test_review_case_tool_missing(tmp_path):
+    from psyteardown.mcp_server.tools import review_case_tool
+    out = review_case_tool("nope", store=tmp_path / "cases.db", llm=_fake_llm())
+    assert out == "案例不存在:nope"
