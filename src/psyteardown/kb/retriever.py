@@ -2,14 +2,24 @@
 接口签名为将来换向量检索预留。"""
 
 import math
+import re
 
 from psyteardown.kb.models import Framework
 
+_LATIN_RUN = re.compile(r"[A-Za-z0-9]+")
+_CJK_RUN = re.compile(r"[一-鿿]+")
 
-def _bigrams(text: str) -> set[str]:
-    """取字符 2-gram;先去掉所有空白。长度 < 2 → 空集。"""
-    s = "".join(text.split())
-    return {s[i:i + 2] for i in range(len(s) - 1)}
+
+def _tokens(text: str) -> set[str]:
+    """检索用词元:连续中文段切字符 2-gram,连续拉丁/数字段取整词并转小写。
+
+    字符 n-gram 是中文分词的手段;拉丁文本自带词边界,按字符切只会制造假匹配
+    (Leaderboard 与 onboarding 共享 ar/bo/oa/rd)。空白与标点一律作分隔符。
+    """
+    tokens = {word.lower() for word in _LATIN_RUN.findall(text)}
+    for run in _CJK_RUN.findall(text):
+        tokens |= {run[i:i + 2] for i in range(len(run) - 1)}
+    return tokens
 
 
 def _score(framework: Framework, keywords: list[str]) -> int:

@@ -1,5 +1,5 @@
 from psyteardown.kb.models import Framework, Principle
-from psyteardown.kb.retriever import retrieve_frameworks, _bigrams
+from psyteardown.kb.retriever import retrieve_frameworks, _tokens
 
 
 def _fw(id_, tags):
@@ -37,14 +37,38 @@ def test_partial_substring_match_counts():
     assert result[0].id == "a"
 
 
-def test_bigrams_splits_chinese():
-    assert _bigrams("抽卡保底") == {"抽卡", "卡保", "保底"}
+def test_tokens_splits_chinese_into_bigrams():
+    assert _tokens("抽卡保底") == {"抽卡", "卡保", "保底"}
 
 
-def test_bigrams_strips_whitespace():
-    assert _bigrams("刷新 动画") == {"刷新", "新动", "动画"}
+def test_tokens_keeps_latin_as_whole_lowercase_word():
+    assert _tokens("Leaderboard") == {"leaderboard"}
 
 
-def test_bigrams_too_short_returns_empty():
-    assert _bigrams("卡") == set()
-    assert _bigrams("") == set()
+def test_tokens_latin_does_not_collide_by_characters():
+    # 回归:曾按字符切分,Leaderboard 与 onboarding 共享 ar/bo/oa/rd 造成假阳性
+    assert _tokens("Leaderboard") & _tokens("onboarding") == set()
+
+
+def test_tokens_mixed_script():
+    assert _tokens("自走棋/Auto Battler手游") == {
+        "自走", "走棋", "auto", "battler", "手游",
+    }
+
+
+def test_tokens_punctuation_and_space_separate():
+    assert _tokens("刷新 动画") == {"刷新", "动画"}  # 不再跨隙产生「新动」
+
+
+def test_tokens_two_chars_is_boundary():
+    assert _tokens("卡片") == {"卡片"}
+
+
+def test_tokens_dedups_repeats():
+    assert _tokens("卡卡卡") == {"卡卡"}
+
+
+def test_tokens_too_short_returns_empty():
+    assert _tokens("卡") == set()
+    assert _tokens("") == set()
+    assert _tokens("、,。") == set()
