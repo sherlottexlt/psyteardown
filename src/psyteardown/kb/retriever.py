@@ -1,6 +1,15 @@
-"""框架检索:v1 用标签/关键词子串匹配打分。接口签名为将来换向量检索预留。"""
+"""框架检索:产品关键词与框架线索的字符 bigram 重叠,按 IDF 加权打分。
+接口签名为将来换向量检索预留。"""
+
+import math
 
 from psyteardown.kb.models import Framework
+
+
+def _bigrams(text: str) -> set[str]:
+    """取字符 2-gram;先去掉所有空白。长度 < 2 → 空集。"""
+    s = "".join(text.split())
+    return {s[i:i + 2] for i in range(len(s) - 1)}
 
 
 def _score(framework: Framework, keywords: list[str]) -> int:

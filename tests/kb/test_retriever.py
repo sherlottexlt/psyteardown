@@ -1,5 +1,5 @@
 from psyteardown.kb.models import Framework, Principle
-from psyteardown.kb.retriever import retrieve_frameworks
+from psyteardown.kb.retriever import retrieve_frameworks, _bigrams
 
 
 def _fw(id_, tags):
@@ -35,3 +35,16 @@ def test_partial_substring_match_counts():
     library = [_fw("a", ["习惯养成与留存"]), _fw("b", ["定价"])]
     result = retrieve_frameworks(library, keywords=["习惯"], top_n=1)
     assert result[0].id == "a"
+
+
+def test_bigrams_splits_chinese():
+    assert _bigrams("抽卡保底") == {"抽卡", "卡保", "保底"}
+
+
+def test_bigrams_strips_whitespace():
+    assert _bigrams("刷新 动画") == {"刷新", "新动", "动画"}
+
+
+def test_bigrams_too_short_returns_empty():
+    assert _bigrams("卡") == set()
+    assert _bigrams("") == set()
