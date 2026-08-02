@@ -1,0 +1,183 @@
+# 心理驱动型产品拆解 Agent · v7 设计文档:框架检索层重写
+
+- 日期:2026-08-03
+- 状态:已通过设计评审,待用户确认 spec
+- 依赖:v1~v6(已合并到 main)。本文档仅覆盖 **v7**。
+- 前置发现:`2026-08-02-strategy-card-efficacy-finding.md`(注意其页首更正声明)
+
+---
+
+## 1. 背景与目标
+
+四次受控重跑(金铲铲之战 v1~v4)暴露出:无论知识库有 7 个还是 12 个框架,每次拆解实际使用的框架数**恒为 5**,新增框架零使用。
+
+根因定位在 step2 检索,不在 step3 映射:
+
+- `orchestrator.run_teardown` 写死 `top_n=5`,step3 只能看到检索给的 5 个框架
+- `kb/retriever._score` 只拿产品关键词与框架 `tags` 做**子串**匹配,且完全不看 `look_for` 线索
+
+对金铲铲的产品画像实测,12 个框架中仅 `peak-end-rule` 得 1 分(tag「结算」是触点「扣血结算」的子串),**其余 11 个全为 0 分**。因此 top-5 实际是「1 个子串巧合 + 4 个按字母序递补」,与 v4 实际使用的 5 个框架完全一致。
+
+子串匹配对中文结构性失效:「概率抽取与共享卡池」与线索「每次刷新/抽取的结果不可预知」共享「抽取」,却互不为子串。
+
+### v7 成功标准
+
+1. 检索打分改为 **IDF 加权的字符 bigram 重叠**,打分域从 `tags` 扩展到 `tags` + 全部原则的 `look_for`。
+2. 截断策略改为「得分 > 0 全入选,夹在 `[min_n, max_n]`」,不再用字母序填充有效槽位。
+3. 6 个既有案例回测,每个案例的头名框架语义正确(见第 5 节)。
+4. 回归测试锁死本次 bug:自走棋/抽卡关键词下 `variable-ratio-reinforcement` 排名必须高于 `fogg-behavior-model`。
+5. 纯代码、零新增依赖、零新增 LLM 调用,全部离线确定性可测。
+6. `learn` 的候选框架 prompt 明确要求中文 tags(顺带修,不扩大范围)。
+
+### 明确不做(YAGNI)
+
+- **不新增 step 3.0 线索扫描**(前置发现中提过的方案,经定位后属过度设计,已作废)
+- 不引入向量/嵌入检索——方案一已能把正确框架排到前二,复杂度买不到对应收益;`retrieve_frameworks` 签名仍为将来换向量预留
+- 不改 step1 产品画像 schema(不新增"机制级关键词"字段)
+- 不做已入库框架的数据迁移(见第 6 节:不需要)
+- 不改 step3/step4 的任何行为
+
+---
+
+## 2. 关键决策(已确认)
+
+| 维度 | 决策 |
+|------|------|
+| 修复层 | 仅 step2 检索层(`kb/retriever.py`) |
+| 打分算法 | IDF 加权字符 bigram 重叠 |
+| 打分域 | `tags` + 所有原则的 `look_for` |
+| 截断 | 得分 > 0 全入选,夹在 `[min_n=5, max_n=8]` |
+| 参数 | `top_n` 更名 `max_n`(默认 8),新增 `min_n`(默认 5);不留 deprecated 别名 |
+| 数据迁移 | 不需要 |
+| 新增依赖 | 无 |
+
+### 为何是 IDF 加权,而非更简单的两个替代
+
+实测对比(金铲铲画像,12 框架):
+
+| 方案 | 结果 |
+|------|------|
+| 纯 bigram 计数 | 正确框架进前二,但 `fogg-behavior-model` 仍有 4 分假阳性 |
+| 每关键词需 ≥2 bigram 才计分 | 分数塌缩成 2/1/1/1/1,大面积并列后**又退回字母序递补**,等于没修 |
+| **IDF 加权** | 正确框架居首且分布有梯度(19.5/13.0/12.3/10.2/7.0/4.9) |
+
+假阳性的特征是**单个通用 bigram**(「进度」「养成」「操作」),真阳性是**同一关键词命中多个专指 bigram**(「概率抽取与共享卡池」↔「卡池」+「抽取」+「概率」)。IDF 按文档频率自动压低通用 bigram 权重,是三者中唯一同时解决假阳性与区分度的。
+
+---
+
+## 3. 架构
+
+改动集中在一个文件,其余仅参数透传。
+
+```
+kb/retriever.py        实质改写(现 28 行)
+  _bigrams(text)         → set[str]   字符 2-gram,先去除所有空白
+  _pool(framework)       → set[str]   tags + 所有 look_for 的 bigram 并集
+  _idf(library)          → dict[str, float]   log(N / df)
+  _score(fw, kws, idf)   → float      命中 bigram 的 IDF 权重之和
+  retrieve_frameworks(library, keywords, *, max_n=8, min_n=5)
+
+pipeline/steps.py      仅签名透传(retrieve 的 top_n → max_n/min_n)
+pipeline/orchestrator.py  仅签名透传(run_teardown 的 top_n → max_n/min_n)
+growth/proposer.py     prompt 增加一句:tags 与 look_for 必须用中文
+```
+
+`_idf` 在每次 `retrieve_frameworks` 调用时按传入的 `library` 现算。库规模约 10~20,成本可忽略,且避免了缓存失效问题(learned 框架会动态增减)。
+
+---
+
+## 4. 选取规则(精确定义)
+
+```
+idf     = _idf(library)
+scored  = [(fw, _score(fw, keywords, idf)) for fw in library]
+nonzero = [fw for fw, s in scored if s > 0]  按 s 降序;同分保持库序(稳定排序)
+
+若 len(nonzero) >= max_n:  返回 nonzero[:max_n]
+
+result = nonzero
+floor  = min(min_n, max_n, len(library))
+按库序遍历不在 result 中的框架,追加直到 len(result) == floor
+返回 result
+```
+
+`floor` 取三者最小值,保证:调用方传 `max_n=2` 时不会因 `min_n=5` 反而返回 5 个;库只有 3 个框架时不会死循环。
+
+全零分(产品画像与任何框架都无 bigram 交集)时退化为「按库序返回 floor 个」,保住现有 `test_no_match_falls_back_to_top_n` 的契约——流水线永不空转。
+
+---
+
+## 5. 回测证据
+
+对案例库中全部 6 个既有案例重新打分,头名框架:
+
+| 案例 | 头名框架 | 分数 | 判断 |
+|------|---------|------|------|
+| 拼多多 | `near-goal-persistence` | 15.8 | ✓ 砍价「差 0.01 元」是目标梯度的教科书形态 |
+| 多邻国 | `cumulative-progress-retrieval` | 10.3 | ✓ 连胜/进度所有权 |
+| 王者荣耀 | `cyclical-ownership-reset` | 44.3 | ✓ 赛季重置 + 战令 + 段位 |
+| 小红书 | `hook-model` | 11.7 | ✓ 内容流习惯循环 |
+| Keep | `dynamic-social-competition` | 11.7 | ✓ 排行榜/社交竞争 |
+| 金铲铲之战 | `variable-ratio-reinforcement` | 19.5 | ✓ 正是 v3/v4 自评反复点名却始终缺席的框架 |
+
+6/6 语义正确。非零框架数为 7~12,故 `max_n=8` 取「覆盖回测中位数、又不使 prompt 翻倍」的值。
+
+---
+
+## 6. 兼容性
+
+**不需要数据迁移。** 已入库的 learned 框架(`cyclical-ownership-reset`、`near-goal-persistence`)tags 是英文,与中文产品关键词结构性不匹配;但因打分域现已包含 `look_for`,而它们的**线索本来就是中文**,照样正常参与排序——`cyclical-ownership-reset` 顶着全英文 tag 在王者荣耀案例拿到 44.3 分居首。
+
+`learn` 的 prompt 仍需修正(对 tags 语言零约束),否则新产出框架的 tag 维度持续失效。这是顺带修的小口子。
+
+`top_n` 在 5 处调用点出现,全部位于本仓库测试内,直接更名并更新调用点;不加 deprecated 别名,避免遗留两套语义。
+
+---
+
+## 7. 错误处理
+
+检索层为纯函数,不做 I/O,无外部失败源。边界情况:
+
+| 情况 | 行为 |
+|------|------|
+| `library` 为空 | 返回 `[]`(`floor` = min(...,0) = 0) |
+| `keywords` 全为空串 | 全零分 → 退化为按库序返回 `floor` 个 |
+| 单字关键词(bigram 为空集) | 该关键词不贡献分数,不报错 |
+| 某框架无 tags 也无 look_for | bigram 池为空 → 恒 0 分,只可能作为填充进入 |
+| `max_n <= 0` | 返回 `[]`;由调用方保证传值合理,不额外抛异常 |
+
+---
+
+## 8. 测试策略
+
+全部离线、确定性,不依赖 LLM 与网络。
+
+**单元测试(`tests/kb/test_retriever.py` 扩写)**
+
+- `_bigrams`:中文切分正确;去空白;长度 < 2 → 空集
+- `_idf`:出现在全部框架中的 bigram 权重为 0;仅出现在 1 个框架中的权重最高
+- 排序:构造迷你库,语义正确的框架胜出
+- 同分稳定性:分数相同时保持库序
+- 上限:非零数 > `max_n` → 恰好返回 `max_n` 个
+- 下限:全零分 → 返回 `floor` 个且为库序前 `floor` 个(兼容旧契约)
+- `floor` 夹取:`max_n=2, min_n=5` → 返回 2 个;库仅 3 个框架 → 不超出
+
+**回归测试(锁死本次 bug)**
+
+用一组自走棋/抽卡关键词(商店刷新、概率抽取与共享卡池、开蛋等),断言 `variable-ratio-reinforcement` 排名严格高于 `fogg-behavior-model`。该断言若失败,说明打分又被通用 bigram 污染。
+
+**既有测试**
+
+`tests/kb/test_seed_frameworks.py` 自动校验种子框架 schema,已覆盖新增的 `variable-ratio-reinforcement`。全量套件当前基线 196 passed / 2 skipped,v7 完成后不得低于此。
+
+---
+
+## 9. 验收方式
+
+代码改动合并后,用**未改动的**金铲铲输入重跑一次拆解(v5 报告),核对:
+
+1. `variable-ratio-reinforcement` 出现在 `frameworks_used` 中
+2. 报告中实际使用的框架数 > 5
+3. 自评不再把 variable ratio reinforcement 列为漏拆
+
+第 3 条是行为验收而非单元测试,结果记入 field-test。**注意:自评分不具区分度(v1~v3 三版均为 0.62),不得用分数变化作为验收依据。**
