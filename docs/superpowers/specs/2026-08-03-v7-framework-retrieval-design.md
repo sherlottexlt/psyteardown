@@ -44,7 +44,7 @@
 | 维度 | 决策 |
 |------|------|
 | 修复层 | 仅 step2 检索层(`kb/retriever.py`) |
-| 打分算法 | IDF 加权字符 bigram 重叠 |
+| 打分算法 | IDF 加权词元重叠(中文 2-gram + 拉丁整词) |
 | 打分域 | `tags` + 所有原则的 `look_for` |
 | 截断 | 得分 > 0 全入选,夹在 `[min_n=5, max_n=8]` |
 | 参数 | `top_n` 更名 `max_n`(默认 8),新增 `min_n`(默认 5);不留 deprecated 别名 |
@@ -63,6 +63,24 @@
 
 假阳性的特征是**单个通用 bigram**(「进度」「养成」「操作」),真阳性是**同一关键词命中多个专指 bigram**(「概率抽取与共享卡池」↔「卡池」+「抽取」+「概率」)。IDF 按文档频率自动压低通用 bigram 权重,是三者中唯一同时解决假阳性与区分度的。
 
+### 拉丁文本必须按整词切,不能按字符切
+
+字符 n-gram 是**中文分词**的手段;拉丁文本自带词边界,对它做字符切分只会制造假匹配。实测:关键词加入 `Leaderboard` 后,`fogg-behavior-model` 从 0 分跳到 **5.55 分**,`peak-end-rule` 从 2.08 跳到 7.62——全部来自 `Leaderboard` 与其 tag `onboarding` 共享的 `ar`/`bo`/`oa`/`rd`。
+
+**IDF 无法挽救这类假阳性**:这些 bigram 在语料中确实罕见,因而被赋予**高**权重,噪声反被放大。
+
+且拉丁串在真实语料中普遍存在(`Auto Battler`、`Battle Pass`、`Duolingo`、`ELO`、`iPhone`、`App`)。
+
+故 `_tokens` 分两路处理:
+
+- 连续 CJK 段 → 字符 2-gram
+- 连续拉丁/数字段 → **整词,转小写**
+- 其余字符(空白、标点、`/`)一律作为分隔符
+
+改后 `Leaderboard` 噪声归零(fogg 回到 0.00,peak-end 回到 2.08),而 `Leaderboard` 仍能与 tag `onboarding` 之外的真实英文词做精确匹配。第 5 节的 6 案例回测分数不受影响。
+
+代价:中文段被空白/标点切断后不再产生跨隙 bigram(「刷新 动画」不再产出「新动」)。这是可接受的——中文关键词内部极少有空格,而标点本就该作为边界。
+
 ---
 
 ## 3. 架构
@@ -71,10 +89,10 @@
 
 ```
 kb/retriever.py        实质改写(现 28 行)
-  _bigrams(text)         → set[str]   字符 2-gram,先去除所有空白
-  _pool(framework)       → set[str]   tags + 所有 look_for 的 bigram 并集
+  _tokens(text)          → set[str]   中文 2-gram + 拉丁整词(小写)
+  _pool(framework)       → set[str]   tags + 所有 look_for 的词元并集
   _idf(library)          → dict[str, float]   log(N / df)
-  _score(fw, kws, idf)   → float      命中 bigram 的 IDF 权重之和
+  _score(fw, kws, idf)   → float      命中词元的 IDF 权重之和
   retrieve_frameworks(library, keywords, *, max_n=8, min_n=5)
 
 pipeline/steps.py      仅签名透传(retrieve 的 top_n → max_n/min_n)
@@ -142,8 +160,10 @@ floor  = min(min_n, max_n, len(library))
 |------|------|
 | `library` 为空 | 返回 `[]`(`floor` = min(...,0) = 0) |
 | `keywords` 全为空串 | 全零分 → 退化为按库序返回 `floor` 个 |
-| 单字关键词(bigram 为空集) | 该关键词不贡献分数,不报错 |
-| 某框架无 tags 也无 look_for | bigram 池为空 → 恒 0 分,只可能作为填充进入 |
+| 单个汉字关键词(词元为空集) | 该关键词不贡献分数,不报错 |
+| 纯标点/空白关键词 | 词元为空集,不贡献分数 |
+| 单个拉丁字母(如 `T`) | 作为整词保留(小写),可精确匹配同名词元 |
+| 某框架无 tags 也无 look_for | 词元池为空 → 恒 0 分,只可能作为填充进入 |
 | `max_n <= 0` | 返回 `[]`;由调用方保证传值合理,不额外抛异常 |
 
 ---

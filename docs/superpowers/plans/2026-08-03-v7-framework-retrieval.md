@@ -30,7 +30,11 @@
 
 ---
 
-### Task 1: `_bigrams` 字符二元组切分
+### Task 1: `_bigrams` 字符二元组切分 ⚠️ 已被 Task 1b 取代
+
+> **本任务已执行完毕(commit c6eef28),但其实现随后被 Task 1b 修正。**
+> 若你在读这份计划准备动手,**跳过 Task 1,直接看 Task 1b** —— 那里有最终形态。
+> 保留本节仅为记录演进过程。
 
 **Files:**
 - Modify: `src/psyteardown/kb/retriever.py`
@@ -97,7 +101,113 @@ git commit -m "feat(kb): _bigrams 字符二元组切分"
 
 ---
 
-### Task 2: `_pool` 框架 bigram 池(tags + look_for)
+### Task 1b: 拉丁按整词切分 + `_bigrams` 更名 `_tokens`
+
+**Files:**
+- Modify: `src/psyteardown/kb/retriever.py`
+- Test: `tests/kb/test_retriever.py`
+
+**为何存在这个任务:** Task 1 的代码审查发现,对拉丁文本做字符 bigram 会制造假阳性。实测关键词加入 `Leaderboard` 后,`fogg-behavior-model` 从 0 分跳到 **5.55**、`peak-end-rule` 从 2.08 跳到 7.62,全部来自 `Leaderboard` 与其 tag `onboarding` 共享的 `ar`/`bo`/`oa`/`rd`。**IDF 无法挽救**——这些 bigram 确实罕见,反被赋予高权重。真实语料普遍含拉丁串(`Auto Battler`、`Battle Pass`、`Duolingo`、`ELO`、`iPhone`)。
+
+改后实测:fogg 回到 0.00、peak-end 回到 2.08,`variable-ratio-reinforcement` 仍以 9.70 居首,spec 第 5 节 6 案例回测分数完全不变。
+
+同时把 `_bigrams` 更名为 `_tokens`——拉丁走整词后,「bigrams」这个名字已不准确。
+
+- [ ] **Step 1: 改写测试**
+
+把 Task 1 添加的 3 个 `test_bigrams_*` 测试**整体删除**,替换为以下 8 个(注意导入名也要从 `_bigrams` 改为 `_tokens`):
+
+```python
+def test_tokens_splits_chinese_into_bigrams():
+    assert _tokens("抽卡保底") == {"抽卡", "卡保", "保底"}
+
+
+def test_tokens_keeps_latin_as_whole_lowercase_word():
+    assert _tokens("Leaderboard") == {"leaderboard"}
+
+
+def test_tokens_latin_does_not_collide_by_characters():
+    # 回归:曾按字符切分,Leaderboard 与 onboarding 共享 ar/bo/oa/rd 造成假阳性
+    assert _tokens("Leaderboard") & _tokens("onboarding") == set()
+
+
+def test_tokens_mixed_script():
+    assert _tokens("自走棋/Auto Battler手游") == {
+        "自走", "走棋", "auto", "battler", "手游",
+    }
+
+
+def test_tokens_punctuation_and_space_separate():
+    assert _tokens("刷新 动画") == {"刷新", "动画"}  # 不再跨隙产生「新动」
+
+
+def test_tokens_two_chars_is_boundary():
+    assert _tokens("卡片") == {"卡片"}
+
+
+def test_tokens_dedups_repeats():
+    assert _tokens("卡卡卡") == {"卡卡"}
+
+
+def test_tokens_too_short_returns_empty():
+    assert _tokens("卡") == set()
+    assert _tokens("") == set()
+    assert _tokens("、,。") == set()
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: FAIL — `ImportError: cannot import name '_tokens'`
+
+- [ ] **Step 3: 实现**
+
+把 `src/psyteardown/kb/retriever.py` 顶部的导入与 `_bigrams` 整体替换为:
+
+```python
+import math
+import re
+
+from psyteardown.kb.models import Framework
+
+_LATIN_RUN = re.compile(r"[A-Za-z0-9]+")
+_CJK_RUN = re.compile(r"[一-鿿]+")
+
+
+def _tokens(text: str) -> set[str]:
+    """检索用词元:连续中文段切字符 2-gram,连续拉丁/数字段取整词并转小写。
+
+    字符 n-gram 是中文分词的手段;拉丁文本自带词边界,按字符切只会制造假匹配
+    (Leaderboard 与 onboarding 共享 ar/bo/oa/rd)。空白与标点一律作分隔符。
+    """
+    tokens = {word.lower() for word in _LATIN_RUN.findall(text)}
+    for run in _CJK_RUN.findall(text):
+        tokens |= {run[i:i + 2] for i in range(len(run) - 1)}
+    return tokens
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: 8 passed
+
+Run: `python -m pytest -q`
+Expected: `204 passed, 2 skipped`(196 基线 + 8 个新测试;Task 1 的 3 个已被替换)
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add src/psyteardown/kb/retriever.py tests/kb/test_retriever.py
+git commit -m "fix(kb): 拉丁按整词切分,_bigrams 更名 _tokens
+
+字符 n-gram 对拉丁文本制造假阳性:Leaderboard 与 tag onboarding 共享
+ar/bo/oa/rd,使 fogg-behavior-model 从 0 分跳到 5.55。IDF 无法挽救,
+因这些 bigram 确实罕见反被赋予高权重。改后噪声归零,回测分数不变。"
+```
+
+---
+
+### Task 2: `_pool` 框架词元池(tags + look_for)
 
 **Files:**
 - Modify: `src/psyteardown/kb/retriever.py`
@@ -138,17 +248,17 @@ Expected: FAIL — `ImportError: cannot import name '_pool'`
 
 - [ ] **Step 3: 实现**
 
-在 `_bigrams` 之后追加:
+在 `_tokens` 之后追加:
 
 ```python
 def _pool(framework: Framework) -> set[str]:
-    """框架的 bigram 池:tags + 所有原则的 look_for。"""
+    """框架的词元池:tags + 所有原则的 look_for。"""
     pool: set[str] = set()
     for tag in framework.tags:
-        pool |= _bigrams(tag)
+        pool |= _tokens(tag)
     for principle in framework.principles:
         for clue in principle.look_for:
-            pool |= _bigrams(clue)
+            pool |= _tokens(clue)
     return pool
 ```
 
@@ -261,11 +371,11 @@ Expected: FAIL — 旧 `_score(framework, keywords)` 签名不符,报 `TypeError
 
 ```python
 def _score(pool: set[str], keywords: list[str], idf: dict[str, float]) -> float:
-    """命中 bigram 的 IDF 权重之和。pool 由调用方预先算好,避免重复计算。"""
+    """命中词元的 IDF 权重之和。pool 由调用方预先算好,避免重复计算。"""
     total = 0.0
     for keyword in keywords:
-        for bigram in _bigrams(keyword) & pool:
-            total += idf.get(bigram, 0.0)
+        for token in _tokens(keyword) & pool:
+            total += idf.get(token, 0.0)
     return total
 ```
 
