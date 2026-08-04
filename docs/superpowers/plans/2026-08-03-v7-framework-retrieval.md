@@ -632,7 +632,22 @@ Expected: FAIL — 旧 `_score(framework, keywords)` 签名不符,报 `TypeError
 
 - [ ] **Step 3: 实现**
 
-删除文件中原有的 `_score` 函数(整个 `def _score(framework, keywords)` 块),在 `_idf` 之后追加:
+先收口两处 Task 3 代码审查发现的问题。
+
+其一,`_idf` 的 docstring 与循环变量仍叫 `bigram`,而 Task 1b/1d 已明确把 `_bigrams` 更名 `_tokens`(拉丁走整词,不是 bigram);此处又把这个误称带了回来。把 `_idf` 内所有 `bigram` 标识符与文案改为 `token`(函数体逻辑不变)。
+
+其二,`_idf` 现有两个测试都是 N=2、df ∈ {1,2},只覆盖"独有"与"全库皆有"两极,没有覆盖真正决定排序的中间档。追加:
+
+```python
+def test_idf_ranks_by_document_frequency():
+    # 三档 df:独有 > 部分共享 > 全库皆有;中间档才是真正决定排序的区间
+    idf = _idf([{"抽卡", "进度", "通用"}, {"签到", "进度", "通用"}, {"排行", "通用"}])
+    assert idf["通用"] == 0.0          # df=3/3
+    assert idf["抽卡"] > idf["进度"]   # df=1 重于 df=2
+    assert idf["进度"] > idf["通用"]
+```
+
+然后删除文件中原有的 `_score` 函数(整个 `def _score(framework, keywords)` 块),在 `_idf` 之后追加:
 
 ```python
 def _score(pool: set[str], keywords: list[str], idf: dict[str, float]) -> float:
