@@ -147,3 +147,28 @@ def test_idf_unique_bigram_weighs_most():
     idf = _idf([{"进度", "抽卡"}, {"进度", "签到"}])
     assert idf["抽卡"] > idf["进度"]
     assert idf["抽卡"] == idf["签到"]
+
+
+def test_idf_ranks_by_document_frequency():
+    # 三档 df:独有 > 部分共享 > 全库皆有;中间档才是真正决定排序的区间
+    idf = _idf([{"抽卡", "进度", "通用"}, {"签到", "进度", "通用"}, {"排行", "通用"}])
+    assert idf["通用"] == 0.0          # df=3/3
+    assert idf["抽卡"] > idf["进度"]   # df=1 重于 df=2
+    assert idf["进度"] > idf["通用"]
+
+
+from psyteardown.kb.retriever import _score
+
+
+def test_score_sums_idf_of_overlapping_bigrams():
+    idf = {"抽卡": 2.0, "保底": 1.0}
+    # 关键词 "抽卡保底" 的 bigram 为 {抽卡, 卡保, 保底};池中命中 抽卡 与 保底
+    assert _score({"抽卡", "保底"}, ["抽卡保底"], idf) == 3.0
+
+
+def test_score_zero_when_no_overlap():
+    assert _score({"抽卡"}, ["每日签到"], {"抽卡": 2.0}) == 0.0
+
+
+def test_score_ignores_bigram_missing_from_idf():
+    assert _score({"抽卡"}, ["抽卡"], {}) == 0.0

@@ -51,27 +51,22 @@ def _pool(framework: Framework) -> set[str]:
 
 
 def _idf(pools: list[set[str]]) -> dict[str, float]:
-    """log(N / df):出现在全部框架中的 bigram 权重为 0,越独特权重越高。"""
+    """log(N / df):出现在全部框架中的 token 权重为 0,越独特权重越高。"""
     n = len(pools)
     df: dict[str, int] = {}
     for pool in pools:
-        for bigram in pool:
-            df[bigram] = df.get(bigram, 0) + 1
-    return {bigram: math.log(n / count) for bigram, count in df.items()}
+        for token in pool:
+            df[token] = df.get(token, 0) + 1
+    return {token: math.log(n / count) for token, count in df.items()}
 
 
-def _score(framework: Framework, keywords: list[str]) -> int:
-    """每个关键词若是某 tag 的子串(或反之)记 1 分。"""
-    score = 0
-    for kw in keywords:
-        kw = kw.strip()
-        if not kw:
-            continue
-        for tag in framework.tags:
-            if kw in tag or tag in kw:
-                score += 1
-                break
-    return score
+def _score(pool: set[str], keywords: list[str], idf: dict[str, float]) -> float:
+    """命中词元的 IDF 权重之和。pool 由调用方预先算好,避免重复计算。"""
+    total = 0.0
+    for keyword in keywords:
+        for token in _tokens(keyword) & pool:
+            total += idf.get(token, 0.0)
+    return total
 
 
 def retrieve_frameworks(
