@@ -9,8 +9,9 @@ from psyteardown.kb.models import Framework
 
 # 也匹配数字:命名为 ALNUM 而非 LATIN 是有意的,勿"简化"回去。
 _ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
-# CJK 统一表意文字基本区(U+4E00–U+9FFF)。不含假名、谚文、扩展 A/B 区与全角字母,
-# 它们一律作分隔符——已审计当前语料,无此类字符。
+# CJK 统一表意文字基本区(U+4E00–U+9FFF)。假名、谚文、扩展 A/B 区不在其中,
+# 一律作分隔符——有意取舍,由测试锁定。全角字母数字不在此列:它们已被入口的
+# NFKC 归一折成 ASCII,走字母数字那一路。
 _CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 
 
@@ -36,6 +37,17 @@ def _tokens(text: str) -> set[str]:
     for run in _CJK_RUN.findall(text):
         tokens |= {run[i:i + 2] for i in range(len(run) - 1)}
     return tokens
+
+
+def _pool(framework: Framework) -> set[str]:
+    """框架的词元池:tags + 所有原则的 look_for。"""
+    pool: set[str] = set()
+    for tag in framework.tags:
+        pool |= _tokens(tag)
+    for principle in framework.principles:
+        for clue in principle.look_for:
+            pool |= _tokens(clue)
+    return pool
 
 
 def _score(framework: Framework, keywords: list[str]) -> int:

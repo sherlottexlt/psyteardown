@@ -1,5 +1,5 @@
 from psyteardown.kb.models import Framework, Principle
-from psyteardown.kb.retriever import retrieve_frameworks, _tokens
+from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool
 
 
 def _fw(id_, tags):
@@ -97,3 +97,41 @@ def test_tokens_normalizes_fullwidth_alnum():
     # 关键词由 LLM 从用户输入抽取,不受知识库审计约束,全角输入是现实可能
     assert _tokens("Ｔ０榜单") == {"t0", "榜单"}
     assert _tokens("ＡＢ测试") == {"ab", "测试"}
+
+
+def _fw_with_clues(id_, tags, clues):
+    return Framework(
+        id=id_, name=id_, category="motivation", summary="s",
+        tags=tags,
+        principles=[Principle(id="p", name="p", description="d", look_for=clues)],
+        references=["r"],
+    )
+
+
+def test_pool_includes_tags_and_look_for():
+    fw = _fw_with_clues("a", ["抽卡"], ["重复点击"])
+    pool = _pool(fw)
+    assert "抽卡" in pool          # 来自 tags
+    assert "重复" in pool          # 来自 look_for
+    assert "点击" in pool
+
+
+def test_pool_covers_every_principle():
+    # 防回归:若实现只取 principles[0],本测试失败
+    fw = Framework(
+        id="a", name="a", category="motivation", summary="s",
+        tags=["抽卡"],
+        principles=[
+            Principle(id="p1", name="p1", description="d", look_for=["重复点击"]),
+            Principle(id="p2", name="p2", description="d", look_for=["限时倒计时"]),
+        ],
+        references=["r"],
+    )
+    pool = _pool(fw)
+    assert "重复" in pool   # 第一条原则
+    assert "倒计" in pool   # 第二条原则
+
+
+def test_pool_empty_when_no_tags_no_clues():
+    fw = _fw_with_clues("a", [], [])
+    assert _pool(fw) == set()
