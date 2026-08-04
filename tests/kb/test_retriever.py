@@ -15,26 +15,67 @@ def test_keyword_match_ranks_higher():
         _fw("habit", ["习惯养成", "留存"]),
         _fw("pricing", ["定价", "促销"]),
     ]
-    result = retrieve_frameworks(library, keywords=["习惯养成"], top_n=2)
+    result = retrieve_frameworks(library, keywords=["习惯养成"], max_n=2)
     assert result[0].id == "habit"
 
 
-def test_no_match_falls_back_to_top_n():
+def test_no_match_falls_back_to_floor():
     library = [_fw("a", ["x"]), _fw("b", ["y"]), _fw("c", ["z"])]
-    result = retrieve_frameworks(library, keywords=["无关词"], top_n=2)
-    assert len(result) == 2  # 无匹配也返回 top_n,保证流水线不空转
+    result = retrieve_frameworks(library, keywords=["无关词"], max_n=2)
+    assert len(result) == 2  # 无匹配也返回 floor 个,保证流水线不空转
 
 
-def test_respects_top_n_limit():
+def test_respects_max_n_limit():
     library = [_fw(str(i), ["习惯养成"]) for i in range(10)]
-    result = retrieve_frameworks(library, keywords=["习惯养成"], top_n=3)
+    result = retrieve_frameworks(library, keywords=["习惯养成"], max_n=3)
     assert len(result) == 3
 
 
-def test_partial_substring_match_counts():
+def test_partial_bigram_match_counts():
     library = [_fw("a", ["习惯养成与留存"]), _fw("b", ["定价"])]
-    result = retrieve_frameworks(library, keywords=["习惯"], top_n=1)
+    result = retrieve_frameworks(library, keywords=["习惯"], max_n=1)
     assert result[0].id == "a"
+
+
+def test_pads_to_min_n_when_few_nonzero():
+    library = [_fw("hit", ["抽卡"])] + [_fw(f"z{i}", ["无关标签"]) for i in range(5)]
+    result = retrieve_frameworks(library, keywords=["抽卡"], max_n=8, min_n=3)
+    assert result[0].id == "hit"      # 命中的排第一
+    assert len(result) == 3           # 其余按库序补齐到 min_n
+
+
+def test_floor_never_exceeds_max_n():
+    library = [_fw(str(i), ["无关"]) for i in range(6)]
+    result = retrieve_frameworks(library, keywords=["查无此词"], max_n=2, min_n=5)
+    assert len(result) == 2           # max_n 优先于 min_n
+
+
+def test_floor_never_exceeds_library_size():
+    library = [_fw("a", ["无关"]), _fw("b", ["无关"])]
+    result = retrieve_frameworks(library, keywords=["查无此词"], max_n=8, min_n=5)
+    assert len(result) == 2
+
+
+def test_empty_library_returns_empty():
+    assert retrieve_frameworks([], keywords=["任意"], max_n=5) == []
+
+
+def test_non_positive_max_n_returns_empty():
+    library = [_fw("a", ["抽卡"])]
+    assert retrieve_frameworks(library, keywords=["抽卡"], max_n=0) == []
+
+
+def test_blank_keywords_fall_back_to_floor():
+    library = [_fw("a", ["抽卡"]), _fw("b", ["签到"]), _fw("c", ["排行"])]
+    result = retrieve_frameworks(library, keywords=["", "  "], max_n=8, min_n=2)
+    assert len(result) == 2  # 全零分 → 按库序补齐到 floor
+    assert [fw.id for fw in result] == ["a", "b"]
+
+
+def test_equal_scores_keep_library_order():
+    library = [_fw("first", ["抽卡"]), _fw("second", ["抽卡"])]
+    result = retrieve_frameworks(library, keywords=["抽卡"], max_n=2)
+    assert [fw.id for fw in result] == ["first", "second"]
 
 
 def test_tokens_splits_chinese_into_bigrams():

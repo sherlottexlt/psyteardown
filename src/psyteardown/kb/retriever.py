@@ -72,9 +72,31 @@ def _score(pool: set[str], keywords: list[str], idf: dict[str, float]) -> float:
 def retrieve_frameworks(
     library: list[Framework],
     keywords: list[str],
-    top_n: int = 5,
+    *,
+    max_n: int = 8,
+    min_n: int = 5,
 ) -> list[Framework]:
-    """按关键词与 tags 的匹配度返回 Top-N 框架;无匹配则返回前 top_n(稳定不空转)。"""
-    # 仅按匹配分降序;Python 的 sort 稳定,同分时保持原库顺序。
-    ranked = sorted(library, key=lambda f: _score(f, keywords), reverse=True)
-    return ranked[:top_n]
+    """得分 > 0 的按分降序返回,数量夹在 [floor, max_n];同分保持库序。
+    floor = min(min_n, max_n, len(library));非零不足 floor 时按库序补齐,
+    保证流水线不空转。"""
+    if not library or max_n <= 0:
+        return []
+
+    pools = [_pool(fw) for fw in library]
+    idf = _idf(pools)
+    scored = [(fw, _score(pool, keywords, idf)) for fw, pool in zip(library, pools)]
+    # sorted 稳定:同分保持原库顺序
+    ranked = [fw for fw, s in sorted(scored, key=lambda x: -x[1]) if s > 0]
+
+    if len(ranked) >= max_n:
+        return ranked[:max_n]
+
+    floor = min(min_n, max_n, len(library))
+    chosen = list(ranked)
+    picked = {fw.id for fw in chosen}
+    for fw in library:
+        if len(chosen) >= floor:
+            break
+        if fw.id not in picked:
+            chosen.append(fw)
+    return chosen
