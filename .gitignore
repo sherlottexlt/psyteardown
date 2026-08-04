@@ -5,3 +5,4 @@ __pycache__/
 .psyteardown/
 .env.local
 .field-test/store/
+.field-test/*.log
