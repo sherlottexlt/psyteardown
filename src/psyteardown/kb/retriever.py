@@ -10,7 +10,7 @@ from psyteardown.kb.models import Framework
 _ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
 # CJK 统一表意文字基本区(U+4E00–U+9FFF)。不含假名、谚文、扩展 A/B 区与全角字母,
 # 它们一律作分隔符——已审计当前语料,无此类字符。
-_CJK_RUN = re.compile(r"[一-鿿]+")
+_CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 
 
 def _tokens(text: str) -> set[str]:
