@@ -1,5 +1,5 @@
 from psyteardown.kb.models import Framework, Principle
-from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool
+from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool, _idf
 
 
 def _fw(id_, tags):
@@ -135,3 +135,15 @@ def test_pool_covers_every_principle():
 def test_pool_empty_when_no_tags_no_clues():
     fw = _fw_with_clues("a", [], [])
     assert _pool(fw) == set()
+
+
+def test_idf_common_bigram_weighs_zero():
+    # "进度" 出现在全部 2 个池中 → log(2/2) = 0
+    idf = _idf([{"进度", "抽卡"}, {"进度", "签到"}])
+    assert idf["进度"] == 0.0
+
+
+def test_idf_unique_bigram_weighs_most():
+    idf = _idf([{"进度", "抽卡"}, {"进度", "签到"}])
+    assert idf["抽卡"] > idf["进度"]
+    assert idf["抽卡"] == idf["签到"]

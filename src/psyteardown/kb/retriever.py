@@ -50,6 +50,16 @@ def _pool(framework: Framework) -> set[str]:
     return pool
 
 
+def _idf(pools: list[set[str]]) -> dict[str, float]:
+    """log(N / df):出现在全部框架中的 bigram 权重为 0,越独特权重越高。"""
+    n = len(pools)
+    df: dict[str, int] = {}
+    for pool in pools:
+        for bigram in pool:
+            df[bigram] = df.get(bigram, 0) + 1
+    return {bigram: math.log(n / count) for bigram, count in df.items()}
+
+
 def _score(framework: Framework, keywords: list[str]) -> int:
     """每个关键词若是某 tag 的子串(或反之)记 1 分。"""
     score = 0
