@@ -253,9 +253,11 @@ def test_gacha_keywords_retrieve_variable_ratio_first():
         "海克斯强化三选一",
         "Leaderboard 排行榜",  # 拉丁串:曾按字符切分而污染打分
     ]
-    result = retrieve_frameworks(library, keywords=keywords, max_n=8)
+    # min_n=0 关掉补齐:否则结果里会混入按库序补进来的框架,
+    # 使下面那条断言变成「fogg 恰好排在补齐位之后」的巧合,而非「fogg 得分为 0」。
+    result = retrieve_frameworks(library, keywords=keywords, max_n=8, min_n=0)
     ids = [fw.id for fw in result]
     assert ids[0] == "variable-ratio-reinforcement"
     # fogg-behavior-model 的 tag "onboarding" 曾与 "Leaderboard" 共享
-    # ar/bo/oa/rd,凭空得 5.55 分。整词切分后它不应因此进入结果。
+    # ar/bo/oa/rd,凭空得 5.55 分。整词切分后它得分为 0,故不应出现。
     assert "fogg-behavior-model" not in ids
