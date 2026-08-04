@@ -505,7 +505,15 @@ Expected: FAIL — `ImportError: cannot import name '_pool'`
 
 - [ ] **Step 3: 实现**
 
-在 `_tokens` 之后追加:
+先修一处 Task 1d 遗留的失真注释(其代码审查发现)。`_CJK_RUN` 上方的注释仍声称全角字母作分隔符,但 Task 1d 加了 NFKC 归一后全角字母已被折成 ASCII,该说法已不成立;末句「已审计当前语料」也正是 Task 1d 论证过的不充分理由。把该注释整体替换为:
+
+```python
+# CJK 统一表意文字基本区(U+4E00–U+9FFF)。假名、谚文、扩展 A/B 区不在其中,
+# 一律作分隔符——有意取舍,由测试锁定。全角字母数字不在此列:它们已被入口的
+# NFKC 归一折成 ASCII,走字母数字那一路。
+```
+
+然后在 `_tokens` 之后追加:
 
 ```python
 def _pool(framework: Framework) -> set[str]:
