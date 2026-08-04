@@ -57,7 +57,7 @@ def test_tokens_mixed_script():
 
 
 def test_tokens_punctuation_and_space_separate():
-    assert _tokens("刷新 动画") == {"刷新", "动画"}  # 不再跨隙产生「新动」
+    assert _tokens("刷新 动画/特效") == {"刷新", "动画", "特效"}  # 不再跨隙产生「新动」
 
 
 def test_tokens_two_chars_is_boundary():
@@ -72,3 +72,20 @@ def test_tokens_too_short_returns_empty():
     assert _tokens("卡") == set()
     assert _tokens("") == set()
     assert _tokens("、,。") == set()
+
+
+def test_tokens_drops_bare_digits_and_single_letters():
+    # 语义为空却因罕见拿到最高 IDF,属与拉丁字符切分同类的假阳性
+    assert _tokens("第0天") == set()
+    assert _tokens("99") == set()
+    assert _tokens("X倍") == set()
+
+
+def test_tokens_keeps_alnum_labels():
+    assert _tokens("T0/T1 榜单") == {"t0", "t1", "榜单"}
+
+
+def test_tokens_non_cjk_scripts_are_separators():
+    # 仅覆盖 CJK 基本区;假名/谚文作分隔符(已审计当前语料无此类字符)
+    assert _tokens("ガチャ") == set()
+    assert _tokens("抽卡ガチャ保底") == {"抽卡", "保底"}
