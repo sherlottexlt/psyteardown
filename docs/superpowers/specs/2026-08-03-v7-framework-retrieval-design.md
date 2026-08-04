@@ -113,8 +113,8 @@
 kb/retriever.py        实质改写(现 28 行)
   _tokens(text)          → set[str]   中文 2-gram + 拉丁整词(小写)
   _pool(framework)       → set[str]   tags + 所有 look_for 的词元并集
-  _idf(library)          → dict[str, float]   log(N / df)
-  _score(fw, kws, idf)   → float      命中词元的 IDF 权重之和
+  _idf(pools)            → dict[str, float]   log(N / df)
+  _score(pool, kws, idf) → float      命中词元的 IDF 权重之和(pool 由调用方预算)
   retrieve_frameworks(library, keywords, *, max_n=8, min_n=5)
 
 pipeline/steps.py      仅签名透传(retrieve 的 top_n → max_n/min_n)
@@ -129,14 +129,15 @@ growth/proposer.py     prompt 增加一句:tags 与 look_for 必须用中文
 ## 4. 选取规则(精确定义)
 
 ```
-idf     = _idf(library)
-scored  = [(fw, _score(fw, keywords, idf)) for fw in library]
+pools   = [_pool(fw) for fw in library]          # 每框架只算一次
+idf     = _idf(pools)
+scored  = [(fw, _score(pool, keywords, idf)) for fw, pool in zip(library, pools)]
 nonzero = [fw for fw, s in scored if s > 0]  按 s 降序;同分保持库序(稳定排序)
 
 若 len(nonzero) >= max_n:  返回 nonzero[:max_n]
 
 result = nonzero
-floor  = min(min_n, max_n, len(library))
+floor  = max(0, min(min_n, max_n, len(library)))
 按库序遍历不在 result 中的框架,追加直到 len(result) == floor
 返回 result
 ```
@@ -197,8 +198,8 @@ floor  = min(min_n, max_n, len(library))
 
 **单元测试(`tests/kb/test_retriever.py` 扩写)**
 
-- `_bigrams`:中文切分正确;去空白;长度 < 2 → 空集
-- `_idf`:出现在全部框架中的 bigram 权重为 0;仅出现在 1 个框架中的权重最高
+- `_tokens`:中文切 2-gram;拉丁取整词转小写;全角经 NFKC 折成 ASCII;纯数字/单字符过滤
+- `_idf`:出现在全部框架中的词元权重为 0;仅出现在 1 个框架中的权重最高;df 中间档排序正确
 - 排序:构造迷你库,语义正确的框架胜出
 - 同分稳定性:分数相同时保持库序
 - 上限:非零数 > `max_n` → 恰好返回 `max_n` 个
@@ -223,7 +224,7 @@ floor  = min(min_n, max_n, len(library))
 2. 报告中实际使用的框架数 > 5
 3. 自评不再把 variable ratio reinforcement 列为漏拆
 
-第 3 条是行为验收而非单元测试,结果记入 field-test。**注意:自评分不具区分度(v1~v3 三版均为 0.62),不得用分数变化作为验收依据。**
+第 3 条是行为验收而非单元测试,结果记入 field-test。**注意:不得用自评分变化作为验收依据**(v1~v3 三版均为 0.62;v5 降至 0.50 但覆盖面更广——见第 10 节)。
 
 ---
 
