@@ -207,6 +207,148 @@ ar/bo/oa/rd,使 fogg-behavior-model 从 0 分跳到 5.55。IDF 无法挽救,
 
 ---
 
+### Task 1c: 过滤空语义词元 + 可读性收口
+
+**Files:**
+- Modify: `src/psyteardown/kb/retriever.py`
+- Test: `tests/kb/test_retriever.py`
+
+**为何存在这个任务:** Task 1b 的代码审查发现,纯数字与单字符拉丁词元语义为空却因罕见拿到**最高** IDF 权重,与拉丁字符切分属同一类缺陷。实测:「第0天引导」仅凭数字 `0` 就匹配 `near-goal-persistence` 得 2.48 分(来自其线索「差0.01元/0.1%提现」);「X倍暴击」仅凭单字母 `x` 匹配 `cialdini-influence` 得 2.48(来自线索「X 人正在看」)。加过滤后两者均归零,而 `T0`/`T1`/`XP`/`ELO` 等真实信号不受影响。已实测:种子库 Task 7 排名与 spec 第 5 节 6 案例回测分数**一字不变**。
+
+同时收口三处可读性问题(均来自同一次审查):CJK 区间改用 `\u` 转义、模块 docstring 陈旧、`_LATIN_RUN` 名不副实。
+
+- [ ] **Step 1: 改写与新增测试**
+
+把 `test_tokens_punctuation_and_space_separate` 替换为(输入补上真正的标点):
+
+```python
+def test_tokens_punctuation_and_space_separate():
+    assert _tokens("刷新 动画/特效") == {"刷新", "动画", "特效"}  # 不再跨隙产生「新动」
+```
+
+追加 3 个新测试:
+
+```python
+def test_tokens_drops_bare_digits_and_single_letters():
+    # 语义为空却因罕见拿到最高 IDF,属与拉丁字符切分同类的假阳性
+    assert _tokens("第0天") == set()
+    assert _tokens("99") == set()
+    assert _tokens("X倍") == set()
+
+
+def test_tokens_keeps_alnum_labels():
+    assert _tokens("T0/T1 榜单") == {"t0", "t1", "榜单"}
+
+
+def test_tokens_non_cjk_scripts_are_separators():
+    # 仅覆盖 CJK 基本区;假名/谚文作分隔符(已审计当前语料无此类字符)
+    assert _tokens("ガチャ") == set()
+    assert _tokens("抽卡ガチャ保底") == {"抽卡", "保底"}
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: FAIL — `test_tokens_drops_bare_digits_and_single_letters` 失败(当前 `_tokens("99")` 返回 `{"99"}`,`_tokens("X倍")` 返回 `{"x"}`);`test_tokens_punctuation_and_space_separate` 通过(`/` 本就是分隔符);另两个新测试通过。
+
+- [ ] **Step 3: 实现**
+
+把 `src/psyteardown/kb/retriever.py` 的首行 docstring、正则常量与 `_tokens` 整体替换为:
+
+```python
+"""框架检索:产品关键词与框架线索的词元重叠,按 IDF 加权打分。
+接口签名为将来换向量检索预留。"""
+
+import math
+import re
+
+from psyteardown.kb.models import Framework
+
+# 也匹配数字,故名 ALNUM 而非 LATIN。
+_ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
+# CJK 统一表意文字基本区(U+4E00–U+9FFF)。不含假名、谚文、扩展 A/B 区与全角字母,
+# 它们一律作分隔符——已审计当前语料,无此类字符。
+_CJK_RUN = re.compile(r"[一-鿿]+")
+
+
+def _tokens(text: str) -> set[str]:
+    """检索用词元:连续中文段切字符 2-gram,连续拉丁/数字段取整词并转小写。
+
+    字符 n-gram 是中文分词的手段;拉丁文本自带词边界,按字符切只会制造假匹配
+    (Leaderboard 与 onboarding 共享 ar/bo/oa/rd)。空白与标点一律作分隔符。
+
+    拉丁词元须长度 >= 2 且非纯数字:单字母与裸数字语义为空,却因罕见而拿到最高
+    IDF 权重,属同一类假阳性。T0/XP/ELO 等真实信号不受影响。
+    """
+    tokens = {
+        word.lower()
+        for word in _ALNUM_RUN.findall(text)
+        if len(word) >= 2 and not word.isdigit()
+    }
+    for run in _CJK_RUN.findall(text):
+        tokens |= {run[i:i + 2] for i in range(len(run) - 1)}
+    return tokens
+```
+
+注意 `_CJK_RUN` 从字面 CJK 字符改为 `一-鿿` 转义:两者字节等价,但转义写法可被 grep 到、不依赖编辑器编码正确、且边界可读(原写法末尾的 `鿿` 多数字体渲染为豆腐块,审查者无法目视校验)。
+
+**CRITICAL 约束:** 文件中现存的 `_score` 与 `retrieve_frameworks` 是旧实现,本任务**完全不要碰**——由后续 Task 4 和 Task 5 替换。`import math` 目前未被使用是预期的(Task 3 才会用到),不要删。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: 11 passed
+
+Run: `python -m pytest -q`
+Expected: `207 passed, 2 skipped`
+
+- [ ] **Step 5: 验证回测未受影响**
+
+```bash
+source .env.local && python -c "
+import math
+from pathlib import Path
+from psyteardown.kb.loader import load_frameworks
+from psyteardown.kb.retriever import _tokens
+lib=load_frameworks()
+pools=[]
+for f in lib:
+    p=set()
+    for x in list(f.tags)+[c for pr in f.principles for c in pr.look_for]: p|=_tokens(x)
+    pools.append(p)
+df={}
+for P in pools:
+    for b in P: df[b]=df.get(b,0)+1
+N=len(lib); idf={b: math.log(N/c) for b,c in df.items()}
+kws=['自走棋/Auto Battler手游','商店刷新动画','概率抽取与共享卡池','小小英雄开蛋','海克斯强化三选一']
+for v,k in sorted(((round(sum(idf[b] for w in kws for b in _tokens(w)&P),2), f.id) for f,P in zip(lib,pools)),reverse=True)[:3]:
+    print(f'{v:>6}  {k}')
+"
+```
+
+Expected 逐字为:
+```
+   9.7  variable-ratio-reinforcement
+  2.08  peak-end-rule
+  1.39  hook-model
+```
+
+若数值有任何变化,说明过滤条件写错了,**不要调整期望值**,回查实现。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/psyteardown/kb/retriever.py tests/kb/test_retriever.py
+git commit -m "fix(kb): 过滤纯数字与单字符词元,CJK 区间改 \\u 转义
+
+裸数字与单字母语义为空却因罕见拿到最高 IDF 权重,与拉丁字符切分
+属同一类假阳性:「第0天引导」仅凭 0 匹配 near-goal-persistence 2.48 分,
+「X倍暴击」仅凭 x 匹配 cialdini-influence 2.48 分。加过滤后归零,
+T0/T1/XP/ELO 等真实信号不受影响,回测分数一字不变。"
+```
+
+---
+
 ### Task 2: `_pool` 框架词元池(tags + look_for)
 
 **Files:**
@@ -630,12 +772,14 @@ def test_gacha_keywords_retrieve_variable_ratio_first():
         "概率抽取与共享卡池",
         "小小英雄开蛋",
         "海克斯强化三选一",
+        "Leaderboard 排行榜",  # 拉丁串:曾按字符切分而污染打分
     ]
     result = retrieve_frameworks(library, keywords=keywords, max_n=8)
     ids = [fw.id for fw in result]
     assert ids[0] == "variable-ratio-reinforcement"
-    # 通用 bigram(进度/操作/时间)造成的假阳性不得挤到它前面
-    assert "fogg-behavior-model" not in ids[: ids.index("variable-ratio-reinforcement")]
+    # fogg-behavior-model 的 tag "onboarding" 曾与 "Leaderboard" 共享
+    # ar/bo/oa/rd,凭空得 5.55 分。整词切分后它不应因此进入结果。
+    assert "fogg-behavior-model" not in ids
 ```
 
 - [ ] **Step 2: 运行测试确认通过**
