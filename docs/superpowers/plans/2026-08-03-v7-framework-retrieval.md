@@ -802,8 +802,10 @@ def retrieve_frameworks(
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `python -m pytest tests/kb/test_retriever.py -v`
-Expected: 全部 passed(4 个改写 + 5 个新增 + 前三任务的 10 个）
+Run: `python -m pytest tests/kb/ -q`
+Expected: 全部 passed(实测 45 个)
+
+**注意本任务结束时全量套件仍是红的**,且波及范围比"只有 pipeline 测试"大得多:实测 **36 个失败**,分布在 `tests/pipeline/`(6)、`tests/mcp_server/test_tools.py`(10)、`tests/test_cli*.py`(20)。根因只有一处——`src/psyteardown/pipeline/steps.py:33` 仍以 `top_n=` 调用。CLI 与 MCP 的测试并不自己传 `top_n`,它们只是走了流水线,失败表现为 `result.exit_code != 0`。**不要在本任务修它们**,Task 6 改一行 `steps.py` 即可让这 36 个一次性转绿。
 
 - [ ] **Step 5: 提交**
 
