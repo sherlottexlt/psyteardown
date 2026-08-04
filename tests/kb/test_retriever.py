@@ -1,3 +1,4 @@
+from psyteardown.kb.loader import load_frameworks
 from psyteardown.kb.models import Framework, Principle
 from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool, _idf, _score
 
@@ -235,3 +236,26 @@ def test_score_zero_when_no_overlap():
 
 def test_score_ignores_bigram_missing_from_idf():
     assert _score({"抽卡"}, ["抽卡"], {}) == 0.0
+
+
+def test_gacha_keywords_retrieve_variable_ratio_first():
+    """回归:抽卡/自走棋关键词必须检索到可变比率强化。
+
+    历史 bug:打分只看 tags 且用子串匹配,导致该框架永远进不了 top-5,
+    step3 从未见过它,自评却反复指出它缺席。
+    """
+    library = load_frameworks()  # 仅种子,不依赖 gitignore 的 learned 目录
+    keywords = [
+        "自走棋/Auto Battler手游",
+        "商店刷新动画",
+        "概率抽取与共享卡池",
+        "小小英雄开蛋",
+        "海克斯强化三选一",
+        "Leaderboard 排行榜",  # 拉丁串:曾按字符切分而污染打分
+    ]
+    result = retrieve_frameworks(library, keywords=keywords, max_n=8)
+    ids = [fw.id for fw in result]
+    assert ids[0] == "variable-ratio-reinforcement"
+    # fogg-behavior-model 的 tag "onboarding" 曾与 "Leaderboard" 共享
+    # ar/bo/oa/rd,凭空得 5.55 分。整词切分后它不应因此进入结果。
+    assert "fogg-behavior-model" not in ids
