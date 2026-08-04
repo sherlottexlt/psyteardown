@@ -77,8 +77,8 @@ def retrieve_frameworks(
     min_n: int = 5,
 ) -> list[Framework]:
     """得分 > 0 的按分降序返回,数量夹在 [floor, max_n];同分保持库序。
-    floor = min(min_n, max_n, len(library));非零不足 floor 时按库序补齐,
-    保证流水线不空转。"""
+    floor = max(0, min(min_n, max_n, len(library)));非零不足 floor 时按库序补齐。
+    min_n >= 1 时保证非空,流水线不空转;min_n <= 0 表示不设下限。"""
     if not library or max_n <= 0:
         return []
 
@@ -91,12 +91,12 @@ def retrieve_frameworks(
     if len(ranked) >= max_n:
         return ranked[:max_n]
 
-    floor = min(min_n, max_n, len(library))
+    floor = max(0, min(min_n, max_n, len(library)))
     chosen = list(ranked)
-    picked = {fw.id for fw in chosen}
+    picked = {id(fw) for fw in chosen}
     for fw in library:
         if len(chosen) >= floor:
             break
-        if fw.id not in picked:
+        if id(fw) not in picked:
             chosen.append(fw)
     return chosen

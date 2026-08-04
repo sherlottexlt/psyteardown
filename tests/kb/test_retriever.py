@@ -1,5 +1,5 @@
 from psyteardown.kb.models import Framework, Principle
-from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool, _idf
+from psyteardown.kb.retriever import retrieve_frameworks, _tokens, _pool, _idf, _score
 
 
 def _fw(id_, tags):
@@ -26,12 +26,14 @@ def test_no_match_falls_back_to_floor():
 
 
 def test_respects_max_n_limit():
-    library = [_fw(str(i), ["习惯养成"]) for i in range(10)]
-    result = retrieve_frameworks(library, keywords=["习惯养成"], max_n=3)
+    # 每个框架各有专属 tag → df=1 → 得分非零,真正走截断分支
+    tags = ["抽卡", "签到", "排行", "倒计", "社交", "进度", "成就", "邀请", "收藏", "订阅"]
+    library = [_fw(t, [t]) for t in tags]
+    result = retrieve_frameworks(library, keywords=[t + "功能" for t in tags], max_n=3)
     assert len(result) == 3
 
 
-def test_partial_bigram_match_counts():
+def test_partial_token_match_counts():
     library = [_fw("a", ["习惯养成与留存"]), _fw("b", ["定价"])]
     result = retrieve_frameworks(library, keywords=["习惯"], max_n=1)
     assert result[0].id == "a"
@@ -73,9 +75,32 @@ def test_blank_keywords_fall_back_to_floor():
 
 
 def test_equal_scores_keep_library_order():
-    library = [_fw("first", ["抽卡"]), _fw("second", ["抽卡"])]
-    result = retrieve_frameworks(library, keywords=["抽卡"], max_n=2)
+    # first/second 同分且非零(0.405),other 为 0 → 真正走稳定排序
+    library = [_fw("first", ["抽卡"]), _fw("second", ["抽卡"]), _fw("other", ["签到"])]
+    result = retrieve_frameworks(library, keywords=["抽卡机制"], max_n=2)
     assert [fw.id for fw in result] == ["first", "second"]
+
+
+def test_keeps_all_nonzero_scorers_beyond_min_n():
+    # 本次重写的主命题:得分 > 0 的全部入选,不因 min_n 而截短
+    tags = ["抽卡", "签到", "排行", "倒计", "社交", "进度"]
+    library = [_fw(t, [t]) for t in tags]
+    result = retrieve_frameworks(library, keywords=[t + "机制" for t in tags],
+                                 max_n=8, min_n=2)
+    assert len(result) == 6
+
+
+def test_duplicate_framework_ids_still_fill_to_floor():
+    # 补齐若按 fw.id 判重,库内重复 id 会少填一个
+    library = [_fw("dup", ["抽卡"]), _fw("dup", ["签到"]), _fw("other", ["排行"])]
+    result = retrieve_frameworks(library, keywords=["抽卡机制"], max_n=8, min_n=3)
+    assert len(result) == 3
+
+
+def test_non_positive_min_n_clamps_to_zero():
+    # min_n <= 0 视为「不设下限」,返回空而非产生负数 floor
+    library = [_fw("a", ["抽卡"])]
+    assert retrieve_frameworks(library, keywords=["查无此词"], max_n=8, min_n=-1) == []
 
 
 def test_tokens_splits_chinese_into_bigrams():
@@ -178,13 +203,13 @@ def test_pool_empty_when_no_tags_no_clues():
     assert _pool(fw) == set()
 
 
-def test_idf_common_bigram_weighs_zero():
+def test_idf_common_token_weighs_zero():
     # "进度" 出现在全部 2 个池中 → log(2/2) = 0
     idf = _idf([{"进度", "抽卡"}, {"进度", "签到"}])
     assert idf["进度"] == 0.0
 
 
-def test_idf_unique_bigram_weighs_most():
+def test_idf_unique_token_weighs_most():
     idf = _idf([{"进度", "抽卡"}, {"进度", "签到"}])
     assert idf["抽卡"] > idf["进度"]
     assert idf["抽卡"] == idf["签到"]
@@ -198,10 +223,7 @@ def test_idf_ranks_by_document_frequency():
     assert idf["进度"] > idf["通用"]
 
 
-from psyteardown.kb.retriever import _score
-
-
-def test_score_sums_idf_of_overlapping_bigrams():
+def test_score_sums_idf_of_overlapping_tokens():
     idf = {"抽卡": 2.0, "保底": 1.0}
     # 关键词 "抽卡保底" 的 bigram 为 {抽卡, 卡保, 保底};池中命中 抽卡 与 保底
     assert _score({"抽卡", "保底"}, ["抽卡保底"], idf) == 3.0
