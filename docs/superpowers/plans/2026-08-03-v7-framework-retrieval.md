@@ -349,6 +349,121 @@ T0/T1/XP/ELO 等真实信号不受影响,回测分数一字不变。"
 
 ---
 
+### Task 1d: 全角归一 + 文档说真话
+
+**Files:**
+- Modify: `src/psyteardown/kb/retriever.py`
+- Test: `tests/kb/test_retriever.py`
+
+**为何存在这个任务:** Task 1c 的代码审查提出两条 Important。
+
+其一,`_tokens` 的 docstring 仍把字母数字词元称作「拉丁词元」——而 Task 1c 的既定目标之一正是「让名字说真话」。该句自相矛盾:若真是拉丁词元,「非纯数字」这个条件就是废话。
+
+其二,全角字母数字被静默丢弃:`_tokens("Ｔ０榜单")` 只得到 `{"榜单"}`,`ＡＢ测试` 只得到 `{"测试"}`。Task 1c 注释里那句「已审计当前语料」只覆盖**静态知识库**,而产品关键词是 LLM 从**用户输入**中抽取的,不受该审计约束——中文语境下出现 `ＡＢ测试`、`Ｔ０` 远比出现假名可能。危害是静默漏匹配(不会产生假阳性),但一行 NFKC 归一即可根治。已实测:全角被正确折成 ASCII,回测分数 `9.7 / 2.08 / 1.39` **完全不变**。
+
+顺带收口三条 Minor:两个语义无关的字面量 `2`、过滤理由与 IDF 过度耦合、`_ALNUM_RUN` 的注释没说清它在防什么。
+
+- [ ] **Step 1: 新增与改写测试**
+
+追加:
+
+```python
+def test_tokens_normalizes_fullwidth_alnum():
+    # 关键词由 LLM 从用户输入抽取,不受知识库审计约束,全角输入是现实可能
+    assert _tokens("Ｔ０榜单") == {"t0", "榜单"}
+    assert _tokens("ＡＢ测试") == {"ab", "测试"}
+```
+
+在 `test_tokens_drops_bare_digits_and_single_letters` 末尾追加一条隔离用例(现有 3 条断言里有 2 条同时依赖「过滤生效」与「汉字太短不成 bigram」两个原因,失败时定位不到过滤器):
+
+```python
+    # 隔离用例:字母被丢弃的同时,中文词元照常保留
+    assert _tokens("X倍暴击") == {"倍暴", "暴击"}
+```
+
+把 `test_tokens_punctuation_and_space_separate` 的行尾注释改为(输入已含 `/`,原注释只提到空格):
+
+```python
+    assert _tokens("刷新 动画/特效") == {"刷新", "动画", "特效"}  # 空格与 / 均为分隔符
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: FAIL — `test_tokens_normalizes_fullwidth_alnum` 失败(当前 `_tokens("Ｔ０榜单")` 返回 `{"榜单"}`)。隔离用例与注释改动应当通过。
+
+- [ ] **Step 3: 实现**
+
+在 `import re` 之后加入 `import unicodedata`;把 `_ALNUM_RUN` 的注释与整个 `_tokens` 替换为:
+
+```python
+# 也匹配数字:命名为 ALNUM 而非 LATIN 是有意的,勿"简化"回去。
+_ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
+```
+
+```python
+def _tokens(text: str) -> set[str]:
+    """检索用词元:连续中文段切字符 2-gram,连续字母数字段取整词并转小写。
+
+    先做 NFKC 归一,把全角字母数字(ＡＢ/Ｔ０)折成 ASCII——产品关键词由 LLM 从
+    用户输入中抽取,不受知识库语料审计的约束,全角输入是现实可能。
+
+    字符 n-gram 是中文分词的手段;拉丁文本自带词边界,按字符切只会制造假匹配
+    (Leaderboard 与 onboarding 共享 ar/bo/oa/rd)。空白与标点一律作分隔符。
+
+    字母数字词元须长度 >= 2 且非纯数字:单字母与裸数字没有检索价值,这与打分
+    方式无关;在当前 IDF 方案下它们更因罕见而拿到最高权重。形如 T0/XP/ELO 的
+    标签不受影响。此处的 2 是最小词元长度,与 CJK bigram 的宽度无关。
+    """
+    text = unicodedata.normalize("NFKC", text)
+    tokens = {
+        word.lower()
+        for word in _ALNUM_RUN.findall(text)
+        if len(word) >= 2 and not word.isdigit()
+    }
+    for run in _CJK_RUN.findall(text):
+        tokens |= {run[i:i + 2] for i in range(len(run) - 1)}
+    return tokens
+```
+
+**CRITICAL 约束:** `_score` 与 `retrieve_frameworks` **完全不要碰**(Task 4/5 替换)。`import math` 保留(Task 3 用)。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `python -m pytest tests/kb/test_retriever.py -k tokens -v`
+Expected: 12 passed
+
+Run: `python -m pytest -q`
+Expected: `208 passed, 2 skipped`
+
+- [ ] **Step 5: 验证回测未受影响**
+
+跑 Task 1c Step 5 的同一段脚本,输出必须仍逐字为:
+
+```
+   9.7  variable-ratio-reinforcement
+  2.08  peak-end-rule
+  1.39  hook-model
+```
+
+若有任何变化,**不要调整期望值**,回查实现并报告。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/psyteardown/kb/retriever.py tests/kb/test_retriever.py
+git commit -m "fix(kb): NFKC 归一全角字母数字,docstring 停止把词元称作拉丁
+
+全角字母数字此前被静默丢弃(Ｔ０榜单 只得到 榜单)。知识库语料审计
+覆盖不到产品关键词——后者由 LLM 从用户输入抽取。NFKC 一行根治,
+回测分数不变。
+
+docstring 仍把字母数字词元称作「拉丁词元」,使「非纯数字」这个条件
+读起来像废话;一并改正。"
+```
+
+---
+
 ### Task 2: `_pool` 框架词元池(tags + look_for)
 
 **Files:**
