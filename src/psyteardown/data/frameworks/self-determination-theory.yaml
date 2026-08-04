@@ -7,7 +7,7 @@ principles:
   - id: autonomy
     name: 自主(Autonomy)
     description: 用户感到行为出于自己的选择。
-    look_for: [可自定义, 可跳过, 非强制路径]
+    look_for: [可自定义, 可跳过, 非强制路径, 跳过引导, 免打扰, 自定义时长]
   - id: competence
     name: 胜任(Competence)
     description: 用户感到自己在进步、能掌控。
