@@ -3,10 +3,11 @@
 
 import math
 import re
+import unicodedata
 
 from psyteardown.kb.models import Framework
 
-# 也匹配数字,故名 ALNUM 而非 LATIN。
+# 也匹配数字:命名为 ALNUM 而非 LATIN 是有意的,勿"简化"回去。
 _ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
 # CJK 统一表意文字基本区(U+4E00–U+9FFF)。不含假名、谚文、扩展 A/B 区与全角字母,
 # 它们一律作分隔符——已审计当前语料,无此类字符。
@@ -14,14 +15,19 @@ _CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 
 
 def _tokens(text: str) -> set[str]:
-    """检索用词元:连续中文段切字符 2-gram,连续拉丁/数字段取整词并转小写。
+    """检索用词元:连续中文段切字符 2-gram,连续字母数字段取整词并转小写。
+
+    先做 NFKC 归一,把全角字母数字(ＡＢ/Ｔ０)折成 ASCII——产品关键词由 LLM 从
+    用户输入中抽取,不受知识库语料审计的约束,全角输入是现实可能。
 
     字符 n-gram 是中文分词的手段;拉丁文本自带词边界,按字符切只会制造假匹配
     (Leaderboard 与 onboarding 共享 ar/bo/oa/rd)。空白与标点一律作分隔符。
 
-    拉丁词元须长度 >= 2 且非纯数字:单字母与裸数字语义为空,却因罕见而拿到最高
-    IDF 权重,属同一类假阳性。T0/XP/ELO 等真实信号不受影响。
+    字母数字词元须长度 >= 2 且非纯数字:单字母与裸数字没有检索价值,这与打分
+    方式无关;在当前 IDF 方案下它们更因罕见而拿到最高权重。形如 T0/XP/ELO 的
+    标签不受影响。此处的 2 是最小词元长度,与 CJK bigram 的宽度无关。
     """
+    text = unicodedata.normalize("NFKC", text)
     tokens = {
         word.lower()
         for word in _ALNUM_RUN.findall(text)

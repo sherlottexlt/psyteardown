@@ -57,7 +57,7 @@ def test_tokens_mixed_script():
 
 
 def test_tokens_punctuation_and_space_separate():
-    assert _tokens("刷新 动画/特效") == {"刷新", "动画", "特效"}  # 不再跨隙产生「新动」
+    assert _tokens("刷新 动画/特效") == {"刷新", "动画", "特效"}  # 空格与 / 均为分隔符
 
 
 def test_tokens_two_chars_is_boundary():
@@ -79,6 +79,8 @@ def test_tokens_drops_bare_digits_and_single_letters():
     assert _tokens("第0天") == set()
     assert _tokens("99") == set()
     assert _tokens("X倍") == set()
+    # 隔离用例:字母被丢弃的同时,中文词元照常保留
+    assert _tokens("X倍暴击") == {"倍暴", "暴击"}
 
 
 def test_tokens_keeps_alnum_labels():
@@ -89,3 +91,9 @@ def test_tokens_non_cjk_scripts_are_separators():
     # 仅覆盖 CJK 基本区;假名/谚文作分隔符(已审计当前语料无此类字符)
     assert _tokens("ガチャ") == set()
     assert _tokens("抽卡ガチャ保底") == {"抽卡", "保底"}
+
+
+def test_tokens_normalizes_fullwidth_alnum():
+    # 关键词由 LLM 从用户输入抽取,不受知识库审计约束,全角输入是现实可能
+    assert _tokens("Ｔ０榜单") == {"t0", "榜单"}
+    assert _tokens("ＡＢ测试") == {"ab", "测试"}
