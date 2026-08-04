@@ -20,14 +20,15 @@ def run_teardown(
     *,
     generated_at: str,
     model_label: str | None = None,
-    top_n: int = 5,
+    max_n: int = 8,
+    min_n: int = 5,
     prior_summary: str | None = None,
     strategy_cards: list[StrategyCard] | None = None,
 ) -> TeardownResult:
     """跑完整流水线。generated_at 由调用方传入(脚本环境禁用 datetime.now)。
     prior_summary 注入 step3;strategy_cards 按 target_step 分发注入 step3/step4。"""
     profile = steps.parse_product(provider, description)
-    frameworks = steps.retrieve(profile, library, top_n=top_n)
+    frameworks = steps.retrieve(profile, library, max_n=max_n, min_n=min_n)
     map_guide = select_for(strategy_cards, profile, "mapping") if strategy_cards else None
     assess_guide = select_for(strategy_cards, profile, "assessment") if strategy_cards else None
     mappings = steps.map_features(provider, profile, frameworks,
