@@ -45,6 +45,8 @@ def propose_frameworks(
         "找出反复出现、且上述现有框架都无法很好解释的心理学模式,"
         f"提出至多 {max_candidates} 个全新框架。每个框架给出 id(kebab-case)、name、"
         "category、summary、tags、principles(每条含 id/name/description/look_for)、"
+        "其中 tags 与 look_for 必须使用中文(id 保持 kebab-case 英文),"
+        "因为检索按中文产品描述与它们做匹配;"
         "references、ethics_notes;在 rationale 说明为何现有框架盖不住,"
         f"在 source_case_ids 列出支撑它的案例 id(至少 {min_support} 个)。"
     )

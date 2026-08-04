@@ -25,12 +25,15 @@ def parse_product(provider: LLMProvider, description: str) -> ProductProfile:
 
 
 def retrieve(
-    profile: ProductProfile, library: list[Framework], top_n: int = 5
+    profile: ProductProfile,
+    library: list[Framework],
+    max_n: int = 8,
+    min_n: int = 5,
 ) -> list[Framework]:
     """Step 2:纯代码,按产品类型/功能/触点关键词检索相关框架。"""
     keywords = [profile.product_type, *profile.touchpoints]
     keywords += [f.name for f in profile.features]
-    return retrieve_frameworks(library, keywords=keywords, top_n=top_n)
+    return retrieve_frameworks(library, keywords=keywords, max_n=max_n, min_n=min_n)
 
 
 def _frameworks_brief(frameworks: list[Framework]) -> str:

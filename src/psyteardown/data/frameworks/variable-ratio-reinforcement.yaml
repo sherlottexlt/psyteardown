@@ -1,0 +1,43 @@
+id: variable-ratio-reinforcement
+name: 可变比率强化
+category: habit
+summary: 奖励在不确定的尝试次数后到来,产生所有强化程序中最高、最难消退的反应频率;近失结果与低单次成本进一步放大重复尝试。
+tags: [操作性条件反射, 强化程序, 抽卡, 赌博机制, 重复行为, 消退抵抗]
+principles:
+  - id: variable-ratio-schedule
+    name: 可变比率程序
+    description: 奖励按尝试次数而非时间发放,且所需次数每轮随机,用户无法预判还差几次,因而维持高频重复尝试。与"奖励内容多变"不同,此处强调的是达成奖励所需的行为次数不可预知。
+    look_for:
+      - 每次刷新/抽取的结果不可预知
+      - 平均若干次出货但具体次数不定
+      - 重复点击同一按钮直到出货
+      - 概率公示但单次结果独立
+  - id: near-miss
+    name: 近失效应
+    description: 差一点成功的结果在神经反应上接近真正的中奖,反而强化继续尝试的冲动,而非被解读为失败。
+    look_for:
+      - 已凑齐两个还差一个
+      - 卡池只差一张即可合成/升星
+      - 结算显示"仅差一名/一分"
+      - 未中奖但展示接近的稀有结果
+  - id: low-response-cost
+    name: 低反应成本
+    description: 单次尝试的时间与资源代价极低且可立即重复,使高频反应在主观上不构成"决定",绕过深思熟虑。
+    look_for:
+      - 单次刷新仅需极少资源
+      - 无冷却可连续点击
+      - 一键连抽/十连
+      - 尝试与结果之间几乎无延迟
+  - id: extinction-resistance
+    name: 消退抵抗
+    description: 可变比率训练出的行为在奖励停止后仍长期持续,因为"下一次可能就中"始终无法被证伪,表现为连续未出货后反而加大投入。
+    look_for:
+      - 连续失败后加大投入而非退出
+      - 「再来一次就收手」的自述
+      - 长时间未出货仍持续尝试
+      - 归因于运气而非停止行为
+references:
+  - "Ferster, C. B. & Skinner, B. F. (1957). Schedules of Reinforcement."
+  - "Griffiths, M. (1991). Psychobiology of the near-miss in fruit machine gambling."
+  - "Kassinove, J. I. & Schare, M. L. (2001). Effects of the near miss and the big win on persistence at slot machine gambling."
+ethics_notes: 可变比率是赌博机的核心强化程序,用于非博彩产品时应评估其诱导过度投入与财务风险的程度;近失效应尤其容易被用于制造"就差一点"的错觉,需警惕对未成年人与易感人群的影响。

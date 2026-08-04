@@ -38,7 +38,7 @@ def test_run_teardown_full_pipeline():
 
     result = run_teardown(
         provider, "每日签到App描述", library=_library(),
-        generated_at="2026-06-13", top_n=5,
+        generated_at="2026-06-13", max_n=5,
     )
 
     assert result.product.name == "Demo"

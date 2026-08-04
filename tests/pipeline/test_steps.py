@@ -32,7 +32,7 @@ def test_step1_parse_product():
 def test_step2_retrieve_is_pure_no_llm():
     provider = FakeProvider()  # 空队列;若 step2 调 LLM 会抛错
     library = [_fw("habit", ["习惯养成", "推送"]), _fw("pricing", ["定价"])]
-    frameworks = steps.retrieve(_profile(), library, top_n=1)
+    frameworks = steps.retrieve(_profile(), library, max_n=1)
     assert frameworks[0].id == "habit"
     assert provider.calls == []  # 确认未触 LLM
 
