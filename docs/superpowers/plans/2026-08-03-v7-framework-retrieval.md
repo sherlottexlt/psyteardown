@@ -886,6 +886,139 @@ git commit -m "refactor(pipeline): top_n 更名 max_n 并透传 min_n"
 
 ---
 
+### Task 6b: 让测试真正测到排序,并修两处边界
+
+**Files:**
+- Modify: `src/psyteardown/kb/retriever.py`
+- Test: `tests/kb/test_retriever.py`
+
+**为何存在这个任务:** Tasks 4-6 的代码审查发现,**这次重写的核心行为完全没有被测到**。
+
+根因是测试夹具的设计缺陷:原有夹具让所有框架共用同一个 tag,于是 `df == N`,IDF 权重 `log(N/N)` 全为 **0**,所有框架得分都是 0.0。测试之所以通过,走的是**补齐路径**而非排序路径:
+
+- `test_respects_max_n_limit`:10 个框架同 tag → 全 0 分 → `ranked` 为空 → 返回 3 个靠的是 `floor = min(5,3,10) = 3` 的巧合。**改掉截断逻辑,该测试照样通过。**
+- `test_equal_scores_keep_library_order`:两个框架同 tag → 全 0 分 → 断言的顺序来自补齐循环,`sorted` 的稳定性从未被执行。
+- 全库没有任何一个测试覆盖「得分 > 0 的全部入选、且数量超过 `min_n`」——也就是本次重写的主命题。
+
+插桩统计佐证:整个测试文件里 `ranked[:max_n]` 分支只被命中 **1** 次,补齐分支命中 8 次。
+
+另修两处边界缺陷(同一次审查):`min_n` 为负时 `floor` 变负,返回空列表,违背 docstring 的「流水线不空转」承诺;补齐循环用 `fw.id` 判重,库内若有重复 id 会少填。
+
+以下夹具均已实测确认得分非零(B 全为 2.303,C 为 0.405 vs 0.0),不会重蹈"靠补齐路径蒙混通过"的覆辙。
+
+- [ ] **Step 1: 改写与新增测试**
+
+把 `test_respects_max_n_limit` 与 `test_equal_scores_keep_library_order` **整体替换**为:
+
+```python
+def test_respects_max_n_limit():
+    # 每个框架各有专属 tag → df=1 → 得分非零,真正走截断分支
+    tags = ["抽卡", "签到", "排行", "倒计", "社交", "进度", "成就", "邀请", "收藏", "订阅"]
+    library = [_fw(t, [t]) for t in tags]
+    result = retrieve_frameworks(library, keywords=[t + "功能" for t in tags], max_n=3)
+    assert len(result) == 3
+
+
+def test_equal_scores_keep_library_order():
+    # first/second 同分且非零(0.405),other 为 0 → 真正走稳定排序
+    library = [_fw("first", ["抽卡"]), _fw("second", ["抽卡"]), _fw("other", ["签到"])]
+    result = retrieve_frameworks(library, keywords=["抽卡机制"], max_n=2)
+    assert [fw.id for fw in result] == ["first", "second"]
+```
+
+追加 3 个新测试:
+
+```python
+def test_keeps_all_nonzero_scorers_beyond_min_n():
+    # 本次重写的主命题:得分 > 0 的全部入选,不因 min_n 而截短
+    tags = ["抽卡", "签到", "排行", "倒计", "社交", "进度"]
+    library = [_fw(t, [t]) for t in tags]
+    result = retrieve_frameworks(library, keywords=[t + "机制" for t in tags],
+                                 max_n=8, min_n=2)
+    assert len(result) == 6
+
+
+def test_duplicate_framework_ids_still_fill_to_floor():
+    # 补齐若按 fw.id 判重,库内重复 id 会少填一个
+    library = [_fw("dup", ["抽卡"]), _fw("dup", ["签到"]), _fw("other", ["排行"])]
+    result = retrieve_frameworks(library, keywords=["抽卡机制"], max_n=8, min_n=3)
+    assert len(result) == 3
+
+
+def test_non_positive_min_n_clamps_to_zero():
+    # min_n <= 0 视为「不设下限」,返回空而非产生负数 floor
+    library = [_fw("a", ["抽卡"])]
+    assert retrieve_frameworks(library, keywords=["查无此词"], max_n=8, min_n=-1) == []
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `python -m pytest tests/kb/test_retriever.py -q`
+Expected: `test_duplicate_framework_ids_still_fill_to_floor` 失败(实际返回 2 个,期望 3 个)。其余新测试应当通过——它们锁定的是**已经正确**的行为,属回归锁,不走红绿循环。
+
+- [ ] **Step 3: 实现**
+
+在 `retrieve_frameworks` 中,把 `floor` 计算与补齐循环替换为:
+
+```python
+    floor = max(0, min(min_n, max_n, len(library)))
+    chosen = list(ranked)
+    picked = {id(fw) for fw in chosen}
+    for fw in library:
+        if len(chosen) >= floor:
+            break
+        if id(fw) not in picked:
+            chosen.append(fw)
+    return chosen
+```
+
+改动有二:`max(0, ...)` 夹住负 `min_n`;判重从 `fw.id`(值相等)改为 `id(fw)`(对象同一性)——`ranked` 中的元素本就是 `library` 里的同一批对象,用对象同一性判重才是这里真正要表达的意思。
+
+同时把 `retrieve_frameworks` docstring 中的不空转承诺限定条件写清:
+
+```
+    """得分 > 0 的按分降序返回,数量夹在 [floor, max_n];同分保持库序。
+    floor = max(0, min(min_n, max_n, len(library)));非零不足 floor 时按库序补齐。
+    min_n >= 1 时保证非空,流水线不空转;min_n <= 0 表示不设下限。"""
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `python -m pytest -q`
+Expected: `227 passed, 2 skipped`,无 failed
+
+- [ ] **Step 5: 顺带修测试命名漂移**
+
+Task 1b 已把 `_bigrams` 更名 `_tokens`(拉丁走整词,不再是 bigram),但下列测试名仍用旧词。改名(仅函数名,断言不动):
+
+- `test_score_sums_idf_of_overlapping_bigrams` → `test_score_sums_idf_of_overlapping_tokens`
+- `test_partial_bigram_match_counts` → `test_partial_token_match_counts`
+- `test_idf_common_bigram_weighs_zero` → `test_idf_common_token_weighs_zero`
+- `test_idf_unique_bigram_weighs_most` → `test_idf_unique_token_weighs_most`
+
+另把 `tests/kb/test_retriever.py` 文件中段那条重复的 `from psyteardown.kb.retriever import _score` 删掉(文件顶部已导入同一模块)。
+
+Run: `python -m pytest -q` → 仍应为 `227 passed, 2 skipped`
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/psyteardown/kb/retriever.py tests/kb/test_retriever.py
+git commit -m "test(kb): 让测试真正走排序分支;修 min_n 负值与重复 id 补齐
+
+原夹具让所有框架共用同一 tag,df==N 使 IDF 全为 0,所有得分为 0.0,
+测试实际走的是补齐路径:test_respects_max_n_limit 返回 3 个靠的是
+floor 巧合,改掉截断逻辑照样通过;稳定排序从未被执行;「得分>0 全入选」
+这一主命题全库无测试覆盖(插桩:截断分支仅命中 1 次)。
+
+改用各框架专属 tag 使 df=1、得分非零,并补主命题测试。
+
+另修:min_n 为负时 floor 变负、返回空,违背不空转承诺 → 夹到 0;
+补齐循环按 fw.id 判重,库内重复 id 会少填 → 改用对象同一性。"
+```
+
+---
+
 ### Task 7: 回归测试锁死本次 bug
 
 **Files:**
