@@ -84,3 +84,25 @@ def test_analyze_out_creates_parent_dirs(tmp_path):
                             "--out", str(out), "--provider", "fake"])
     assert r.exit_code == 0, r.stdout
     assert out.exists()
+
+
+def test_analyze_max_n_flag_reaches_pipeline(tmp_path, monkeypatch):
+    """CLI --max-n 必须落到 run_teardown;flag 只在最外层新增,内层 v7 已透传。"""
+    from psyteardown.mcp_server import tools
+
+    seen = {}
+    real = tools.run_teardown
+    monkeypatch.setattr(tools, "run_teardown",
+                        lambda *a, **k: (seen.update(k), real(*a, **k))[1])
+
+    src = tmp_path / "product.txt"
+    src.write_text("一个每日签到App,有推送提醒。", encoding="utf-8")
+    result = runner.invoke(app, [
+        "analyze", "-i", str(src), "-o", str(tmp_path / "r.md"),
+        "--store", str(tmp_path / "cases.db"),
+        "--provider", "fake", "--embed-provider", "fake",
+        "--max-n", "12", "--min-n", "1",
+    ])
+    assert result.exit_code == 0, result.stdout
+    assert seen["max_n"] == 12
+    assert seen["min_n"] == 1
