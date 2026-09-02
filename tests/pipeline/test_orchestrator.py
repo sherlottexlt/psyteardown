@@ -25,7 +25,7 @@ def test_run_teardown_full_pipeline():
     )
     mapping = Mapping(
         feature="签到", framework_id="habit", principle_id="trigger",
-        rationale="r", evidence="e", confidence=0.9,
+        rationale="r", evidence="每日签到App描述", confidence=0.9,
     )
     # 队列顺序:step1 profile → step3 两次(签到 + 推送触点)→ step4 → step5
     provider = FakeProvider(structured_responses=[
@@ -48,6 +48,8 @@ def test_run_teardown_full_pipeline():
     assert result.citations[0].references == ["r"]  # 出处从库带入结果
     assert result.assessment.ethics_warnings == ["伦"]
     assert result.meta.model == "fake"
+    assert result.grounding.kept == 1
+    assert result.grounding.dropped == 0
 
 
 def test_provider_label_deepseek(monkeypatch):
@@ -66,3 +68,30 @@ def test_provider_label_unknown_class_uses_class_name():
         pass
 
     assert _provider_label(SomeNewProvider()) == "SomeNewProvider"
+
+
+def test_run_teardown_records_dropped_mappings():
+    """未溯源映射不进 result.mappings,但全文进 grounding.dropped_mappings。"""
+    profile = ProductProfile(
+        name="Demo", product_type="App", one_liner="每日签到App",
+        features=[Feature(name="签到", description="每日签到", user_goal="拿奖励")],
+        touchpoints=["推送"],
+    )
+    fabricated = Mapping(
+        feature="签到", framework_id="habit", principle_id="trigger",
+        rationale="r", evidence="连续打卡显示徽章与排行榜", confidence=0.9,
+    )
+    provider = FakeProvider(structured_responses=[
+        profile,
+        MappingList(mappings=[fabricated]),
+        MappingList(mappings=[]),
+        ExperienceAssessment(),
+        Synthesis(executive_summary="总结"),
+    ])
+    result = run_teardown(
+        provider, "每日签到App描述", library=_library(),
+        generated_at="t", max_n=5,
+    )
+    assert result.mappings == []
+    assert result.grounding.dropped == 1
+    assert result.grounding.dropped_mappings[0].evidence == "连续打卡显示徽章与排行榜"

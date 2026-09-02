@@ -29,7 +29,7 @@ def _mapping():
 
 def test_prior_summary_injected_into_step3_prompt():
     provider = FakeProvider(structured_responses=[MappingList(mappings=[_mapping()])])
-    steps.map_features(provider, _profile(), [_fw()],
+    steps.map_features(provider, _profile(), [_fw()], "每日签到App描述",
                        prior_summary="- 旧产品X(一句话):用过框架 hook-model")
     prompt = provider.calls[0]["prompt"]
     assert "旧产品X" in prompt
@@ -38,5 +38,5 @@ def test_prior_summary_injected_into_step3_prompt():
 
 def test_no_prior_summary_means_no_reference_block():
     provider = FakeProvider(structured_responses=[MappingList(mappings=[_mapping()])])
-    steps.map_features(provider, _profile(), [_fw()])  # 默认 None
+    steps.map_features(provider, _profile(), [_fw()], "每日签到App描述")  # 默认 None
     assert "仅供参考" not in provider.calls[0]["prompt"]
