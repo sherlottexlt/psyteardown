@@ -164,3 +164,43 @@ def test_review_case_tool_missing(tmp_path):
     from psyteardown.mcp_server.tools import review_case_tool
     out = review_case_tool("nope", store=tmp_path / "cases.db", llm=_fake_llm())
     assert out == "案例不存在:nope"
+
+
+def test_analyze_product_threads_max_n_to_retrieval(tmp_path, monkeypatch):
+    """--max-n/--min-n 必须真的传到 run_teardown,而不是被静默吞掉。
+
+    这是纯管道测试:v7 已把 max_n 透传到 retriever/steps/orchestrator 三层,
+    但最外层(analyze_product / CLI)一直没暴露,导致调用方只能吃默认值
+    (v7 spec §11 第二条记过这个口子)。
+    """
+    from psyteardown.mcp_server import tools
+
+    seen = {}
+    real = tools.run_teardown
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(tools, "run_teardown", spy)
+    analyze_product(_fake_llm(), "社交产品:动态推送点赞",
+                    store=tmp_path / "cases.db", now="t",
+                    embed_factory=_fake_embed_factory,
+                    max_n=12, min_n=1)
+    assert seen["max_n"] == 12
+    assert seen["min_n"] == 1
+
+
+def test_analyze_product_max_n_defaults_unchanged(tmp_path, monkeypatch):
+    """默认值仍是 v7 的 8/5 —— 新增选项不得改变既有行为。"""
+    from psyteardown.mcp_server import tools
+
+    seen = {}
+    real = tools.run_teardown
+    monkeypatch.setattr(tools, "run_teardown",
+                        lambda *a, **k: (seen.update(k), real(*a, **k))[1])
+    analyze_product(_fake_llm(), "社交产品:动态推送点赞",
+                    store=tmp_path / "cases.db", now="t",
+                    embed_factory=_fake_embed_factory)
+    assert seen["max_n"] == 8
+    assert seen["min_n"] == 5

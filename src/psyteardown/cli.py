@@ -53,6 +53,8 @@ def analyze(
     use_strategies: bool = typer.Option(False, "--use-strategies", help="注入已批准的拆解策略卡"),
     self_review: bool = typer.Option(False, "--self-review",
                                      help="拆解后追加一次 LLM 自评(默认关)"),
+    max_n: int = typer.Option(8, "--max-n", help="送入映射的框架数上限;等于库容量即不截断"),
+    min_n: int = typer.Option(5, "--min-n", help="框架数下限;不足时按库序补齐"),
     provider: str = typer.Option("claude", "--provider", hidden=True,
                                  envvar="PSYTEARDOWN_LLM"),
     embed_provider: str = typer.Option("local", "--embed-provider", hidden=True,
@@ -71,7 +73,7 @@ def analyze(
         embed_factory=lambda: _build_embed_provider(embed_provider),
         use_memory=use_memory, no_save=no_save,
         use_strategies=use_strategies, self_review=self_review, fmt=fmt,
-        review_fn=review_case,
+        max_n=max_n, min_n=min_n, review_fn=review_case,
     )
     for w in outcome.warnings:
         typer.echo(w, err=True)

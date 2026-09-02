@@ -73,6 +73,8 @@ def analyze_product(
     use_strategies: bool = False,
     self_review: bool = False,
     fmt: str = "md",
+    max_n: int = 8,
+    min_n: int = 5,
     review_fn: Callable = review_case,
 ) -> AnalyzeOutcome:
     """CLI analyze 与 MCP teardown 的共享编排。description 须非空(调用方校验)。
@@ -106,7 +108,8 @@ def analyze_product(
         strategy_cards = StrategyStore(store.parent).list_approved()
 
     result = run_teardown(llm, description, library=library, generated_at=now,
-                          prior_summary=prior_summary, strategy_cards=strategy_cards)
+                          prior_summary=prior_summary, strategy_cards=strategy_cards,
+                          max_n=max_n, min_n=min_n)
 
     # 自评是增强:失败降级,不拖垮报告(与记忆功能同风格)。
     review_obj: CaseReview | None = None
@@ -147,6 +150,8 @@ def teardown_tool(
     use_memory: bool = False,
     use_strategies: bool = False,
     self_review: bool = False,
+    max_n: int = 8,
+    min_n: int = 5,
 ) -> str:
     """MCP teardown:拆解产品描述 → Markdown 报告文本(默认落盘案例)。"""
     text = (description or "").strip()
@@ -155,7 +160,8 @@ def teardown_tool(
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     o = analyze_product(llm, text, store=store, now=now,
                         embed_factory=embed_factory, use_memory=use_memory,
-                        use_strategies=use_strategies, self_review=self_review)
+                        use_strategies=use_strategies, self_review=self_review,
+                        max_n=max_n, min_n=min_n)
     parts = [o.rendered]
     if o.case_id:
         parts.append(f"已落盘案例 {o.case_id}")
