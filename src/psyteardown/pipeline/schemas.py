@@ -35,10 +35,13 @@ class MappingList(BaseModel):
     mappings: list[Mapping] = Field(default_factory=list)
 
 
+# --- Step 3 证据溯源 ---
 class GroundingStats(BaseModel):
     """step3 证据溯源记账。只统计参与校验的条目(m.error 为空者):
+    kept = 在产品描述中找到逐字原文的条目数;dropped = 未找到原文的条目数。
     kept + dropped = LLM 成功返回的映射总数,不含调用失败的占位条目。
-    保留被丢弃条目全文,供事后归类「真编造」还是「改写误伤」(spec §8 标准 3)。"""
+    保留被丢弃条目全文,供事后归类「真编造」还是「改写误伤」(spec §8 标准 3)。
+    期望不变式:len(dropped_mappings) == dropped。"""
 
     kept: int = 0
     dropped: int = 0
