@@ -23,9 +23,31 @@ def test_fullwidth_punctuation_difference_still_grounded():
     assert is_grounded("可单独播放或叠加混音，支持定时关闭", SOURCE)
 
 
+def test_fullwidth_alnum_requires_nfkc():
+    # isalnum() 过滤器自己就能吃掉全角标点(见上一条测试),不需要 NFKC 参与。
+    # NFKC 唯一独有的作用是折叠全角字母/数字(０-９、Ａ-Ｚ→0-9、A-Z)。
+    # 这条测试专门锁死这一点:去掉 normalize() 里的 NFKC 调用,本测试会失败
+    # (已用变异测试验证,其余 9 条测试即使删掉 NFKC 也全绿)。
+    source = "潮汐App限时优惠30分钟解锁全部音景。"
+    assert is_grounded("限时优惠３０分钟解锁全部音景", source)
+
+
 def test_quote_crossing_punctuation_is_grounded():
     # 引用跨越顿号:标点删除后是连续字符序列
     assert is_grounded("雨声、海浪、森林", SOURCE)
+
+
+def test_cross_sentence_splice_is_known_false_positive():
+    # 已知的、被接受的权衡(spec §9 第 3 条):normalize() 删除全部标点,包括句号「。」,
+    # 所以两个语义无关、被句号分隔的独立句子,只要拼接处字符序列连续,就会被误判为
+    # 「原文连续片段」。下面这句「续费潮汐App还支持每日」从未在原文里连续出现过——
+    # 它是前一句的句尾接上后一句的句头拼出来的。
+    #
+    # 这条测试的目的不是背书这个行为,而是把它钉在回归套件里,不让它被意外发现。
+    # 如果未来某次改动让这条测试变成 False,那是改进,应该更新/删掉这条测试,
+    # 而不是去改回当前实现让它继续 True。
+    source = "到期自动续费。潮汐App还支持每日提醒。"
+    assert is_grounded("续费潮汐App还支持每日", source)
 
 
 def test_prefix_rewording_not_grounded():
@@ -37,9 +59,12 @@ def test_invented_detail_not_grounded():
     assert not is_grounded("连续打卡显示徽章", SOURCE)
 
 
-def test_short_quote_not_grounded():
-    # 「专注」是真原文子串,但两个字什么都证明不了(spec §5.2 长度门槛)
+def test_long_enough_quote_is_grounded():
     assert is_grounded("专注计时与睡眠助眠", SOURCE)
+
+
+def test_quote_below_min_chars_not_grounded():
+    # 「专注」是真原文子串,但两个字什么都证明不了(spec §5.2 长度门槛)
     assert not is_grounded("专注", SOURCE)
 
 
@@ -47,9 +72,14 @@ def test_empty_quote_not_grounded():
     assert not is_grounded("", SOURCE)
 
 
-def test_casefold_and_fullwidth_alnum():
-    # casefold 折叠大小写;NFKC 折叠全角字母数字
+def test_casefold_folds_case():
+    # casefold 折叠大小写:「APP」与原文里的「App」应视为同一序列
     assert is_grounded("正念类APP", SOURCE)
+
+
+def test_normalize_strips_punctuation_whitespace_and_case():
+    # 直接测 normalize:混合全角/半角标点、空白、大小写,归一化后只剩纯小写字母数字
+    assert normalize("Hello, 世界! （测试） World.") == "hello世界测试world"
 
 
 def test_min_quote_chars_locked():
