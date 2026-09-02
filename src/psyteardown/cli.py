@@ -83,6 +83,7 @@ def analyze(
         typer.echo(f"已写入 {out}")
     else:
         typer.echo(outcome.rendered)
+        typer.echo(f"\n证据溯源记账: kept={outcome.result.grounding.kept}, dropped={outcome.result.grounding.dropped}")
     if outcome.case_id:
         typer.echo(f"已落盘案例 {outcome.case_id}")
 

@@ -2,9 +2,21 @@ import json
 
 from psyteardown.pipeline.schemas import (
     ProductProfile, Feature, Mapping, ExperienceAssessment, TeardownResult,
-    TeardownMeta, FrameworkCitation,
+    TeardownMeta, FrameworkCitation, GroundingStats,
 )
 from psyteardown.report.render import render_markdown, render_json
+
+
+def _mapping(feature: str, evidence: str) -> Mapping:
+    """测试用辅助:创建一个最简映射。"""
+    return Mapping(
+        feature=feature,
+        framework_id="test-fw",
+        principle_id="test-principle",
+        rationale="测试理由",
+        evidence=evidence,
+        confidence=0.8,
+    )
 
 
 def _result():
@@ -33,6 +45,7 @@ def _result():
         ),
         executive_summary="这是一个依赖习惯回路的签到产品。",
         meta=TeardownMeta(model="claude-opus-4-8", generated_at="2026-06-13"),
+        grounding=GroundingStats(kept=3, dropped=1, dropped_mappings=[_mapping("ghost", "编造的证据")]),
     )
 
 
@@ -108,3 +121,16 @@ def test_json_with_review_adds_top_level_key():
 def test_json_without_review_no_key():
     payload = _json.loads(render_json(_result_for_review()))
     assert "review" not in payload
+
+
+def test_grounding_section_renders_stats_and_appendix():
+    result = _result()
+    md = render_markdown(result)
+    assert "## 证据溯源记账" in md
+    assert "kept=3" in md and "dropped=1" in md
+    assert "### 附录:未溯源映射(1 条)" in md
+    assert "**功能/触点:** ghost" in md
+    assert "**Framework:** test-fw / test-principle" in md
+    assert "**Evidence:** 编造的证据" in md
+    assert "**Rationale:** 测试理由" in md
+    assert "**Confidence:** 0.8" in md
