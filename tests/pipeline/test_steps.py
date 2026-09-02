@@ -119,6 +119,20 @@ def test_step3_dropped_mapping_also_gets_target_feature():
     assert stats.dropped_mappings[0].feature == "签到"
 
 
+def test_step3_drops_evidence_below_min_quote_chars():
+    # is_grounded 有长度下限(6 个归一化字符)。模型若只返回「签到」这类极短片段,
+    # 即便是原文子串也必须丢弃,否则任何含「签到」二字的描述都能让该 mapping 通过。
+    short = Mapping(feature="签到", framework_id="habit", principle_id="p",
+                    rationale="r", evidence="签到", confidence=0.9)
+    provider = FakeProvider(structured_responses=[
+        MappingList(mappings=[short]), MappingList(mappings=[]),
+    ])
+    mappings, stats = steps.map_features(
+        provider, _profile(), [_fw("habit", ["习惯养成"])], _DESC)
+    assert mappings == []
+    assert stats.dropped == 1
+
+
 def test_step4_assess_experience():
     assessment = ExperienceAssessment(
         strengths=["强"], friction_points=["阻"], ethics_warnings=["伦"], opportunities=["机"],

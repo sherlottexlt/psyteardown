@@ -58,8 +58,8 @@ def map_features(
 ) -> tuple[list[Mapping], GroundingStats]:
     """Step 3:逐功能/触点映射到框架原则。单项失败标 error 并继续。
 
-    description=产品原文,evidence 的唯一合法来源:prompt 要求逐字引用,
-    is_grounded 校验,未通过的映射丢弃并记入 GroundingStats(spec 2026-09-02)。
+    description=产品原文全文,注入 prompt 作为 evidence 引用源,同时用于
+    is_grounded(evidence, description) 校验;未通过者丢弃并记入 GroundingStats。
     prior_summary=历史相似案例;strategy_guidance=历史归纳的拆解策略(均仅供参考)。"""
     brief = _frameworks_brief(frameworks)
     valid_ids = ", ".join(fw.id for fw in frameworks)
@@ -87,7 +87,7 @@ def map_features(
             f"framework_id 必须来自这些 id: {valid_ids}。"
             "若适用多条,返回最贴切的若干条 mapping。\n"
             "字段硬性要求:\n"
-            "- evidence 必须是上方产品原文中的一段连续原文,逐字复制,不得改写、拼接、增删;\n"
+            "- evidence 必须是产品原文中的文字片段(归一化后连续),逐字复制原文实词,标点与空格可忽略;不得改写、拼接多处、或增删实词;\n"
             "- 原文中找不到支持该判断的文字,就不要产出这条 mapping;宁可少给,不可编造;\n"
             "- 一切解读、推理、心理学解释写进 rationale,不得写进 evidence。"
         )
