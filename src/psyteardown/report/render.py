@@ -70,7 +70,7 @@ def render_markdown(result: TeardownResult, *, review: CaseReview | None = None)
         out.append(
             f"- **{m.feature}** → `{m.framework_id}·{m.principle_id}`"
             f"(置信 {m.confidence:.2f}{flag})\n"
-            f"  - 体现:{m.evidence}\n"
+            f"  - **原文依据:**{m.evidence}\n"
             f"  - 为何有效:{m.rationale}"
         )
     out.append("")

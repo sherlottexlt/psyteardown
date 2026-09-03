@@ -134,3 +134,12 @@ def test_grounding_section_renders_stats_and_appendix():
     assert "**Evidence:** 编造的证据" in md
     assert "**Rationale:** 测试理由" in md
     assert "**Confidence:** 0.8" in md
+
+
+def test_evidence_label_is_yuanwen_yiju():
+    """验证 spec 要求:逐条的「体现:」改为「**原文依据:**」。"""
+    result = _result()
+    md = render_markdown(result)
+    assert "**原文依据:**" in md
+    assert "- **原文依据:**每日推送提醒" in md  # 第一条映射的 evidence
+    assert "  - 体现:" not in md  # 旧标签不应出现
