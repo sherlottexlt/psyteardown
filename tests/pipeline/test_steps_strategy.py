@@ -28,7 +28,7 @@ def _mapping():
 
 def test_map_features_injects_strategy_guidance():
     provider = FakeProvider(structured_responses=[MappingList(mappings=[_mapping()])])
-    steps.map_features(provider, _profile(), [_fw()],
+    steps.map_features(provider, _profile(), [_fw()], "产品描述文本",
                        strategy_guidance="- 社交产品优先社交证明")
     prompt = provider.calls[0]["prompt"]
     assert "社交产品优先社交证明" in prompt

@@ -31,9 +31,10 @@ def run_teardown(
     frameworks = steps.retrieve(profile, library, max_n=max_n, min_n=min_n)
     map_guide = select_for(strategy_cards, profile, "mapping") if strategy_cards else None
     assess_guide = select_for(strategy_cards, profile, "assessment") if strategy_cards else None
-    mappings = steps.map_features(provider, profile, frameworks,
-                                  prior_summary=prior_summary,
-                                  strategy_guidance=map_guide or None)
+    mappings, grounding_stats = steps.map_features(
+        provider, profile, frameworks, description,
+        prior_summary=prior_summary,
+        strategy_guidance=map_guide or None)
     assessment = steps.assess_experience(provider, profile, mappings,
                                          strategy_guidance=assess_guide or None)
     summary = steps.synthesize(provider, profile, mappings, assessment)
@@ -46,6 +47,7 @@ def run_teardown(
             for fw in frameworks
         ],
         mappings=mappings,
+        grounding=grounding_stats,
         assessment=assessment,
         executive_summary=summary,
         meta=TeardownMeta(

@@ -2,7 +2,7 @@
 
 import json
 
-from psyteardown.pipeline.schemas import TeardownResult
+from psyteardown.pipeline.schemas import TeardownResult, GroundingStats
 from psyteardown.review.models import CaseReview
 
 LOW_CONFIDENCE = 0.5
@@ -14,6 +14,31 @@ def render_json(result: TeardownResult, *, review: CaseReview | None = None) -> 
     payload = result.model_dump()
     payload["review"] = review.model_dump()
     return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _render_grounding_stats(stats: GroundingStats) -> str:
+    """渲染 step3 证据溯源记账:kept/dropped 计数 + 被丢弃映射的附录清单。"""
+    lines = [
+        "## 证据溯源记账",
+        "",
+        f"kept={stats.kept}, dropped={stats.dropped}",
+        "",
+    ]
+    if stats.dropped_mappings:
+        lines.extend([
+            f"### 附录:未溯源映射({len(stats.dropped_mappings)} 条)",
+            "",
+            "以下映射的 evidence 未在产品原文中找到逐字引用,已从正文中移除:",
+            "",
+        ])
+        for m in stats.dropped_mappings:
+            lines.append(f"- **功能/触点:** {m.feature}")
+            lines.append(f"  **Framework:** {m.framework_id} / {m.principle_id}")
+            lines.append(f"  **Evidence:** {m.evidence}")
+            lines.append(f"  **Rationale:** {m.rationale}")
+            lines.append(f"  **Confidence:** {m.confidence}")
+            lines.append("")
+    return "\n".join(lines)
 
 
 def render_markdown(result: TeardownResult, *, review: CaseReview | None = None) -> str:
@@ -45,19 +70,22 @@ def render_markdown(result: TeardownResult, *, review: CaseReview | None = None)
         out.append(
             f"- **{m.feature}** → `{m.framework_id}·{m.principle_id}`"
             f"(置信 {m.confidence:.2f}{flag})\n"
-            f"  - 体现:{m.evidence}\n"
+            f"  - **原文依据:**{m.evidence}\n"
             f"  - 为何有效:{m.rationale}"
         )
     out.append("")
 
-    # 4. 整体体验评估
+    # 4. 证据溯源记账
+    out.append(_render_grounding_stats(result.grounding))
+
+    # 5. 整体体验评估
     a = result.assessment
     out.append("## 整体体验评估\n")
     out.append(f"- 优势:{_join(a.strengths)}")
     out.append(f"- 摩擦点:{_join(a.friction_points)}")
     out.append("")
 
-    # 5. 伦理 / 暗黑模式提示
+    # 6. 伦理 / 暗黑模式提示
     out.append("## ⚠️ 伦理 / 暗黑模式提示\n")
     if a.ethics_warnings:
         for w in a.ethics_warnings:

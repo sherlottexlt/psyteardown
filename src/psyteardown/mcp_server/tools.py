@@ -14,7 +14,7 @@ from psyteardown.memory.retrieval import search_similar, summarize_cases
 from psyteardown.memory.store import CaseStore
 from psyteardown.pipeline.orchestrator import run_teardown
 from psyteardown.pipeline.schemas import (
-    ExperienceAssessment, ProductProfile, Synthesis,
+    ExperienceAssessment, ProductProfile, Synthesis, TeardownResult,
 )
 from psyteardown.report.render import render_json, render_markdown
 from psyteardown.review.critic import review_case
@@ -57,6 +57,7 @@ def build_embed_provider(name: str) -> EmbeddingProvider:
 @dataclass
 class AnalyzeOutcome:
     rendered: str                  # 渲染好的报告(md 或 json)
+    result: TeardownResult         # 拆解结果(供 CLI 提取 grounding 等字段)
     case_id: str | None            # 落盘成功时的案例 id;未落盘 → None
     warnings: list[str] = field(default_factory=list)   # 降级提示(与 CLI 文案一致)
 
@@ -138,7 +139,7 @@ def analyze_product(
         except Exception as e:  # noqa: BLE001
             warnings.append(f"提示:案例落盘失败({e}),报告已照常产出。")
 
-    return AnalyzeOutcome(rendered=rendered, case_id=case_id, warnings=warnings)
+    return AnalyzeOutcome(rendered=rendered, result=result, case_id=case_id, warnings=warnings)
 
 
 def teardown_tool(
