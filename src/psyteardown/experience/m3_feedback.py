@@ -41,6 +41,7 @@ class DesignFeedbackResult:
     next_prompt: str | None
     critiques: tuple[Critique, ...]
     candidates: tuple[DesignCandidate, ...] = ()
+    iteration_id: str | None = None
 
 
 def generate_candidates(brief: DesignBrief, *, generator: CandidateGenerator, n: int | None = None, count: int | None = None, actor: str = "system", round_number: int = 1, prompt: object | None = None) -> tuple[DesignCandidate, ...]:
@@ -199,6 +200,10 @@ def run_feedback_loop(brief: DesignBrief, *, generator: CandidateGenerator, n: i
         next_prompt=None,
         critiques=critiques,
         candidates=candidates,
+        # The standalone loop has not yet been attached to an iteration
+        # aggregate; the application service adds that lineage when the brief
+        # is frozen and persisted.
+        iteration_id=None,
     )
 
 
@@ -226,6 +231,7 @@ def select_feedback_candidate(
         next_prompt=prompt,
         critiques=result.critiques,
         candidates=result.candidates,
+        iteration_id=result.iteration_id,
     )
 
 
@@ -253,6 +259,7 @@ def build_feedback_selection(result: DesignFeedbackResult, *, actor: str = "huma
 def render_feedback_json(result: DesignFeedbackResult) -> str:
     return json.dumps({
         "brief_revision_id": result.brief_revision_id,
+        "iteration_id": result.iteration_id,
         "candidate_ids": list(result.candidate_ids),
         "critique_ids": list(result.critique_ids),
         "ranked_candidate_ids": list(result.ranked_candidate_ids),
@@ -261,3 +268,36 @@ def render_feedback_json(result: DesignFeedbackResult) -> str:
         "critiques": [item.model_dump(mode="json") for item in result.critiques],
         "candidates": [item.model_dump(mode="json") for item in result.candidates],
     }, ensure_ascii=False, indent=2)
+
+
+def render_feedback_markdown(result: DesignFeedbackResult) -> str:
+    """Render a compact, auditable cross-candidate comparison report."""
+    lines = [
+        "# Design feedback", "",
+        f"- Brief revision: `{result.brief_revision_id}`",
+        f"- Ranked candidates: {', '.join(result.ranked_candidate_ids) or 'none'}",
+        f"- Human selection: `{result.selected_candidate_id or 'pending'}`", "",
+        "## Candidate comparison", "",
+        "| Candidate | Hard risks | Unknowns | Actionable changes |",
+        "|---|---:|---:|---:|",
+    ]
+    for critique in result.critiques:
+        lines.append(
+            f"| `{critique.candidate_id}` | {len(critique.hard_risks)} | {len(critique.unknowns)} | {len(critique.actionable_changes)} |"
+        )
+    lines += ["", "## Review notes", ""]
+    for critique in result.critiques:
+        lines.append(f"### `{critique.candidate_id}`")
+        if critique.hard_risks:
+            lines.append("- hard risks: " + "; ".join(critique.hard_risks))
+        if critique.tradeoffs:
+            lines.append("- tradeoffs: " + "; ".join(critique.tradeoffs))
+        if critique.actionable_changes:
+            lines.append("- actionable changes: " + "; ".join(critique.actionable_changes))
+        if critique.unknowns:
+            lines.append("- unknowns: " + "; ".join(critique.unknowns))
+        lines.append("")
+    if result.next_prompt:
+        lines += ["## Next-round prompt", "", "```json", result.next_prompt, "```", ""]
+    lines.append("_Generation and ranking do not constitute human approval or experiment evidence._")
+    return "\n".join(lines) + "\n"

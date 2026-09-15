@@ -127,6 +127,22 @@ class ExperienceApplicationService:
             self.repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
         for critique in result.critiques:
             self.repository.save("critique", critique.critique_id, critique.revision_id, critique)
+        # When the brief is already frozen, attach the bundle to the normal
+        # iteration aggregate.  Draft briefs remain export-only until a human
+        # freezes them through the existing command boundary.
+        if brief.status == "frozen":
+            iteration = self.create_iteration(brief, round_number=1, actor=actor)
+            iteration = self._advance_iteration(
+                iteration,
+                actor=actor,
+                reason="M3 feedback candidates imported",
+                status=IterationStatus.CANDIDATES_IMPORTED,
+                candidate_revision_ids=tuple(item.candidate_revision_id for item in result.candidates),
+                divergence_gaps=check_batch_divergence(result.candidates, brief),
+            )
+            result = result.__class__(
+                **{**result.__dict__, "iteration_id": iteration.iteration_id}
+            )
         return result
 
     def select_design_feedback(self, brief: DesignBrief, result, candidate_id: str, *, actor: str = "human"):
