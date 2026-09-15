@@ -1,0 +1,7 @@
+# 情境推断声明包含纠正、降级和误判成本
+
+## Status
+
+accepted
+
+Context Inference Declaration 至少包含 inferred_state、state_definition、signal_sources、confidence_representation、user_visible_explanation、correction_path、low_confidence_behavior、false_positive_cost、false_negative_cost、data_retention 和 intervention_permission。缺少 signal_sources 属于 generation_invalid；会触发主动介入却缺少 correction_path 或 low_confidence_behavior 时 blocked；缺少误判成本时 explore；涉及私人原始数据却缺少 data_retention 时 blocked，否则 explore。这样评审的是完整的人机责任边界，而不只是一个状态标签。

@@ -1,0 +1,81 @@
+{
+  "brief_id": "brief-focus-assistant",
+  "product_category": "未来可穿戴 AI 伴行助手",
+  "goal": "在移动、通勤和任务切换中提供低打扰、可撤销的情境化介入",
+  "target_segment": "需要在移动中保持任务连续性的知识工作者",
+  "context": "城市通勤、步行和任务切换中的连续使用",
+  "criteria": [
+    {
+      "criterion_id": "control",
+      "name": "控制感",
+      "operational_definition": "用户可以明确接受、拒绝、延后或纠正一次介入",
+      "desired_direction": "higher",
+      "priority": 1
+    },
+    {
+      "criterion_id": "low_interruption",
+      "name": "低打扰",
+      "operational_definition": "routine 事件不会无界地争夺注意力",
+      "desired_direction": "higher",
+      "priority": 2
+    }
+  ],
+  "prohibited_experiences": [
+    "公开播放私人内容",
+    "拒绝后继续重复介入"
+  ],
+  "hard_constraints": [
+    "必须有物理取消路径",
+    "离线时仍可停止当前介入"
+  ],
+  "tradeoff_priorities": [
+    "控制感优先于可发现性",
+    "隐私优先于反馈丰富度"
+  ],
+  "required_capabilities": [
+    "local policy gate",
+    "bounded recovery"
+  ],
+  "design_language": [
+    "quiet physical presence",
+    "clear state transitions"
+  ],
+  "movement_scenarios": [
+    {
+      "scenario_id": "crowded-transit-transfer",
+      "name": "拥挤通勤换乘",
+      "narrative": "用户从移动交通工具下车，在公共站台中携包行走并切换任务。",
+      "task_goal": "在不持续盯屏的情况下安全完成换乘并保留任务连续性",
+      "interruption_cost": "high",
+      "recovery_cost": "high",
+      "privacy_sensitivity": "high",
+      "context_unknowns": ["拥挤程度会随时间变化", "用户是否愿意公开可见反馈"],
+      "phases": [
+        {
+          "phase_id": "riding",
+          "movement_state": "transit_passenger",
+          "posture": "standing",
+          "hands_available": "none",
+          "visual_attention": "intermittent",
+          "ambient_motion": "high",
+          "social_visibility": "public",
+          "device_relation": "worn_wrist",
+          "transition_to": "exiting",
+          "hazards": ["moving vehicle", "crowded platform"]
+        },
+        {
+          "phase_id": "exiting",
+          "movement_state": "exiting_vehicle",
+          "posture": "walking_posture",
+          "hands_available": "intermittent",
+          "visual_attention": "intermittent",
+          "ambient_motion": "medium",
+          "social_visibility": "public",
+          "device_relation": "worn_wrist",
+          "transition_from": "riding",
+          "hazards": ["crossing traffic"]
+        }
+      ]
+    }
+  ]
+}

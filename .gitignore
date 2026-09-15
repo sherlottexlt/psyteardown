@@ -6,3 +6,11 @@ __pycache__/
 .env.local
 .field-test/store/
 .field-test/*.log
+
+# Local/generated artifacts (not part of the source distribution)
+output/experience/
+output/pdf/
+tmp/
+docs/resume/
+docs/portfolio/vaux-*
+scripts/

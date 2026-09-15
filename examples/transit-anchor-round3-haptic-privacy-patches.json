@@ -1,0 +1,120 @@
+[
+  {
+    "patch_id": "round3-private-haptic-boundary",
+    "revision_id": "round3-private-haptic-boundary.r1",
+    "meta": {
+      "revision": 1,
+      "created_by": "human",
+      "reason": "Round 3 haptic detectability and privacy exploration"
+    },
+    "review_item_revision_id": "review-round3-haptic-privacy.r1",
+    "variable_id": "feedback.modality",
+    "operation": "replace",
+    "from_value": {
+      "variable_id": "feedback.modality",
+      "value_type": "enum",
+      "normalized_value": "private_haptic",
+      "display_value": "private haptic, short bounded pulse"
+    },
+    "to_value": {
+      "variable_id": "feedback.modality",
+      "value_type": "enum",
+      "normalized_value": "private_haptic",
+      "display_value": "private haptic only; no public audio fallback for routine private content"
+    },
+    "scope": {"global_scope": true},
+    "enforcement": "must",
+    "rationale": "keep routine private content on a wearer-only channel while detectability remains an open physical question",
+    "evidence_refs": ["movement-rule-public-privacy", "round3-haptic-privacy-question"],
+    "expected_effect": "preserve privacy while making the modality boundary explicit",
+    "risks": ["detectability under vibration, sleeves and sweat remains unverified", "a missed pulse must not trigger public escalation"],
+    "verification": "measure wearer detection and bystander private-content inference separately in a physical prototype"
+  },
+  {
+    "patch_id": "round3-single-safe-boundary-pulse",
+    "revision_id": "round3-single-safe-boundary-pulse.r1",
+    "meta": {
+      "revision": 1,
+      "created_by": "human",
+      "reason": "Round 3 haptic detectability and privacy exploration"
+    },
+    "review_item_revision_id": "review-round3-haptic-privacy.r1",
+    "variable_id": "feedback.timing",
+    "operation": "replace",
+    "from_value": {
+      "variable_id": "feedback.timing",
+      "value_type": "enum",
+      "normalized_value": "quiet_control",
+      "display_value": "quiet_control"
+    },
+    "to_value": {
+      "variable_id": "feedback.timing",
+      "value_type": "enum",
+      "normalized_value": "single_safe_boundary_280ms",
+      "display_value": "one 280 ms bounded pulse, sent once at a declared safe boundary; no repeat"
+    },
+    "scope": {"global_scope": true},
+    "enforcement": "should",
+    "rationale": "test a bounded single-signal timing hypothesis without increasing public salience or persistence",
+    "evidence_refs": ["round3-haptic-privacy-question", "scenario-policy-52cf3ff69b8e.r1"],
+    "expected_effect": "make the haptic opportunity temporally explicit while preserving single-signal control flow",
+    "risks": ["280 ms detectability is not a physiological optimum", "a single pulse may be missed in vibration or sweat"],
+    "verification": "compare wearer detection, false alarms and response time across vibration, sleeve and sweat proxy conditions"
+  },
+  {
+    "patch_id": "round3-bounded-quiet-confirmation",
+    "revision_id": "round3-bounded-quiet-confirmation.r1",
+    "meta": {
+      "revision": 1,
+      "created_by": "human",
+      "reason": "Round 3 haptic detectability and privacy exploration"
+    },
+    "review_item_revision_id": "review-round3-haptic-privacy.r1",
+    "variable_id": "feedback.confirmation",
+    "operation": "replace",
+    "from_value": {
+      "variable_id": "feedback.confirmation",
+      "value_type": "enum",
+      "normalized_value": "quiet_control",
+      "display_value": "quiet_control"
+    },
+    "to_value": {
+      "variable_id": "feedback.confirmation",
+      "value_type": "enum",
+      "normalized_value": "single_signal_bounded_response",
+      "display_value": "single private signal opens one bounded response window; reject, cancel or no response terminates; no repeat"
+    },
+    "scope": {"global_scope": true},
+    "enforcement": "must",
+    "rationale": "keep confirmation local and reversible without turning non-detection into consent or repeated prompting",
+    "evidence_refs": ["movement-rule-hands-free-control", "round3-haptic-privacy-question"],
+    "expected_effect": "preserve reject/cancel, timeout and correction boundaries after one signal",
+    "risks": ["the wearer may need a later safe-boundary review after a missed signal", "response completion remains unverified"],
+    "verification": "replay no-response, reject/cancel and correction traces, then measure response completion with one hand available"
+  },
+  {
+    "patch_id": "round3-wearer-state-edge",
+    "revision_id": "round3-wearer-state-edge.r1",
+    "meta": {
+      "revision": 1,
+      "created_by": "human",
+      "reason": "Round 3 haptic detectability and privacy exploration"
+    },
+    "review_item_revision_id": "review-round3-haptic-privacy.r1",
+    "variable_id": "device.visible_state",
+    "operation": "replace",
+    "to_value": {
+      "variable_id": "device.visible_state",
+      "value_type": "enum",
+      "normalized_value": "wearer_state_edge_no_content",
+      "display_value": "wearer-facing state edge shows sensing, active or snoozed state only; never private content"
+    },
+    "scope": {"global_scope": true},
+    "enforcement": "must",
+    "rationale": "allow state legibility without exposing the meaning of a private routine event to bystanders",
+    "evidence_refs": ["movement-rule-public-privacy", "round3-haptic-privacy-question"],
+    "expected_effect": "separate wearer-facing state visibility from private-content disclosure",
+    "risks": ["state visibility and content leakage require separate observer tasks", "visual state legibility may vary with distance and lighting"],
+    "verification": "run a bystander observer task that scores state identification separately from private-content identification"
+  }
+]

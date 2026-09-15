@@ -1,8 +1,10 @@
-# psyteardown — 心理驱动型产品拆解 Agent(v6)
+# psyteardown — 体验假设与验证 Agent
 
-基于精选心理学框架知识库,把产品文字描述拆解成结构化报告(Markdown / JSON)。
-含三层记忆:v2 情景记忆(案例库 + 向量检索)、v3 语义记忆(框架知识增长)、
-v4 程序性记忆(拆解策略卡)。v5 元认知自评(单案例自评 + 策略闭环)。v6 交付层(MCP server,Claude 对话中直接调用)。
+psyteardown 把产品或设计候选中的可观察事实，连接到人的动作与使用情境、心理机制假设、体验风险、设计修改和验证实验，输出可追溯的 Markdown / JSON 结果。
+
+项目从“心理驱动的产品拆解 Agent”逐步扩展为“产品体验假设与验证系统”，当前同时支持文本拆解和结构化体验设计 vertical slice。
+
+核心原则：观察、解释、预测和验证分开；AI 可以提议，但不能自行批准；Blender/渲染图可以帮助讨论，但不能冒充样机证据。
 
 ## 安装
 
@@ -62,6 +64,24 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
     psyteardown kb list
     psyteardown kb show fogg-behavior-model
 
+    # 体验设计 / 参数化迭代（拥挤通勤腕戴伴行器示例）
+    psyteardown design --input examples/design-request.json --db output/experience/future-wearable.db --out output/experience/future-wearable.md
+    psyteardown design-export-request --db output/experience/future-wearable.db --candidate-revision <candidate-revision> --out output/experience/design-tool-request.json
+    psyteardown design-attach --provider blender --db output/experience/future-wearable.db --candidate-revision <candidate-revision> --out output/experience/blender-draft.md
+    psyteardown design-review --db output/experience/future-wearable.db --run-id <design-tool-run-id> --out output/experience/blender-confirmed.md
+    # patches.json 可为 VariablePatch 数组；先生成子候选，再重新生成 blockout
+    psyteardown design-iterate --db output/experience/future-wearable.db --candidate-revision <parent-revision> --patches patches.json --provider blender --out output/experience/iteration.md
+    psyteardown design-portfolio --db output/experience/future-wearable.db --model-id <model-id> --format md --out docs/portfolio/transit-anchor.md
+    psyteardown design-portfolio --db output/experience/future-wearable.db --model-id <model-id> --format json --out docs/portfolio/transit-anchor.json
+    # 无真实样机时运行一阶物理预检（数值是假设/估算，永远不是 evidence）
+    psyteardown virtual-validate --input examples/transit-anchor-round2-virtual-validation-input.json --out output/experience/transit-anchor-strap-release-r1/virtual-validation-r1.md
+    psyteardown scenario-replay --policy output/experience/transit-anchor-strap-release-r1/scenario-policy-r2-replay.json --input examples/transit-anchor-round2-scenario-replay.json --out output/experience/transit-anchor-strap-release-r1/scenario-replay-r2.md
+    # 实体样机完成后才填写并导入；模板中的 REPLACE_ME / YYYYMMDD 会被拒绝
+    psyteardown prototype-import --db output/experience/future-wearable.db --run run.json --observations observations.json
+    psyteardown prototype-review --db output/experience/future-wearable.db --run-id <run-id> --observation <observation-id> --evidence-level observed
+
+参数化迭代不会把渲染图当作人体工学证据：旧 render/geometry 层会重置为 missing，provider 结果默认为 draft，只有 `--confirm` 才推进层级。形态与验证边界见 [`Transit Anchor wrist companion`](docs/design/2026-09-12-transit-anchor-wrist-companion.md)。
+
 案例库默认存于 `./.psyteardown/cases.db`(可用 `--store` 覆盖)。
 向量检索默认用本地嵌入模型(需 `pip install -e ".[embed]"`,首次会下载模型);
 也可用本地 Ollama 嵌入(零下载,推荐已装 Ollama 者):`set PSYTEARDOWN_EMBED=ollama`
@@ -85,5 +105,39 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
 - `strategy` — 程序性记忆:从案例/复盘归纳拆解策略卡,人工审批后按步骤注入拆解流程
 - `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
 - `mcp_server` — 交付层:MCP server(FastMCP/stdio),6 工具;与 CLI 共享编排
+- `experience` — 结构化体验设计与验证域：DesignBrief、候选、评审、变量迭代、场景策略、实验规划、样机证据、revision/audit
 
-CLI 仅为薄入口。设计与规划见 `docs/superpowers/specs/`(v1–v6 设计文档)。
+CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superpowers/`、`docs/adr/` 和 `docs/handoff/`。
+
+## 当前状态
+
+### 已完成
+
+- 文本拆解：5 步流水线、8 个心理学框架/29 条原则、案例记忆、向量检索、策略卡、人工审批、MCP 交付层。
+- 可信度护栏：Schema 校验、置信度、失败记录、step3 原文 evidence grounding、未溯源 mapping 记账。
+- 体验平台 M1：通用 `Evidence` / `Observation` / `ExperienceHypothesis` / `Critique`，确定性 claim 检查、SQLite revision 持久化和研究对象 CLI。
+- 体验平台 M2 第一切片：实验变量、测量、样本、停止条件、预注册计划和导出；不会伪造实验结果。
+- 体验平台 M3 第一切片：多候选生成、候选 Critique、确定性排序、人工选择和下一轮 prompt。
+- Transit Anchor vertical slice：场景策略、参数化 `VariablePatch`、Blender blockout、多视角 review、虚拟预检、scenario replay、portfolio 投影和样机证据导入/人工复核模型。
+
+### 当前边界
+
+- Transit Anchor 当前为 `geometry_ready / design-review confirmed / physical validation pending`。
+- 目前 `PrototypeRun=0`、`MeasurementObservation=0`、`EvidenceReview=0`，`evidence level=none`。
+- Blender、GLB、PNG 和 virtual preflight 都是 derived/design material，不证明尺寸、舒适度、触觉检出率、稳定性、隐私结果或用户偏好。
+- 尚未接入真实视觉/视频观察模型、真实设计生成模型、CAD/工程系统、实体样机数据和 Web 工作台。
+
+### 下一步路线
+
+1. 完成真实样机测量与人工 EvidenceReview，更新 validation status。
+2. 将 M3 选择结果接入完整 `DesignIteration` / `SelectionDecision` revision 链和确认后的 VariablePatch。
+3. 补齐 M2 的 `HypothesisBinding` / `AnalysisFamily`、条件快照和实验结果导入前的 analysis gate。
+4. 再接入图片/短视频观察、真实设计 provider 和可选的 Experience MCP/HTTP 工作台。
+
+## 仓库范围
+
+仓库提交源代码、测试、知识库、示例输入、架构决策、设计规格和 field-test 文本结果。以下内容默认只保留在本地，不上传：个人简历和求职材料、PDF/PNG 等导出物、Blender/GLB/BLEND 运行目录、SQLite 运行数据库、临时文件和简历生成脚本。
+
+## 后续方向
+
+项目后续不止于文本产品心理拆解，计划发展为服务 AI 设计闭环的“心理驱动的产品体验拆解与验证系统”：把 AI 生成候选的物理特征、人的动作和使用情境转译为可追溯的体验假设，输出风险、权衡和下一轮可操作的设计修改，并生成可执行的验证实验。完整定位、领域模型、分阶段实现计划与验收标准见 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](docs/superpowers/specs/2026-09-08-psyteardown-future-direction-and-implementation-plan.md)。

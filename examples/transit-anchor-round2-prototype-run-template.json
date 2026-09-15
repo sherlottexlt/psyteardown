@@ -1,0 +1,30 @@
+{
+  "run_id": "transit-anchor-round2-run-YYYYMMDD-01",
+  "revision_id": "transit-anchor-round2-run-YYYYMMDD-01.r1",
+  "meta": {
+    "revision": 1,
+    "created_by": "human",
+    "reason": "Round 2 physical prototype run import"
+  },
+  "protocol_id": "transit-anchor-physical-validation/v1",
+  "protocol_revision": "v1",
+  "candidate_revision_id": "scaffold-r1-1.iter-d53a8eee13e0.iter-0f812cd910ad.iter-820dc8412b30.r1",
+  "model_revision_id": "scaffold-r1-1.model.r12",
+  "device_revision": "prototype-build-REPLACE_ME",
+  "conditions": [
+    "standing vibration proxy",
+    "handrail grip",
+    "bag carry",
+    "sleeve coverage",
+    "sweat proxy",
+    "short walking",
+    "one hand free",
+    "intermittent hand availability",
+    "attention-divided task"
+  ],
+  "participant_scope": "consented adults; de-identified scope REPLACE_ME",
+  "context_scope": "controlled lab proxy; no live transit hazard",
+  "status": "imported",
+  "import_source": "manual",
+  "notes": "Replace all REPLACE_ME fields before import. This file is a template, not evidence."
+}

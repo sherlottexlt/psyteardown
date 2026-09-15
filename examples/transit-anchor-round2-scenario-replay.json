@@ -1,0 +1,44 @@
+{
+  "schema_version": "transit-anchor-scenario-replay/v1",
+  "scenario_id": "crowded-transit-transfer",
+  "policy_revision_id": "scenario-policy-52cf3ff69b8e.r1",
+  "cases": [
+    {
+      "trace_id": "single-hand-stop",
+      "steps": [
+        {"step_id": "s1", "phase_id": "riding", "event": "hazard_phase_entered", "expected_state": "suppressed"},
+        {"step_id": "s2", "phase_id": "riding", "event": "routine_event_arrives", "expected_state": "deferred"},
+        {"step_id": "s3", "phase_id": "safe-boundary", "event": "safe_boundary_declared", "expected_state": "private_signal"},
+        {"step_id": "s4", "phase_id": "safe-boundary", "event": "signal_completed", "expected_state": "awaiting_response"},
+        {"step_id": "s5", "phase_id": "safe-boundary", "event": "reject_or_cancel", "expected_state": "terminated"},
+        {"step_id": "s6", "phase_id": "safe-boundary", "event": "new_independent_event", "expected_state": "monitoring"}
+      ]
+    },
+    {
+      "trace_id": "no-response-timeout",
+      "steps": [
+        {"step_id": "t1", "phase_id": "riding", "event": "hazard_phase_entered", "expected_state": "suppressed"},
+        {"step_id": "t2", "phase_id": "riding", "event": "routine_event_arrives", "expected_state": "deferred"},
+        {"step_id": "t3", "phase_id": "safe-boundary", "event": "safe_boundary_declared", "expected_state": "private_signal"},
+        {"step_id": "t4", "phase_id": "safe-boundary", "event": "signal_completed", "expected_state": "awaiting_response"},
+        {"step_id": "t5", "phase_id": "safe-boundary", "event": "no_response_timeout", "expected_state": "terminated"}
+      ]
+    },
+    {
+      "trace_id": "context-correction",
+      "steps": [
+        {"step_id": "c1", "phase_id": "riding", "event": "hazard_phase_entered", "expected_state": "suppressed"},
+        {"step_id": "c2", "phase_id": "riding", "event": "routine_event_arrives", "expected_state": "deferred"},
+        {"step_id": "c3", "phase_id": "safe-boundary", "event": "safe_boundary_declared", "expected_state": "private_signal"},
+        {"step_id": "c4", "phase_id": "safe-boundary", "event": "signal_completed", "expected_state": "awaiting_response"},
+        {"step_id": "c5", "phase_id": "safe-boundary", "event": "context_corrected", "expected_state": "safe_boundary_review"}
+      ]
+    },
+    {
+      "trace_id": "permission-withdrawn",
+      "steps": [
+        {"step_id": "p1", "phase_id": "safe-boundary", "event": "routine_event_arrives", "permission_valid": false, "expected_state": "suppressed"}
+      ]
+    }
+  ]
+}

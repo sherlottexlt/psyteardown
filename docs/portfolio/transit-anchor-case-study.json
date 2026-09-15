@@ -1,0 +1,340 @@
+{
+  "schema_version": "portfolio-case-study/v1",
+  "case_id": "transit-anchor",
+  "title": "Transit Anchor — crowded-transit wrist companion",
+  "brief_revision_id": "brief-focus-assistant.r1",
+  "generated_from": "experience SQLite revisions, VariablePatch records and DesignToolRun records",
+  "design_challenge": "在移动、通勤和任务切换中提供低打扰、可撤销的情境化介入",
+  "design_direction": "Low-profile dorsal-wrist private haptic companion with bounded routine intervention and a local stop path.",
+  "changes": [
+    {
+      "change_id": "baseline",
+      "sequence": 1,
+      "kind": "baseline",
+      "title": "Baseline structured concept",
+      "summary": "A wearable in the 未来可穿戴 AI 伴行助手 category that helps during 城市通勤、步行和任务切换中的连续使用 while preserving a clear user stop path.",
+      "parent_candidate_revision_id": null,
+      "parent_model_revision_id": null,
+      "candidate_revision_id": "scaffold-r1-1.r1-992bc9ab26df",
+      "model_revision_id": "scaffold-r1-1.model.r1",
+      "patch_revision_ids": [],
+      "graphic_asset_refs": [],
+      "status": "confirmed",
+      "evidence_boundary": "Structured design facts only; no physical comfort, scale or outcome is validated."
+    },
+    {
+      "change_id": "patch-scaffold-r1-1.iter-db6118ebbd16.r1",
+      "sequence": 2,
+      "kind": "variable_patch",
+      "title": "Parameterized design revision",
+      "summary": "Applied: wearable.attachment_strategy, wearable.body_placement, control.cancel_action, feedback.modality",
+      "parent_candidate_revision_id": "scaffold-r1-1.r1-992bc9ab26df",
+      "parent_model_revision_id": null,
+      "candidate_revision_id": "scaffold-r1-1.iter-db6118ebbd16.r1",
+      "model_revision_id": "scaffold-r1-1.model.r3",
+      "patch_revision_ids": [
+        "ergonomic-broad-strap.r1",
+        "ergonomic-wrist-placement.r1",
+        "guarded-stop-control.r1",
+        "private-haptic-routine.r1"
+      ],
+      "graphic_asset_refs": [],
+      "status": "confirmed",
+      "evidence_boundary": "Patch adoption describes a structured design revision, not verified physical performance."
+    },
+    {
+      "change_id": "asset-design-tool-run-1f2ccd6c9236",
+      "sequence": 3,
+      "kind": "visual_asset",
+      "title": "Derived Blender blockout",
+      "summary": "Review image and geometry exported for form, control-access and placement discussion.",
+      "parent_candidate_revision_id": null,
+      "parent_model_revision_id": "scaffold-r1-1.model.r1",
+      "candidate_revision_id": "scaffold-r1-1.iter-db6118ebbd16.r1",
+      "model_revision_id": "scaffold-r1-1.model.r3",
+      "patch_revision_ids": [
+        "ergonomic-wrist-placement.r1",
+        "ergonomic-broad-strap.r1",
+        "private-haptic-routine.r1",
+        "guarded-stop-control.r1"
+      ],
+      "graphic_asset_refs": [
+        "D:\\app\\app-mental\\output\\experience\\transit-anchor-portfolio-demo\\blender\\design-tool-request-cb9d6dcfc737-6vmcfjb9\\render-2d.png",
+        "D:\\app\\app-mental\\output\\experience\\transit-anchor-portfolio-demo\\blender\\design-tool-request-cb9d6dcfc737-6vmcfjb9\\design.blend",
+        "D:\\app\\app-mental\\output\\experience\\transit-anchor-portfolio-demo\\blender\\design-tool-request-cb9d6dcfc737-6vmcfjb9\\design.glb"
+      ],
+      "status": "draft",
+      "evidence_boundary": "Derived assets are review material only; the blockout does not validate dimensions, fit, comfort, materials or movement stability."
+    },
+    {
+      "change_id": "validation-plan",
+      "sequence": 4,
+      "kind": "validation_plan",
+      "title": "Prototype validation protocol",
+      "summary": "A pre-prototype measurement plan for fit, control, detectability, contact and privacy boundaries.",
+      "parent_candidate_revision_id": null,
+      "parent_model_revision_id": null,
+      "candidate_revision_id": "scaffold-r1-1.iter-db6118ebbd16.r1",
+      "model_revision_id": "scaffold-r1-1.model.r3",
+      "patch_revision_ids": [],
+      "graphic_asset_refs": [],
+      "status": "planned",
+      "evidence_boundary": "Planned measures are not evidence until a protocol is run and reviewed."
+    }
+  ],
+  "current_product_snapshot": {
+    "candidate_revision_id": "scaffold-r1-1.iter-db6118ebbd16.r1",
+    "model_revision_id": "scaffold-r1-1.model.r3",
+    "title": "Quiet Control Companion",
+    "form_factor": "wearable",
+    "silhouette": "low-profile rounded dorsal-wrist pod with no snagging protrusions",
+    "body_placement": "dorsal wrist, centered proximal to wrist crease",
+    "attachment_strategy": "broad vented strap with keyed clasp and intentional quick release",
+    "contact_area": "broad compliant underside, avoiding wrist prominences",
+    "mass_distribution": "centered over wrist/forearm axis with no distal overhang",
+    "feedback_modality": "private haptic, short bounded pulse",
+    "feedback_timing": "bounded pulse at a safe task boundary",
+    "visible_state": "wearer-facing state edge shows active/sensing state without content",
+    "cancel_action": "guarded recessed one-handed press-hold; no response terminates routine event",
+    "declared_unknowns": [
+      "exact dimensions",
+      "weight distribution",
+      "surface friction",
+      "feedback detectability",
+      "actual user preference",
+      "long-term reliability"
+    ]
+  },
+  "scenario_state_machine": {
+    "machine_id": "transit-anchor-routine-intervention/v1",
+    "scenario_id": "crowded-transit-transfer",
+    "name": "Crowded transit routine intervention",
+    "purpose": "Suppress routine AI intervention during movement hazards while preserving a bounded, private recovery path.",
+    "initial_state": "monitoring",
+    "states": [
+      "monitoring",
+      "suppressed",
+      "deferred",
+      "private_signal",
+      "awaiting_response",
+      "terminated",
+      "safe_boundary_review"
+    ],
+    "transitions": [
+      {
+        "from_state": "monitoring",
+        "event": "hazard_phase_entered",
+        "guard": "doors, stairs, crossing or high-motion transit is declared",
+        "action": "do not present routine content",
+        "to_state": "suppressed",
+        "user_control_boundary": "movement state does not imply intent, consent or attention"
+      },
+      {
+        "from_state": "suppressed",
+        "event": "routine_event_arrives",
+        "guard": "hazard remains declared",
+        "action": "record only minimal event metadata and defer",
+        "to_state": "deferred",
+        "user_control_boundary": "no public output and no escalation"
+      },
+      {
+        "from_state": "deferred",
+        "event": "safe_boundary_declared",
+        "guard": "hazard no longer declared and intervention permission remains valid",
+        "action": "offer one private bounded signal",
+        "to_state": "private_signal",
+        "user_control_boundary": "safe boundary is not consent; user may still reject or ignore"
+      },
+      {
+        "from_state": "private_signal",
+        "event": "signal_completed",
+        "guard": "routine event",
+        "action": "open one bounded response window",
+        "to_state": "awaiting_response",
+        "user_control_boundary": "no visual or two-handed response is required"
+      },
+      {
+        "from_state": "awaiting_response",
+        "event": "reject_or_cancel",
+        "guard": "guarded control is reachable",
+        "action": "stop event and suppress ordinary re-intervention in scope",
+        "to_state": "terminated",
+        "user_control_boundary": "cancellation is immediate and local"
+      },
+      {
+        "from_state": "awaiting_response",
+        "event": "no_response_timeout",
+        "guard": "response window expires",
+        "action": "terminate with no implicit consent and no escalation",
+        "to_state": "terminated",
+        "user_control_boundary": "silence is not acceptance"
+      },
+      {
+        "from_state": "awaiting_response",
+        "event": "context_corrected",
+        "guard": "user indicates an incorrect context",
+        "action": "stop current event and require new permission decision",
+        "to_state": "safe_boundary_review",
+        "user_control_boundary": "correction overrides the current inference"
+      },
+      {
+        "from_state": "terminated",
+        "event": "new_independent_event",
+        "guard": "new permission and no active hazard",
+        "action": "return to monitoring",
+        "to_state": "monitoring",
+        "user_control_boundary": "previous response is not generalized beyond scope"
+      }
+    ],
+    "invariants": [
+      "Routine intervention never uses public audio for private content.",
+      "No-response ends a routine event; it never grants consent.",
+      "Hazard, pose, route and movement state are context inputs, not evidence of intent or emotion.",
+      "Rejection and correction do not trigger ordinary escalation.",
+      "When hands are unavailable, the system relies on suppression or timeout rather than pretending a physical control is reachable."
+    ],
+    "out_of_scope": [
+      "critical-event policy",
+      "emotion or health inference",
+      "measured haptic detectability",
+      "production sensor classifier accuracy"
+    ]
+  },
+  "prototype_validation_protocol": {
+    "protocol_id": "transit-anchor-physical-validation/v1",
+    "title": "Transit Anchor physical prototype validation",
+    "objective": "Test whether the declared wrist form preserves bounded control and low interruption under plausible crowded-transit movement conditions.",
+    "prototype_boundary": "This is a test plan, not evidence that a render, CAD blockout or design declaration meets any target.",
+    "participants_and_context": "Consented adult participants perform controlled standing-transit, handrail, bag-carrying, sleeve and walking tasks; no road-crossing or live transit hazard is required for the first protocol.",
+    "measures": [
+      {
+        "measure_id": "fit-displacement",
+        "question": "Does the device slip or rotate under declared movements?",
+        "conditions": [
+          "standing vibration proxy",
+          "handrail grip",
+          "bag carry",
+          "sleeve and sweat proxy"
+        ],
+        "metric": "displacement and rotation relative to initial marked position",
+        "acceptance_boundary": "Pre-register a tolerable displacement/rotation threshold before data collection; do not derive it from the render.",
+        "confounds": [
+          "wrist circumference",
+          "strap tension",
+          "sleeve friction",
+          "sweat proxy",
+          "movement intensity"
+        ],
+        "evidence_level_before_test": "none"
+      },
+      {
+        "measure_id": "false-activation",
+        "question": "Does gripping or incidental contact trigger guarded controls?",
+        "conditions": [
+          "handrail grip",
+          "bag handle grip",
+          "body contact proxy"
+        ],
+        "metric": "false activations per task and per controlled exposure time",
+        "acceptance_boundary": "Compare against a pre-registered maximum false-activation rate.",
+        "confounds": [
+          "control guard geometry",
+          "activation force",
+          "gloves",
+          "hand size",
+          "task instruction"
+        ],
+        "evidence_level_before_test": "none"
+      },
+      {
+        "measure_id": "stop-path",
+        "question": "Can a reachable user perform reject/stop without visual search?",
+        "conditions": [
+          "one hand free",
+          "intermittent hand availability",
+          "attention-divided task"
+        ],
+        "metric": "completion rate, completion time and erroneous activation",
+        "acceptance_boundary": "Pre-register success and time bounds; hands-unavailable trials test suppression/timeout policy rather than control reachability.",
+        "confounds": [
+          "dominant hand",
+          "familiarization",
+          "tactile cue learning",
+          "sleeve coverage"
+        ],
+        "evidence_level_before_test": "none"
+      },
+      {
+        "measure_id": "haptic-detectability",
+        "question": "Is the private haptic pattern detectable without demanding visual attention?",
+        "conditions": [
+          "vibration proxy",
+          "walking",
+          "sleeve coverage",
+          "sweat proxy"
+        ],
+        "metric": "hit rate, false alarm rate and response time",
+        "acceptance_boundary": "Pre-register a detection criterion and distinguish non-detection from rejection.",
+        "confounds": [
+          "motor placement",
+          "strap tension",
+          "ambient vibration",
+          "hearing/vision distraction",
+          "skin contact"
+        ],
+        "evidence_level_before_test": "none"
+      },
+      {
+        "measure_id": "contact-boundary",
+        "question": "Does the declared contact geometry create observable pressure, heat or irritation signals in the short protocol?",
+        "conditions": [
+          "short wear",
+          "movement task",
+          "sleeve coverage"
+        ],
+        "metric": "participant-reported discomfort plus measured surface/skin-adjacent temperature where safely instrumented",
+        "acceptance_boundary": "Exploratory safety screen only until duration, measurement method and threshold are pre-registered.",
+        "confounds": [
+          "skin sensitivity",
+          "ambient temperature",
+          "material finish",
+          "wear duration",
+          "individual fit"
+        ],
+        "evidence_level_before_test": "none"
+      },
+      {
+        "measure_id": "privacy-observability",
+        "question": "Can bystanders infer private content from routine feedback?",
+        "conditions": [
+          "nearby observer",
+          "private haptic",
+          "wearer-facing state edge"
+        ],
+        "metric": "observer identification of state versus private content",
+        "acceptance_boundary": "Pre-register acceptable content-identification rate; state-legibility and content leakage are analyzed separately.",
+        "confounds": [
+          "lighting",
+          "observer distance",
+          "display brightness",
+          "instruction wording"
+        ],
+        "evidence_level_before_test": "none"
+      }
+    ],
+    "stopping_conditions": [
+      "Stop an individual session on discomfort, skin irritation, distress or a participant request.",
+      "Do not test the routine intervention flow in live road-crossing, vehicle-door or stair hazards in this first protocol.",
+      "Pause the protocol if a control failure removes the local stop path."
+    ],
+    "outcomes_not_claimed": [
+      "long-term comfort",
+      "medical safety",
+      "ingress protection",
+      "manufacturing durability",
+      "real-world crash or injury reduction",
+      "user intent, emotion or consent inference"
+    ]
+  },
+  "portfolio_boundary": "This portfolio projection separates declared design changes, derived graphics and planned validation. It never presents Blender output or scenario context as proof of user outcomes, comfort, consent, engineering readiness or physical performance."
+}

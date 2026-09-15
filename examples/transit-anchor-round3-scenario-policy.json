@@ -1,0 +1,64 @@
+{
+  "policy_id": "scenario-policy-52cf3ff69b8e",
+  "revision_id": "scenario-policy-52cf3ff69b8e.r1",
+  "meta": {
+    "revision": 1,
+    "parent_revision_id": null,
+    "created_at": "2026-09-14T03:49:24.481902Z",
+    "created_by": "system",
+    "reason": "deterministic routine scenario policy compiled"
+  },
+  "scenario_id": "crowded-transit-transfer",
+  "decisions": [
+    {
+      "scenario_id": "crowded-transit-transfer",
+      "phase_id": "riding",
+      "event_type": "routine",
+      "action": "suppress",
+      "feedback_modality": "none",
+      "max_intensity": 0,
+      "response_timeout_ms": 0,
+      "no_response_outcome": "terminate",
+      "correction_outcome": "safe_boundary_review",
+      "offline_stop": "unavailable",
+      "deferred_event_policy": "record_minimal_metadata",
+      "permission_required": true,
+      "reason_codes": ["hazard_declared", "high_motion_or_transition"],
+      "user_control_boundary": "Routine content is withheld; movement context does not imply intent, consent or attention."
+    },
+    {
+      "scenario_id": "crowded-transit-transfer",
+      "phase_id": "exiting",
+      "event_type": "routine",
+      "action": "suppress",
+      "feedback_modality": "none",
+      "max_intensity": 0,
+      "response_timeout_ms": 0,
+      "no_response_outcome": "terminate",
+      "correction_outcome": "safe_boundary_review",
+      "offline_stop": "local_stop",
+      "deferred_event_policy": "record_minimal_metadata",
+      "permission_required": true,
+      "reason_codes": ["hazard_declared", "high_motion_or_transition"],
+      "user_control_boundary": "Routine content is withheld; movement context does not imply intent, consent or attention."
+    },
+    {
+      "scenario_id": "crowded-transit-transfer",
+      "phase_id": "safe-boundary",
+      "event_type": "routine",
+      "action": "allow",
+      "feedback_modality": "private_haptic",
+      "max_intensity": 1,
+      "response_timeout_ms": 5000,
+      "no_response_outcome": "terminate",
+      "correction_outcome": "safe_boundary_review",
+      "offline_stop": "local_stop",
+      "deferred_event_policy": "drop",
+      "permission_required": true,
+      "reason_codes": ["low_motion_declared", "private_modality_only", "single_signal_no_repeat"],
+      "user_control_boundary": "Send one private bounded pulse at the safe boundary; reject, cancel or no response terminates and never escalates."
+    }
+  ],
+  "status": "candidate",
+  "out_of_scope": ["critical_event_policy", "sensor_classification", "intent_or_consent_inference"]
+}

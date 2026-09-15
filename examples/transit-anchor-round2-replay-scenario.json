@@ -1,0 +1,46 @@
+{
+  "scenario_id": "crowded-transit-transfer",
+  "name": "Transit Anchor Round 2 policy replay",
+  "narrative": "Declared replay fixture adds an explicit low-motion safe boundary after exiting.",
+  "task_goal": "exercise suppression, defer, bounded private signal and local stop transitions",
+  "interruption_cost": "high",
+  "recovery_cost": "high",
+  "privacy_sensitivity": "high",
+  "context_unknowns": [
+    "This is a declared policy fixture, not sensor data."
+  ],
+  "phases": [
+    {
+      "phase_id": "riding",
+      "movement_state": "transit_passenger",
+      "posture": "standing",
+      "hands_available": "none",
+      "visual_attention": "intermittent",
+      "ambient_motion": "high",
+      "social_visibility": "public",
+      "device_relation": "worn_wrist",
+      "hazards": ["moving vehicle", "crowded platform"]
+    },
+    {
+      "phase_id": "exiting",
+      "movement_state": "exiting_vehicle",
+      "posture": "walking_posture",
+      "hands_available": "intermittent",
+      "visual_attention": "intermittent",
+      "ambient_motion": "medium",
+      "social_visibility": "public",
+      "device_relation": "worn_wrist",
+      "hazards": ["crossing traffic"]
+    },
+    {
+      "phase_id": "safe-boundary",
+      "movement_state": "stationary",
+      "posture": "standing",
+      "hands_available": "one",
+      "visual_attention": "available",
+      "ambient_motion": "low",
+      "social_visibility": "public",
+      "device_relation": "worn_wrist"
+    }
+  ]
+}

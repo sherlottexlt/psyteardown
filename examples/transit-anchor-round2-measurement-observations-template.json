@@ -1,0 +1,72 @@
+{
+  "observations": [
+    {
+      "observation_id": "round2-obs-fit-displacement-REPLACE_ME",
+      "revision_id": "round2-obs-fit-displacement-REPLACE_ME.r1",
+      "meta": {"revision": 1, "created_by": "human", "reason": "Round 2 raw measurement import"},
+      "run_id": "transit-anchor-round2-run-YYYYMMDD-01",
+      "measure_id": "fit-displacement",
+      "metric": "displacement and rotation relative to initial marked position",
+      "method": "REPLACE_ME",
+      "condition": "handrail grip",
+      "value": null,
+      "unit": "REPLACE_ME",
+      "participant_scope": "de-identified participant scope REPLACE_ME",
+      "context_scope": "controlled lab proxy",
+      "status": "draft",
+      "provenance": "prototype_measurement",
+      "notes": "Use one observation per condition/metric. Fill value and unit only after collection."
+    },
+    {
+      "observation_id": "round2-obs-false-activation-REPLACE_ME",
+      "revision_id": "round2-obs-false-activation-REPLACE_ME.r1",
+      "meta": {"revision": 1, "created_by": "human", "reason": "Round 2 raw measurement import"},
+      "run_id": "transit-anchor-round2-run-YYYYMMDD-01",
+      "measure_id": "false-activation",
+      "metric": "false activations per task and per controlled exposure time",
+      "method": "REPLACE_ME",
+      "condition": "bag carry",
+      "value": null,
+      "unit": "events per minute",
+      "participant_scope": "de-identified participant scope REPLACE_ME",
+      "context_scope": "controlled lab proxy",
+      "status": "draft",
+      "provenance": "prototype_measurement",
+      "notes": "Record exposure duration separately in notes or the raw source file."
+    },
+    {
+      "observation_id": "round2-obs-stop-path-REPLACE_ME",
+      "revision_id": "round2-obs-stop-path-REPLACE_ME.r1",
+      "meta": {"revision": 1, "created_by": "human", "reason": "Round 2 raw measurement import"},
+      "run_id": "transit-anchor-round2-run-YYYYMMDD-01",
+      "measure_id": "stop-path",
+      "metric": "completion rate, completion time and erroneous activation",
+      "method": "REPLACE_ME",
+      "condition": "one hand free",
+      "value": null,
+      "unit": "REPLACE_ME",
+      "participant_scope": "de-identified participant scope REPLACE_ME",
+      "context_scope": "attention-divided controlled task",
+      "status": "draft",
+      "provenance": "prototype_measurement",
+      "notes": "Keep completion rate, completion time and erroneous activation as separate observations in the filled file."
+    },
+    {
+      "observation_id": "round2-obs-contact-boundary-REPLACE_ME",
+      "revision_id": "round2-obs-contact-boundary-REPLACE_ME.r1",
+      "meta": {"revision": 1, "created_by": "human", "reason": "Round 2 raw measurement import"},
+      "run_id": "transit-anchor-round2-run-YYYYMMDD-01",
+      "measure_id": "contact-boundary",
+      "metric": "participant-reported discomfort plus safely instrumented temperature",
+      "method": "REPLACE_ME",
+      "condition": "sleeve coverage",
+      "value": null,
+      "unit": "REPLACE_ME",
+      "participant_scope": "de-identified participant scope REPLACE_ME",
+      "context_scope": "short wear safety screen",
+      "status": "draft",
+      "provenance": "prototype_measurement",
+      "notes": "If unavailable, replace null with an explicit missing_reason and technical failure/not-observable status."
+    }
+  ]
+}

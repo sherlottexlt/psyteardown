@@ -1,0 +1,47 @@
+{
+  "evidence": [
+    {
+      "id": "kettle-manual",
+      "kind": "text",
+      "artifact_id": "kettle-manual.txt",
+      "quote_or_locator": "section 2, handle",
+      "source_text": "The handle is positioned above the vessel and the lid opens with a thumb button.",
+      "evidence_role": "design_observation"
+    }
+  ],
+  "observations": [
+    {
+      "id": "kettle-thumb-button",
+      "subject": "electric kettle",
+      "predicate": "has lid control",
+      "value": "thumb button on handle",
+      "observation_type": "physical_feature",
+      "certainty": "observed",
+      "evidence": [
+        {"id": "kettle-manual", "kind": "text", "artifact_id": "kettle-manual.txt", "quote_or_locator": "section 2, handle"}
+      ],
+      "unknowns": ["required actuation force and heat exposure are unmeasured"]
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "kettle-lid-control",
+      "target_population": "home cooks",
+      "task_condition": "pouring hot water",
+      "environment_condition": "kitchen counter",
+      "social_condition": "alone or with another person nearby",
+      "physical_features": ["thumb button on handle"],
+      "user_actions": ["press lid button", "pour"],
+      "construct": "task confidence",
+      "mechanism": "placing the control near the grip may reduce hand repositioning",
+      "predicted_outcome": "participants will reposition their hand less often before pouring",
+      "alternative_explanations": ["kettle familiarity", "counter height"],
+      "evidence": [
+        {"id": "kettle-manual", "kind": "text", "artifact_id": "kettle-manual.txt", "quote_or_locator": "section 2, handle"}
+      ],
+      "validation_method": "observed pour task with a matched control placement",
+      "status": "exploratory"
+    }
+  ],
+  "critiques": []
+}

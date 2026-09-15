@@ -1,0 +1,57 @@
+{
+  "evidence": [
+    {
+      "id": "transit-anchor-brief",
+      "kind": "text",
+      "artifact_id": "transit-anchor-round3-brief.md",
+      "quote_or_locator": "Round 3 design brief: private haptic feedback",
+      "source_text": "Private haptic feedback is preferred in shared transit contexts.",
+      "provenance": "declared",
+      "evidence_role": "design_observation"
+    },
+    {
+      "id": "transit-anchor-render",
+      "kind": "image",
+      "artifact_id": "transit-anchor-round3.png",
+      "quote_or_locator": "frame 1",
+      "image_region": "wrist strap and release tab",
+      "provenance": "blender_derived",
+      "evidence_role": "design_observation"
+    }
+  ],
+  "observations": [
+    {
+      "id": "transit-anchor-private-haptic",
+      "subject": "Transit Anchor",
+      "predicate": "declares feedback modality",
+      "value": "private haptic",
+      "observation_type": "physical_feature",
+      "certainty": "observed",
+      "evidence": [
+        {"id": "transit-anchor-brief", "kind": "text", "artifact_id": "transit-anchor-round3-brief.md", "quote_or_locator": "Round 3 design brief: private haptic feedback"}
+      ],
+      "unknowns": ["haptic detectability during movement has not been measured"]
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "transit-anchor-haptic-control",
+      "target_population": "commuters",
+      "task_condition": "boarding or exiting transit",
+      "environment_condition": "crowded shared transit",
+      "social_condition": "bystanders present",
+      "physical_features": ["private haptic actuator"],
+      "user_actions": ["press local stop control"],
+      "construct": "perceived control",
+      "mechanism": "a private, bounded signal may reduce public attention cost",
+      "predicted_outcome": "participants will complete the stop action with fewer public-facing interruptions",
+      "alternative_explanations": ["prior familiarity with wearable controls"],
+      "evidence": [
+        {"id": "transit-anchor-brief", "kind": "text", "artifact_id": "transit-anchor-round3-brief.md", "quote_or_locator": "Round 3 design brief: private haptic feedback"}
+      ],
+      "validation_method": "preregistered comparison of private haptic and visual feedback",
+      "status": "exploratory"
+    }
+  ],
+  "critiques": []
+}

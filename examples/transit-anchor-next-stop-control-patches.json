@@ -1,0 +1,19 @@
+[
+  {
+    "patch_id": "stop-control-guard-depth-r1",
+    "revision_id": "stop-control-guard-depth-r1.r1",
+    "meta": {"revision": 1, "created_by": "human", "reason": "next iteration stop-path focus"},
+    "review_item_revision_id": "review-stop-path-next.r1",
+    "variable_id": "control.cancel_action",
+    "operation": "replace",
+    "from_value": {"variable_id": "control.cancel_action", "value_type": "enum", "normalized_value": "recessed_press_hold", "display_value": "guarded recessed one-handed press-hold; no response terminates routine event"},
+    "to_value": {"variable_id": "control.cancel_action", "value_type": "enum", "normalized_value": "side_flush_guarded_press_hold", "display_value": "side-flush guarded recessed press-hold with raised front/back shoulders; 650 ms hold target; no response terminates routine event"},
+    "scope": {"global_scope": true},
+    "enforcement": "must",
+    "rationale": "tighten the stop path into a measurable one-handed control without making routine interaction public or two-handed",
+    "evidence_refs": ["scenario-policy-52cf3ff69b8e.r1", "review-stop_control_access"],
+    "expected_effect": "reduce incidental handrail/bag activation while preserving a reachable local stop path in one-hand-available phases",
+    "risks": ["650 ms hold target is unvalidated", "raised shoulders may snag sleeves", "hands-unavailable phases still require suppress/defer/timeout"],
+    "verification": "measure completion rate, completion time, false activations during handrail and bag-carry tasks, and failure reason coding"
+  }
+]

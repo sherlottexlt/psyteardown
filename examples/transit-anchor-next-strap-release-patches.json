@@ -1,0 +1,19 @@
+[
+  {
+    "patch_id": "strap-quick-release-r1",
+    "revision_id": "strap-quick-release-r1.r1",
+    "meta": {"revision": 1, "created_by": "human", "reason": "next iteration strap and release focus"},
+    "review_item_revision_id": "review-strap-release-next.r1",
+    "variable_id": "wearable.attachment_strategy",
+    "operation": "replace",
+    "from_value": {"variable_id": "wearable.attachment_strategy", "value_type": "enum", "normalized_value": "broad_vented_strap", "display_value": "broad vented strap with keyed clasp and intentional quick release"},
+    "to_value": {"variable_id": "wearable.attachment_strategy", "value_type": "enum", "normalized_value": "broad_vented_split_strap_low_profile_lift_release", "display_value": "broad vented split strap with low-profile keyed lift-tab release, anti-rotation underside texture and no protruding clip"},
+    "scope": {"global_scope": true},
+    "enforcement": "should",
+    "rationale": "separate retention, ventilation and quick-release intent so the next prototype test can measure slip, rotation and removal time independently",
+    "evidence_refs": ["scenario-policy-52cf3ff69b8e.r1", "review-underside_strap"],
+    "expected_effect": "improve rotational stability and removability while preserving low-profile transit-safe form",
+    "risks": ["anti-rotation texture may increase pressure", "lift-tab may snag sleeves", "retention benefit cannot be inferred from Blender geometry"],
+    "verification": "measure displacement, rotation, one-hand release time, sleeve snag events and participant discomfort"
+  }
+]

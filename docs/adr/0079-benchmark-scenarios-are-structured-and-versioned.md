@@ -1,0 +1,7 @@
+# 基准场景使用结构化参数和人可读叙事
+
+## Status
+
+accepted
+
+BenchmarkScenario 同时保存 narrative 和版本化结构字段：user_task、attention_demand、mobility、social_visibility、ambient_noise、hands_available、visual_attention_available、event_criticality、inference_confidence、privacy_sensitivity、interruption_cost、recovery_cost 与 required_event_types。评审和候选比较以结构字段为准，叙事只辅助理解；Brief 覆盖允许参数时必须记录与核心版本的差异，所有候选引用同一场景快照。这样避免模型从“公共通勤”等模糊词自行补全不同条件。
