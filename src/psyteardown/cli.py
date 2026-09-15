@@ -146,6 +146,7 @@ def design_feedback_select(
         from psyteardown.experience.m3_feedback import DesignFeedbackResult
         result = DesignFeedbackResult(
             brief_revision_id=payload["brief_revision_id"],
+            iteration_id=payload.get("iteration_id"),
             candidate_ids=tuple(payload.get("candidate_ids", ())),
             critique_ids=tuple(payload.get("critique_ids", ())),
             ranked_candidate_ids=tuple(payload.get("ranked_candidate_ids", ())),
