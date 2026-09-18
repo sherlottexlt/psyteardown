@@ -33,7 +33,8 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
     }
 
 对话中即可说「帮我拆解这个产品:……」触发 teardown 工具。
-暴露工具:teardown / similar / review_case / kb_list / kb_show / memory_stats。
+暴露工具:teardown / similar / review_case / kb_list / kb_show / memory_stats / engineering_status / engineering_traceability。
+工程体验库读取工具:engineering_status / engineering_traceability（只读）。
 管理操作(learn / strategize / candidates / strategies 审批)仍走 CLI。
 
 ## 用法
@@ -80,6 +81,11 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
     psyteardown prototype-import --db output/experience/future-wearable.db --run run.json --observations observations.json
     psyteardown prototype-review --db output/experience/future-wearable.db --run-id <run-id> --observation <observation-id> --evidence-level observed
 
+    # App/数字服务拆解 → Discovery 分流；不会直接生成硬件工程要求
+    psyteardown discovery import-teardown --db experience.db --input teardown-result.json --discovery-id app-discovery-001
+    psyteardown discovery triage --db experience.db --discovery-id app-discovery-001 --decisions triage-decisions.json --reviewer experience-lead-li --rationale "确认 App、跨端和设备交互边界"
+    psyteardown discovery project-to-engineering --db experience.db --discovery-id app-discovery-001 --project-id wearable-project --scenario "walking in shared transit" --target-segment "consented adult commuters"
+
 参数化迭代不会把渲染图当作人体工学证据：旧 render/geometry 层会重置为 missing，provider 结果默认为 draft，只有 `--confirm` 才推进层级。形态与验证边界见 [`Transit Anchor wrist companion`](docs/design/2026-09-12-transit-anchor-wrist-companion.md)。
 
 案例库默认存于 `./.psyteardown/cases.db`(可用 `--store` 覆盖)。
@@ -104,8 +110,8 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
 - `growth` — 语义记忆:从案例提炼候选新框架,人工审批后回填知识库(种子库永不被动)
 - `strategy` — 程序性记忆:从案例/复盘归纳拆解策略卡,人工审批后按步骤注入拆解流程
 - `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
-- `mcp_server` — 交付层:MCP server(FastMCP/stdio),6 工具;与 CLI 共享编排
-- `experience` — 结构化体验设计与验证域：DesignBrief、候选、评审、变量迭代、场景策略、实验规划、样机证据、revision/audit
+- `mcp_server` — 交付层:MCP server(FastMCP/stdio),8 个工具;与 CLI 共享编排
+- `experience` — 结构化体验、Discovery 与工程协同域：数字体验发现、DesignBrief、候选、实验、样机证据、工程对象、依赖失效、人工 gate、制造/法规和跨案例知识
 
 CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superpowers/`、`docs/adr/` 和 `docs/handoff/`。
 
@@ -119,20 +125,50 @@ CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superp
 - 体验平台 M2 第一切片：实验变量、测量、样本、停止条件、预注册计划和导出；不会伪造实验结果。
 - 体验平台 M3 第一切片：多候选生成、候选 Critique、确定性排序、人工选择和下一轮 prompt。
 - Transit Anchor vertical slice：场景策略、参数化 `VariablePatch`、Blender blockout、多视角 review、虚拟预检、scenario replay、portfolio 投影和样机证据导入/人工复核模型。
+- 工程协同 P0：正式工程对象、SQLite registry、统一 revision dependency graph、自动 stale/invalidation 传播、并行角色任务和逐级人工状态门。
+- 多模态 P1：图片区域、视频时间段、缺失模态显式降级，以及未校准媒体不能生成尺寸/压力/强度/舒适度事实的确定性边界。
+- 验证回流 P2：`PrototypeRun → MeasurementObservation → EvidenceReview` 与 `ConditionSnapshot / AnalysisFamily / HypothesisBinding` 的完整 lineage；analysis protocol gate 通过后才允许创建新的 hypothesis revision。
+- 工具适配 P3：CAD/CAE/DFM/BOM 固定请求、原始结果、AI 解释与人工审查分离；上游输入变化自动使结果过期。
+- 质量与知识 P4/P5：DVP&R、FMEA、试产良率、法规/可靠性、制造准备、发布、工程/供应商/售后变更，以及人工批准后才能进入默认查询的跨案例工程知识。
+- Discovery 边界：App/数字服务拆解先进入 `DigitalExperienceDiscovery`，再由具名 reviewer 通过 `DiscoveryTriageDecision` 逐条分流；只有设备交互候选可以进入工程 intake。
 
 ### 当前边界
 
 - Transit Anchor 当前为 `geometry_ready / design-review confirmed / physical validation pending`。
 - 目前 `PrototypeRun=0`、`MeasurementObservation=0`、`EvidenceReview=0`，`evidence level=none`。
 - Blender、GLB、PNG 和 virtual preflight 都是 derived/design material，不证明尺寸、舒适度、触觉检出率、稳定性、隐私结果或用户偏好。
-- 尚未接入真实视觉/视频观察模型、真实设计生成模型、CAD/工程系统、实体样机数据和 Web 工作台。
+- 已具备视觉/视频观察、CAD/CAE/DFM/BOM 的适配与审查边界，但尚未配置真实多模态模型、真实工程工具连接、实体样机数据、认证实验室或 Web 工作台。
+- 工程对象处于平台能力层；没有真实原始结果、具名 reviewer 和完整 gate 时，系统不会宣称可制造、合规、量产或发布。
 
 ### 下一步路线
 
-1. 完成真实样机测量与人工 EvidenceReview，更新 validation status。
-2. 将 M3 选择结果接入完整 `DesignIteration` / `SelectionDecision` revision 链和确认后的 VariablePatch。
-3. 补齐 M2 的 `HypothesisBinding` / `AnalysisFamily`、条件快照和实验结果导入前的 analysis gate。
-4. 再接入图片/短视频观察、真实设计 provider 和可选的 Experience MCP/HTTP 工作台。
+1. 为 Transit Anchor 制作真实样机并导入真实原始测量，由具名人员完成 `EvidenceReview`。
+2. 接入实际 CAD/CAE/DFM/BOM、供应商和成本数据源；保留工具原始结果与人工审查记录。
+3. 接入适用市场的真实可靠性和认证证据，再执行制造准备和发布 gate。
+4. 制作 Transit Anchor 实物样机并导入真实测量；再将工程项目、任务、冲突和状态门暴露给可选的 Web/API 工作台。
+
+### 工程项目 CLI
+
+```powershell
+psyteardown engineering-init --db engineering.db --input examples/engineering-intake.json
+psyteardown engineering-requirements-review --db engineering.db --project-id wearable-project --reviewer system-engineer-li --rationale "来源和验收条件已复核"
+psyteardown engineering-status --db engineering.db --project-id wearable-project
+psyteardown engineering-traceability --db engineering.db --project-id wearable-project --format md --out traceability.md
+```
+
+App/数字服务拆解不会直接生成硬件工程需求。推荐使用分域 Discovery CLI：
+
+```powershell
+psyteardown discovery import-teardown --db experience.db --input teardown-result.json --discovery-id app-discovery-001
+psyteardown discovery triage --db experience.db --discovery-id app-discovery-001 --decisions triage-decisions.json --reviewer experience-lead-li --rationale "逐条确认 App、跨端和设备交互边界"
+psyteardown discovery project-to-engineering --db experience.db --discovery-id app-discovery-001 --project-id wearable-project --scenario "walking in shared transit" --target-segment "consented adult commuters"
+```
+
+拆解首先保存为 `DigitalExperienceDiscovery`，每条信号必须由具名 reviewer 分流；只有 `device_interaction_candidate` 才能进入工程域，而且只生成 `explore`/`draft` 候选。旧的 `engineering-init-from-teardown` 仅作为迁移兼容命令保留，不应用于新项目。
+
+`engineering-gate-review` 接收 `DependencyRef` JSON 数组作为 `--evidence`。Gate 必须逐级推进，AI 默认需求在人工确认前保持 `draft`，任何未批准规律都不会进入默认工程知识查询。
+
+MCP 工程读取工具默认与 `PSYTEARDOWN_STORE` 共享数据库；可用 `PSYTEARDOWN_EXPERIENCE_STORE` 单独指定体验/工程 SQLite 文件。这两个工具只返回状态和追溯投影，不执行工程软件，也不能审批任何 gate。Typer CLI 继续用于可复现的本地批处理、导入导出和具名审查；MCP 用于对话式只读查询与草稿建议；多人逐条分流和 Gate 审批适合后续复用同一 Coordinator 的 Web/API 工作台。
 
 ## 仓库范围
 
@@ -140,4 +176,12 @@ CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superp
 
 ## 后续方向
 
-项目后续不止于文本产品心理拆解，计划发展为服务 AI 设计闭环的“心理驱动的产品体验拆解与验证系统”：把 AI 生成候选的物理特征、人的动作和使用情境转译为可追溯的体验假设，输出风险、权衡和下一轮可操作的设计修改，并生成可执行的验证实验。完整定位、领域模型、分阶段实现计划与验收标准见 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](docs/superpowers/specs/2026-09-08-psyteardown-future-direction-and-implementation-plan.md)。
+项目后续不止于文本产品心理拆解，而是分层发展为“产品 Discovery → 体验假设 → 设计反馈 → 工程验证”的协同平台。原始拆解面向 App/数字服务，先产生 `DigitalExperienceDiscovery` 和待分流信号；它不能直接成为机械、材料、制造或法规结论。完整定位、领域模型、分阶段实现计划、CLI/MCP 边界与验收标准见 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](docs/superpowers/specs/2026-09-08-psyteardown-future-direction-and-implementation-plan.md)。
+
+### 当前验证状态
+
+```text
+406 passed, 2 skipped
+```
+
+当前 Transit Anchor 仍为 `geometry_ready / design-review confirmed / physical validation pending`；`PrototypeRun=0`、`MeasurementObservation=0`、`EvidenceReview=0`、`evidence level=none`。因此仓库中的 Blender、GLB、PNG、virtual preflight 和 scenario replay 仍是设计/策略材料，不是样机、认证或制造证据。

@@ -45,7 +45,7 @@ class FrozenModel(BaseModel):
         while giving every immutable record an integrity/reproducibility
         boundary.
         """
-        payload = self.model_dump(mode="json", exclude={"content_hash"})
+        payload = self.model_dump(mode="json", exclude={"content_hash", "content_hash_value"})
 
         # ``created_at`` is operational metadata, not semantic payload.  It
         # must not make two equivalent snapshots hash differently merely
@@ -424,6 +424,10 @@ class DesignBrief(FrozenModel):
     round_one_size: Literal[5] = 5
     round_two_variants_per_direction: Literal[3] = 3
     parallel_branch_budget: int = Field(default=2, ge=1, le=2)
+    # Optional engineering traceability entry point.  Existing M1/M2/M3
+    # callers may omit it; P0 orchestration can attach requirement revisions
+    # without changing the experience snapshot semantics.
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @property
     def id(self) -> str:
@@ -487,6 +491,14 @@ class ConfirmedObservation(FrozenModel):
     confirmed_at: datetime = Field(default_factory=utc_now)
     provenance: Literal["declared", "external_asset", "blender_derived", "prototype_measurement"] = "declared"
     source_draft_id: str | None = None
+    asset_ids: tuple[str, ...] = ()
+    image_region: "ImageRegion | str | None" = None
+    video_segment: "VideoTimeSegment | None" = None
+    claim_category: Literal[
+        "visual_attribute", "motion", "dimension", "pressure", "strength", "comfort", "other"
+    ] = "other"
+    calibration_refs: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = ()
 
 
 class ResponseBranch(FrozenModel):
@@ -672,6 +684,7 @@ class DesignCandidate(FrozenModel):
     generator_application_declarations: tuple[tuple[str, str], ...] = ()
     shape: DesignShape | None = None
     design: DesignSpecification | None = None
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @property
     def id(self) -> str:
@@ -824,6 +837,7 @@ class Evidence(FrozenModel):
             revision=1, created_by="system", reason="evidence imported"
         )
     )
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def validate_locator(self) -> "Evidence":
@@ -902,6 +916,7 @@ class Observation(FrozenModel):
             revision=1, created_by="system", reason="observation recorded"
         )
     )
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def source_and_claim_boundary(self) -> "Observation":
@@ -984,6 +999,7 @@ class ExperienceHypothesis(FrozenModel):
             revision=1, created_by="system", reason="experience hypothesis recorded"
         )
     )
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def claim_boundaries(self) -> "ExperienceHypothesis":
@@ -1024,6 +1040,7 @@ class Critique(FrozenModel):
             revision=1, created_by="system", reason="candidate critique recorded"
         )
     )
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def approval_gate(self) -> "Critique":
@@ -1049,7 +1066,18 @@ class DesignFeedbackSelection(FrozenModel):
     ranked_candidate_ids: tuple[str, ...]
     next_prompt_json: Identifier
     actor: Identifier
+    # Formal-iteration lineage is optional for draft briefs, but once a
+    # frozen brief is attached to an iteration these links make the M3
+    # snapshot queryable alongside the canonical SelectionDecision chain.
+    iteration_id: Identifier | None = None
+    selection_decision_id: Identifier | None = None
+    # Required when a human deliberately chooses a candidate other than the
+    # deterministic first-ranked candidate.  It is retained even when the
+    # selection is later projected into a second-round prompt.
+    override_reason: Identifier | None = None
+    confirmed_patch_revision_ids: tuple[str, ...] = ()
     status: Literal["confirmed", "rejected"] = "confirmed"
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def selection_is_ranked(self) -> "DesignFeedbackSelection":
@@ -1120,6 +1148,37 @@ class PrototypeAsset(FrozenModel):
         return self.sha256
 
 
+class ImageRegion(FrozenModel):
+    """A bounded image region, in normalized or pixel coordinates."""
+
+    x: float = Field(ge=0)
+    y: float = Field(ge=0)
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)
+    coordinate_space: Literal["normalized", "pixels"] = "normalized"
+    label: str | None = None
+
+    @model_validator(mode="after")
+    def bounds(self) -> "ImageRegion":
+        if self.coordinate_space == "normalized" and (self.x + self.width > 1 or self.y + self.height > 1):
+            raise ValueError("normalized image region must stay within the unit frame")
+        return self
+
+
+class VideoTimeSegment(FrozenModel):
+    """A half-open source-video interval in milliseconds."""
+
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    label: str | None = None
+
+    @model_validator(mode="after")
+    def ordered(self) -> "VideoTimeSegment":
+        if self.end_ms <= self.start_ms:
+            raise ValueError("video segment end_ms must be greater than start_ms")
+        return self
+
+
 class ExternalAsset(FrozenModel):
     """A hash-addressed external design asset awaiting human interpretation."""
 
@@ -1132,17 +1191,54 @@ class ExternalAsset(FrozenModel):
     )
     provider: Identifier
     request_id: str | None = None
-    asset_kind: Literal["glb", "gltf", "png", "jpg", "jpeg", "cad", "other"] = "other"
+    asset_kind: Literal[
+        "glb", "gltf", "png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif",
+        "mp4", "mov", "webm", "mkv", "m4v", "avi", "wav", "mp3", "cad", "other",
+    ] = "other"
+    modality: Literal["image", "video", "audio", "geometry", "cad", "other", "unknown"] = "unknown"
     provenance: Literal["external", "blender_derived", "design_derived"] = "external"
     candidate_revision_id: str | None = None
     model_revision_id: str | None = None
     status: Literal["imported", "unavailable", "superseded"] = "imported"
+    calibration_status: Literal["unknown", "uncalibrated", "calibrated", "not_applicable"] = "unknown"
+    calibration_ref: str | None = None
+    width_px: int | None = Field(default=None, gt=0)
+    height_px: int | None = Field(default=None, gt=0)
+    duration_ms: int | None = Field(default=None, gt=0)
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def infer_modality_and_calibration(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        kind = str(payload.get("asset_kind", "other")).lower()
+        if payload.get("modality") in {None, "unknown"}:
+            if kind in {"png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif"}:
+                payload["modality"] = "image"
+            elif kind in {"mp4", "mov", "webm", "mkv", "m4v", "avi"}:
+                payload["modality"] = "video"
+            elif kind in {"wav", "mp3"}:
+                payload["modality"] = "audio"
+            elif kind in {"glb", "gltf"}:
+                payload["modality"] = "geometry"
+            elif kind == "cad":
+                payload["modality"] = "cad"
+        if "calibration_status" not in payload:
+            payload["calibration_status"] = (
+                "uncalibrated" if payload.get("modality") in {"image", "video"} else "not_applicable"
+            )
+        return payload
 
     @model_validator(mode="after")
     def derived_provider_boundary(self) -> "ExternalAsset":
         if self.provenance in {"blender_derived", "design_derived"} and self.provider.lower() != "blender":
             raise ValueError("derived external assets must name blender as provider")
+        if self.calibration_status == "calibrated" and not self.calibration_ref:
+            raise ValueError("calibrated external assets require calibration_ref")
+        if self.modality == "image" and self.duration_ms is not None:
+            raise ValueError("image assets cannot declare a video duration")
         return self
 
 
@@ -1152,14 +1248,23 @@ class ObservationDraft(FrozenModel):
     draft_id: Identifier
     revision_id: Identifier
     meta: RevisionMeta = Field(default_factory=lambda: RevisionMeta(revision=1, created_by="system", reason="observation draft imported"))
-    asset_ids: tuple[str, ...]
+    asset_ids: tuple[str, ...] = Field(min_length=1)
     candidate_revision_id: Identifier
     source_fact_id: Identifier
     subject: Identifier
     predicate: Identifier
     proposed_value: Identifier
     method: Identifier
-    observable_status: Literal["draft", "not_observable", "conflicted"] = "draft"
+    required_modalities: tuple[Literal["image", "video", "audio", "geometry", "cad"], ...] = ()
+    missing_modalities: tuple[Literal["image", "video", "audio", "geometry", "cad"], ...] = ()
+    image_region: ImageRegion | str | None = None
+    video_segment: VideoTimeSegment | None = None
+    start_ms: int | None = Field(default=None, ge=0)
+    end_ms: int | None = Field(default=None, gt=0)
+    claim_category: Literal[
+        "visual_attribute", "motion", "dimension", "pressure", "strength", "comfort", "other"
+    ] = Field(default="other", validation_alias=AliasChoices("claim_category", "claim_type"))
+    observable_status: Literal["draft", "unknown", "not_observable", "conflicted"] = "draft"
     not_observable_items: tuple[str, ...] = (
         "engineering dimensions",
         "fit and comfort",
@@ -1173,9 +1278,26 @@ class ObservationDraft(FrozenModel):
 
     @model_validator(mode="after")
     def non_observable_reason(self) -> "ObservationDraft":
-        if self.observable_status in {"not_observable", "conflicted"} and not self.not_observable_items:
+        if self.observable_status in {"unknown", "not_observable", "conflicted"} and not self.not_observable_items:
             raise ValueError("not-observable or conflicted drafts require explicit limitations")
+        if self.observable_status == "unknown" and not self.missing_modalities:
+            raise ValueError("unknown observation drafts require explicit missing modalities")
+        if (self.start_ms is None) != (self.end_ms is None):
+            raise ValueError("video observation requires both start_ms and end_ms")
+        if self.start_ms is not None and self.end_ms is not None and self.end_ms <= self.start_ms:
+            raise ValueError("video observation end_ms must be greater than start_ms")
+        if self.video_segment is not None and self.start_ms is not None:
+            if (self.video_segment.start_ms, self.video_segment.end_ms) != (self.start_ms, self.end_ms):
+                raise ValueError("video_segment conflicts with start_ms/end_ms")
         return self
+
+    @property
+    def effective_video_segment(self) -> VideoTimeSegment | None:
+        if self.video_segment is not None:
+            return self.video_segment
+        if self.start_ms is not None and self.end_ms is not None:
+            return VideoTimeSegment(start_ms=self.start_ms, end_ms=self.end_ms)
+        return None
 
 
 class PrototypeRun(FrozenModel):
@@ -1198,6 +1320,30 @@ class PrototypeRun(FrozenModel):
     import_source: Literal["manual", "measurement_file", "external_runner"] = "manual"
     notes: str | None = None
     dependencies: tuple[DependencyRef, ...] = ()
+    experiment_revision_id: str | None = None
+    condition_snapshot_ids: tuple[str, ...] = ()
+    hypothesis_binding_ids: tuple[str, ...] = ()
+    analysis_family_revision_id: str | None = None
+    analysis_protocol_review_id: str | None = None
+
+    @model_validator(mode="after")
+    def formal_analysis_lineage(self) -> "PrototypeRun":
+        declared = any((
+            self.experiment_revision_id,
+            self.condition_snapshot_ids,
+            self.hypothesis_binding_ids,
+            self.analysis_family_revision_id,
+            self.analysis_protocol_review_id,
+        ))
+        if declared and not all((
+            self.experiment_revision_id,
+            self.condition_snapshot_ids,
+            self.hypothesis_binding_ids,
+            self.analysis_family_revision_id,
+            self.analysis_protocol_review_id,
+        )):
+            raise ValueError("formal prototype runs require complete M2 analysis lineage")
+        return self
 
     @property
     def protocol_revision_id(self) -> str:
@@ -1240,6 +1386,10 @@ class MeasurementObservation(FrozenModel):
     reviewed_at: datetime | None = None
     notes: str | None = None
     raw_file_hash: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-fA-F]{64}$")] | None = Field(default=None, validation_alias=AliasChoices("raw_file_hash", "source_file_hash", "file_hash"))
+    condition_snapshot_revision_id: str | None = None
+    hypothesis_binding_ids: tuple[str, ...] = ()
+    analysis_family_revision_id: str | None = None
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def validate_missing_and_value(self) -> "MeasurementObservation":
@@ -1279,6 +1429,12 @@ class EvidenceReview(FrozenModel):
     confirmed_observation_ids: tuple[str, ...] = ()
     rationale: Identifier = "pending human review"
     limitations: tuple[str, ...] = ()
+    experiment_revision_id: str | None = None
+    condition_snapshot_ids: tuple[str, ...] = ()
+    hypothesis_binding_ids: tuple[str, ...] = ()
+    analysis_family_revision_id: str | None = None
+    analysis_protocol_review_id: str | None = None
+    dependencies: tuple[DependencyRef, ...] = ()
 
     @model_validator(mode="after")
     def gate_promotion(self) -> "EvidenceReview":
@@ -1542,6 +1698,7 @@ class SelectionDecision(FrozenModel):
     rejected_tradeoffs: tuple[str, ...] = ()
     required_followups: tuple[str, ...] = ()
     rationale: Identifier
+    dependencies: tuple[DependencyRef, ...] = ()
 
 
 class NextDesignPrompt(FrozenModel):
@@ -1585,6 +1742,7 @@ class DesignIteration(FrozenModel):
     selection_decision_id: str | None = None
     next_prompt_id: str | None = None
     variable_repair_trace_ids: tuple[str, ...] = ()
+    dependencies: tuple[DependencyRef, ...] = ()
 
 
 class PatchApplicationTrace(FrozenModel):
@@ -1789,6 +1947,14 @@ class HypothesisBinding(FrozenModel):
     status: Literal["current", "stale", "invalidated"] = "current"
     dependencies: tuple[DependencyRef, ...] = ()
 
+    @model_validator(mode="after")
+    def binding_shape(self) -> "HypothesisBinding":
+        if self.role in {"primary", "secondary"} and not self.measure_ids:
+            raise ValueError("primary/secondary hypothesis bindings require measure IDs")
+        if self.status != "current" and self.analysis_family_id is None:
+            raise ValueError("non-current hypothesis bindings retain their analysis family")
+        return self
+
 
 class AnalysisFamily(FrozenModel):
     family_id: Identifier
@@ -1801,6 +1967,8 @@ class AnalysisFamily(FrozenModel):
     correction: Literal["none", "bonferroni", "holm", "fdr", "other"] = "none"
     interpretation_policy: Identifier = "pre-registered interpretation"
     locked: bool = False
+    analysis_method: Identifier = "pre-registered model with uncertainty interval"
+    multiplicity_policy: Identifier = "report all declared tests; do not select results post hoc"
 
     @model_validator(mode="after")
     def no_duplicate_bindings(self) -> "AnalysisFamily":
@@ -1809,6 +1977,10 @@ class AnalysisFamily(FrozenModel):
             raise ValueError("an analysis family binding cannot occur in multiple tiers")
         if self.locked and not self.primary_measure_ids:
             raise ValueError("locked analysis family requires primary measures")
+        if self.locked and not self.primary_binding_ids:
+            raise ValueError("locked analysis family requires a primary binding")
+        if len(self.primary_binding_ids) > 1 and self.correction == "none":
+            raise ValueError("multiple primary bindings require a multiplicity correction")
         return self
 
 
@@ -1889,6 +2061,8 @@ class ExperimentPlan(FrozenModel):
     started_at: datetime | None = None
     start_event_id: str | None = None
     dependencies: tuple[DependencyRef, ...] = ()
+    analysis_protocol_review_id: Identifier | None = None
+    amendment_ids: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def start_lock(self) -> "ExperimentPlan":
@@ -1907,6 +2081,7 @@ class PreregistrationAmendment(FrozenModel):
     changed_fields: tuple[str, ...]
     reason: Identifier
     approved_by: Identifier
+    changed_at: datetime = Field(default_factory=utc_now)
     before_start: bool = True
     status: Literal["accepted", "rejected"] = "accepted"
 
@@ -1931,6 +2106,50 @@ class ProtocolDeviation(FrozenModel):
     impact: Literal["none", "limited", "major", "unknown"] = "unknown"
     status: Literal["recorded", "reviewed"] = "recorded"
     analysis_limitations: tuple[str, ...] = ()
+
+
+class AnalysisProtocolReview(FrozenModel):
+    """Human review gate for a preregistered analysis protocol.
+
+    This record is deliberately separate from ``ExperimentPlan`` so an
+    approval is an auditable, immutable decision.  It does not run statistics
+    or infer a result; it only establishes that the predeclared protocol is
+    complete enough to accept real data.
+    """
+
+    review_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    experiment_revision_id: Identifier
+    reviewer: Identifier
+    sample_size_reviewed: bool = False
+    stopping_rules_reviewed: bool = False
+    missingness_reviewed: bool = False
+    analysis_family_reviewed: bool = False
+    condition_lineage_reviewed: bool = False
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    rationale: Identifier = "pending human analysis-protocol review"
+    reviewed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def approval_requires_all_checks(self) -> "AnalysisProtocolReview":
+        checks = (
+            self.sample_size_reviewed,
+            self.stopping_rules_reviewed,
+            self.missingness_reviewed,
+            self.analysis_family_reviewed,
+            self.condition_lineage_reviewed,
+        )
+        if self.status == "approved" and (not all(checks) or self.reviewed_at is None):
+            raise ValueError("approved analysis protocol review requires every gate and review timestamp")
+        if self.status == "pending" and self.reviewed_at is not None:
+            raise ValueError("pending analysis protocol review cannot have a review timestamp")
+        return self
+
+
+# Public terminology alias: callers may refer to the same immutable review as
+# an analysis-protocol gate without introducing a second persistence type.
+AnalysisProtocolGate = AnalysisProtocolReview
 
 
 class ExperimentStartEvent(FrozenModel):
@@ -1978,6 +2197,14 @@ class ConditionSnapshot(FrozenModel):
     environment: Identifier = "unspecified"
     consent_scope_revision_id: Identifier | None = None
     content_hash_value: str | None = None
+
+    @model_validator(mode="after")
+    def content_hash_matches_snapshot(self) -> "ConditionSnapshot":
+        if self.content_hash_value is not None:
+            expected = self.model_copy(update={"content_hash_value": None}).content_hash
+            if self.content_hash_value != expected:
+                raise ValueError("condition snapshot content hash does not match immutable payload")
+        return self
 
 
 class ConditionPresentationRecord(FrozenModel):
@@ -2308,3 +2535,30 @@ CandidateDraft.model_rebuild()
 FutureMovementScenario.model_rebuild()
 DesignRuleSet.model_rebuild()
 ProgressiveDesignModel.model_rebuild()
+ConfirmedObservation.model_rebuild()
+
+
+# P0 engineering types live in a separate module to keep the historical
+# experience model file manageable.  A lazy bridge preserves the established
+# ``psyteardown.experience.models`` import surface without introducing a
+# module-import cycle while models are being defined.
+_ENGINEERING_EXPORTS = {
+    "EngineeringRecord", "RequirementDeclaration", "EngineeringIntake", "EngineeringProjectRevision",
+    "EngineeringRequirement", "EngineeringConflict", "MechanicalArchitecture",
+    "MaterialProcessChoice", "CADArtifact", "BOMRevision", "ToleranceStack",
+    "CAEAnalysisRun", "DFMReview", "FMEARevision", "DVPRevision", "VerificationTestRun",
+    "PilotBuildRun", "ReliabilityCertificationReview", "ManufacturingReadinessReview",
+    "ReleaseDecision", "EngineeringChangeOrder", "SupplierChangeRecord", "FieldIssue",
+    "CrossCaseEvidenceRef", "CrossCaseKnowledgeCandidate", "ApprovedKnowledgeRule", "EngineeringTask",
+    "EngineeringGateDecision", "EngineeringOrchestrator", "EngineeringRegistry",
+    "EngineeringObjectRegistry",
+    "EngineeringArtifactRef", "EngineeringToolRequest", "RawEngineeringToolResult",
+    "EngineeringInterpretation",
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name in _ENGINEERING_EXPORTS:
+        from psyteardown.experience import engineering
+        return getattr(engineering, name)
+    raise AttributeError(name)

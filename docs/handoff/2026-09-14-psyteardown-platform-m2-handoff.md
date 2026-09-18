@@ -45,6 +45,21 @@ M2 已开始并完成第一切片：将条件性 `ExperienceHypothesis` 转为�
 5. 在真实实验数据导入前增加 analysis protocol gate；不在 M2 中自动更新
    `supported` / `rejected`。
 
+## M2 第二切片完成记录（2026-09-15）
+
+- `build_experiment_plan_bundle` 会同时创建正式 `HypothesisBinding`、
+  `AnalysisFamily` 和不可变 `ConditionSnapshot` revision，并将 candidate/facts/
+  event lineage 写入计划依赖。
+- `preregister_plan` 后，应用服务和 CLI 会创建锁定的 analysis-family revision；
+  primary measure 必须唯一，primary/secondary/exploratory 分层不能重复。
+- `validate_analysis_protocol` / `review_analysis_protocol` 提供真实数据导入前的
+  确定性检查与人工审查记录；新增 CLI：
+  `python -m psyteardown.cli experiment-analysis-review --input <plan.json> --reviewer <id> --approve`。
+- `revise_condition_snapshot` 只能创建带 parent revision 和 content hash 的新条件，
+  不会原地覆盖已呈现条件。
+- preregistration amendment 现在执行字段级白名单检查；实验开始后仍只能记录
+  `ProtocolDeviation`。新增 `AnalysisProtocolReview` 已纳入 SQLite registry。
+
 ## 回归要求
 
 每次 M2 改动后运行：

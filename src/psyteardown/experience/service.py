@@ -15,6 +15,8 @@ from psyteardown.experience.models import (
     DesignCandidate,
     DesignIteration,
     DesignToolRun,
+    Evidence,
+    ExperienceHypothesis,
     PrototypeRun,
     PrototypeAsset,
     ExternalAsset,
@@ -42,6 +44,12 @@ from psyteardown.experience.models import (
     ContaminationMark,
     CleanRerunClosure,
     CleanRerunRecord,
+    AnalysisProtocolReview,
+    AnalysisFamily,
+    HypothesisBinding,
+    ConditionSnapshot,
+    PartialOrderReason,
+    PartialOrderTier,
 )
 from psyteardown.experience.providers import ClaimJudge, DesignGenerator, ReviewReasoner
 from psyteardown.experience.repositories import InMemoryExperienceRepository
@@ -67,11 +75,26 @@ from psyteardown.experience.contamination import (
     build_clean_rerun,
 )
 from psyteardown.experience.research import ResearchApplicationService
-from psyteardown.experience.experiment_planner import build_experiment_plan, preregister_plan
+from psyteardown.experience.experiment_planner import (
+    build_experiment_plan,
+    build_experiment_plan_bundle,
+    preregister_plan,
+    review_analysis_protocol,
+    revise_condition_snapshot,
+)
+from psyteardown.experience.governance import amend_preregistration, record_protocol_deviation
 from psyteardown.experience.m3_feedback import (
     build_feedback_selection,
+    build_actionable_patches,
     run_feedback_loop,
     select_feedback_candidate,
+)
+from psyteardown.experience.multimodal import (
+    classify_observation_claim,
+    is_named_human_actor,
+    multimodal_confirmation_issues,
+    multimodal_source_locator,
+    normalize_multimodal_draft,
 )
 
 
@@ -109,24 +132,112 @@ class ExperienceApplicationService:
         return ResearchApplicationService(self.repository).save_critique(critique, expected_revision=expected_revision)
 
     def create_experiment_plan(self, hypothesis, **kwargs):
-        """Generate and persist an M2 draft plan from a conditional hypothesis."""
-        plan = build_experiment_plan(hypothesis, **kwargs)
-        self.repository.save("experiment_plan", plan.experiment_id, plan.revision_id, plan)
+        """Generate and persist an M2 draft plus formal lineage snapshots."""
+        plan, binding, family, conditions = self.create_experiment_plan_bundle(hypothesis, **kwargs)
         return plan
+
+    def create_experiment_plan_bundle(self, hypothesis, **kwargs):
+        """Create and persist a plan plus its formal binding/analysis/conditions."""
+        plan, binding, family, conditions = build_experiment_plan_bundle(hypothesis, **kwargs)
+        self.repository.save("experiment_plan", plan.experiment_id, plan.revision_id, plan)
+        self.repository.save("hypothesis_binding", binding.binding_id, binding.revision_id, binding)
+        self.repository.save("analysis_family", family.family_id, family.revision_id, family)
+        for condition in conditions:
+            self.repository.save("condition", condition.condition_id, condition.revision_id, condition)
+        return plan, binding, family, conditions
 
     def preregister_experiment_plan(self, plan, *, actor: str = "human"):
         """Persist a human-approved preregistered revision."""
         updated = preregister_plan(plan, actor=actor)
+        # Lock the separately persisted analysis-family snapshot at the same
+        # command boundary.  The old family revision remains available for
+        # audit; bindings continue to point to the stable family aggregate.
+        if plan.analysis_family_revision_id:
+            family = self.repository.get_revision("analysis_family", plan.analysis_family_revision_id)
+            if family is not None and not family.locked:
+                locked = family.model_copy(update={
+                    "revision_id": f"{family.family_id}.r{family.meta.revision + 1}",
+                    "meta": family.meta.model_copy(update={
+                        "revision": family.meta.revision + 1,
+                        "parent_revision_id": family.revision_id,
+                        "created_by": actor,
+                        "reason": "analysis family locked at preregistration",
+                    }),
+                    "locked": True,
+                })
+                self.repository.save("analysis_family", locked.family_id, locked.revision_id, locked)
+                updated = updated.model_copy(update={
+                    "analysis_family_revision_id": locked.revision_id,
+                    "protocol_snapshot": {
+                        **dict(updated.protocol_snapshot),
+                        "analysis_family_revision_id": locked.revision_id,
+                    },
+                })
         self.repository.save("experiment_plan", updated.experiment_id, updated.revision_id, updated)
         return updated
 
+    def review_analysis_protocol(self, plan, *, reviewer: str, family: AnalysisFamily | None = None, bindings=(), conditions=(), approved: bool = False, finalize: bool = False, rationale: str = "analysis protocol reviewed", actor: str | None = None):
+        if not bindings:
+            bindings = [
+                self.repository.get_revision("hypothesis_binding", revision)
+                or self.repository.get_current("hypothesis_binding", revision)
+                for revision in plan.hypothesis_binding_ids
+            ]
+            bindings = [item for item in bindings if item is not None]
+        if family is None and plan.analysis_family_revision_id:
+            family = self.repository.get_revision("analysis_family", plan.analysis_family_revision_id)
+        if not conditions:
+            conditions = [
+                self.repository.get_revision("condition", revision)
+                or self.repository.get_current("condition", revision)
+                for revision in plan.condition_snapshot_ids
+            ]
+            conditions = [item for item in conditions if item is not None]
+        review = review_analysis_protocol(plan, reviewer=reviewer, family=family, bindings=bindings, conditions=conditions, approved=approved, finalize=finalize, rationale=rationale, actor=actor)
+        self.repository.save("analysis_protocol_review", review.review_id, review.revision_id, review)
+        existing_plans = self.repository.list_revisions("experiment_plan", plan.experiment_id)
+        next_revision = max((item.meta.revision for item in existing_plans), default=plan.meta.revision) + 1
+        reviewed_plan = plan.model_copy(update={
+            "revision_id": f"{plan.experiment_id}.r{next_revision}",
+            "meta": plan.meta.model_copy(update={
+                "revision": next_revision,
+                "parent_revision_id": plan.revision_id,
+                "created_by": actor or reviewer,
+                "reason": "analysis protocol review recorded",
+            }),
+            "analysis_protocol_review_id": review.revision_id,
+        })
+        self.repository.save("experiment_plan", reviewed_plan.experiment_id, reviewed_plan.revision_id, reviewed_plan)
+        return review
+
+    def revise_condition_snapshot(self, snapshot: ConditionSnapshot, *, variable_values, reason: str, actor: str = "human"):
+        child = revise_condition_snapshot(snapshot, variable_values=variable_values, reason=reason, actor=actor)
+        self.repository.save("condition", child.condition_id, child.revision_id, child)
+        return child
+
+    def amend_experiment_preregistration(self, plan, *, changed_fields, reason: str, approved_by: str, actor: str = "human"):
+        updated, amendment = amend_preregistration(plan, changed_fields=changed_fields, reason=reason, approved_by=approved_by, actor=actor)
+        self.repository.save("experiment_plan", updated.experiment_id, updated.revision_id, updated)
+        self.repository.save("preregistration_amendment", amendment.amendment_id, amendment.revision_id, amendment)
+        return updated, amendment
+
+    def record_experiment_protocol_deviation(self, **kwargs):
+        deviation = record_protocol_deviation(**kwargs)
+        self.repository.save("protocol_deviation", deviation.deviation_id, deviation.revision_id, deviation)
+        return deviation
+
     def run_design_feedback(self, brief: DesignBrief, *, generator, n: int | None = None, actor: str = "system"):
         """Persist an M3 generated candidate/critique bundle without selecting it."""
+        # Keep the generator on the service so the same command boundary can
+        # immediately materialize a second round after human confirmation.
+        self.design_generator = generator
         result = run_feedback_loop(brief, generator=generator, n=n, actor=actor)
         for candidate in result.candidates:
-            self.repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
+            if self.repository.get_revision("candidate", candidate.candidate_revision_id) is None:
+                self.repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
         for critique in result.critiques:
-            self.repository.save("critique", critique.critique_id, critique.revision_id, critique)
+            if self.repository.get_revision("critique", critique.revision_id) is None:
+                self.repository.save("critique", critique.critique_id, critique.revision_id, critique)
         # When the brief is already frozen, attach the bundle to the normal
         # iteration aggregate.  Draft briefs remain export-only until a human
         # freezes them through the existing command boundary.
@@ -145,12 +256,249 @@ class ExperienceApplicationService:
             )
         return result
 
-    def select_design_feedback(self, brief: DesignBrief, result, candidate_id: str, *, actor: str = "human"):
-        """Persist an explicit M3 selection and its prompt projection."""
+    def _build_feedback_partial_order(self, brief: DesignBrief, result, iteration: DesignIteration, *, actor: str) -> CandidatePartialOrder:
+        """Translate deterministic M3 critique tiers into the formal order.
+
+        M3 ranking is intentionally not a psychological score.  Candidates
+        without a hard risk or unknown are therefore retained as viable
+        alternatives, while the formal order still records why a candidate
+        was isolated.  This allows a human to override the first-ranked
+        viable option without silently converting ranking into approval.
+        """
+        preferred: list[str] = []
+        viable: list[str] = []
+        needs_evidence: list[str] = []
+        blocked: list[str] = []
+        reasons: list[PartialOrderReason] = []
+        for critique in result.critiques:
+            if critique.hard_risks:
+                tier = PartialOrderTier.BLOCKED
+                blocked.append(critique.candidate_id)
+                codes = ("m3_hard_risk",)
+            elif critique.unknowns:
+                tier = PartialOrderTier.NEEDS_EVIDENCE
+                needs_evidence.append(critique.candidate_id)
+                codes = ("m3_unknown",)
+            else:
+                tier = PartialOrderTier.VIABLE_ALTERNATIVES
+                viable.append(critique.candidate_id)
+                codes = ("m3_deterministic_rank_only",)
+            reasons.append(PartialOrderReason(
+                candidate_id=critique.candidate_id,
+                tier=tier,
+                codes=codes,
+                evidence_refs=tuple(critique.evidence_ids),
+            ))
+        return CandidatePartialOrder(
+            partial_order_id=f"{iteration.iteration_id}.m3-order",
+            meta=RevisionMeta(revision=1, created_by=actor, reason="M3 deterministic feedback order"),
+            brief_revision_id=brief.revision_id,
+            iteration_id=iteration.iteration_id,
+            preferred_set_id=f"{iteration.iteration_id}.m3-preferred-set",
+            preferred=tuple(preferred),
+            viable_alternatives=tuple(viable),
+            needs_evidence=tuple(needs_evidence),
+            blocked=tuple(blocked),
+            reasons=tuple(reasons),
+            dependencies=(DependencyRef(object_type="brief", object_id=brief.brief_id, revision=brief.meta.revision),),
+        )
+
+    def select_design_feedback(
+        self,
+        brief: DesignBrief,
+        result,
+        candidate_id: str,
+        *,
+        actor: str = "human",
+        override_reason: str | None = None,
+    ):
+        """Persist an explicit M3 selection and its formal revision links."""
         updated = select_feedback_candidate(brief, result, candidate_id, actor=actor)
+        iteration = None
+        order = None
+        decision = None
+        if updated.iteration_id:
+            iteration = self.repository.get_current("iteration", updated.iteration_id)
+            if iteration is None:
+                raise DomainStateError("M3 feedback references an unknown iteration")
+            if iteration.status != IterationStatus.CANDIDATES_IMPORTED:
+                raise DomainStateError("M3 feedback selection requires imported candidates")
+            selected_candidate = next(
+                (item for item in updated.candidates if item.candidate_id == candidate_id),
+                None,
+            )
+            if selected_candidate is None or selected_candidate.candidate_revision_id not in iteration.candidate_revision_ids:
+                raise DomainStateError("M3 selection references a candidate outside the iteration")
+            order = self._build_feedback_partial_order(brief, updated, iteration, actor=actor)
+            self.repository.save("partial_order", order.partial_order_id, order.partial_order_id, order)
+            rank_index = tuple(updated.ranked_candidate_ids).index(candidate_id)
+            is_override = rank_index != 0
+            if is_override and not override_reason:
+                raise DomainStateError("selecting a non-first-ranked candidate requires override_reason")
+            action = "override" if is_override else "select"
+            rationale = override_reason or "human confirmed deterministic M3 ranking"
+            decision = SelectionDecision(
+                decision_id=f"{updated.selected_candidate_id}.m3-decision",
+                revision_id=f"{updated.selected_candidate_id}.m3-decision.r1",
+                meta=RevisionMeta(revision=1, created_by=actor, reason=rationale),
+                iteration_id=iteration.iteration_id,
+                partial_order_id=order.partial_order_id,
+                action=action,
+                candidate_ids=(candidate_id,),
+                decision_basis=(f"m3_rank:{rank_index + 1}", *tuple(
+                    f"m3_{field}:{len(getattr(next(item for item in updated.critiques if item.candidate_id == candidate_id), field))}"
+                    for field in ("hard_risks", "unknowns", "actionable_changes")
+                )),
+                overridden_tier="viable_alternatives" if is_override else None,
+                rationale=rationale,
+            )
+            self.repository.save("selection", decision.decision_id, decision.revision_id, decision)
+            self._advance_iteration(
+                iteration,
+                actor=actor,
+                reason="M3 human selection recorded",
+                status=IterationStatus.SELECTED,
+                partial_order_id=order.partial_order_id,
+                selection_decision_id=decision.revision_id,
+            )
         selection = build_feedback_selection(updated, actor=actor)
+        selection = selection.model_copy(update={
+            "iteration_id": iteration.iteration_id if iteration else None,
+            "selection_decision_id": decision.revision_id if decision else None,
+            "override_reason": override_reason,
+        })
         self.repository.save("feedback_selection", selection.selection_id, selection.revision_id, selection)
         return updated, selection
+
+    def confirm_feedback_next_prompt(
+        self,
+        result,
+        *,
+        patches: Iterable[VariablePatch] | None = None,
+        validation_task_ids: Iterable[str] = (),
+        actor: str = "human",
+    ) -> NextDesignPrompt:
+        """Turn a selected M3 result into the canonical next-round prompt.
+
+        The generated patches are exploratory declarations unless a caller
+        supplies concrete confirmed values.  No physical result or
+        psychological outcome is inferred at this boundary.
+        """
+        if not result.selected_candidate_id or not result.iteration_id:
+            raise DomainStateError("M3 result must be selected and attached to an iteration")
+        iteration = self.repository.get_current("iteration", result.iteration_id)
+        if iteration is None or iteration.status != IterationStatus.SELECTED:
+            raise DomainStateError("M3 next prompt requires a selected iteration")
+        candidate = next((item for item in result.candidates if item.candidate_id == result.selected_candidate_id), None)
+        if candidate is None:
+            raise DomainStateError("M3 selected candidate is not in the feedback result")
+        if candidate.candidate_revision_id not in iteration.candidate_revision_ids:
+            raise DomainStateError("M3 prompt references a candidate outside the iteration")
+        patch_values = tuple(patches) if patches is not None else build_actionable_patches(result, actor=actor)
+        for patch in patch_values:
+            if patch.status != "confirmed":
+                raise DomainStateError("only confirmed VariablePatch records can enter a next-round prompt")
+            if self.repository.get_revision("patch", patch.revision_id) is None:
+                self.repository.save("patch", patch.patch_id, patch.revision_id, patch)
+        validation_task_ids = tuple(validation_task_ids)
+        if not patch_values and not validation_task_ids:
+            raise DomainStateError("M3 next prompt requires an actionable patch or validation task")
+        selection = next(
+            (item for item in self.repository.list_revisions("feedback_selection")
+             if item.candidate_id == candidate.candidate_id and item.iteration_id == iteration.iteration_id),
+            None,
+        )
+        dependencies = []
+        if selection is not None:
+            dependencies.append(DependencyRef(object_type="feedback_selection", object_id=selection.selection_id, revision=selection.meta.revision))
+        prompt = NextDesignPrompt(
+            prompt_id=f"{iteration.iteration_id}.m3-prompt",
+            revision_id=f"{iteration.iteration_id}.m3-prompt.r1",
+            meta=RevisionMeta(revision=1, created_by=actor, reason="M3 actionable feedback confirmed"),
+            brief_revision_id=iteration.brief_revision_id,
+            iteration_id=iteration.iteration_id,
+            selected_candidate_revision_ids=(candidate.candidate_revision_id,),
+            confirmed_patch_revision_ids=tuple(p.revision_id for p in patch_values),
+            validation_task_ids=validation_task_ids,
+            dependencies=tuple(dependencies),
+        )
+        self.repository.save("prompt", prompt.prompt_id, prompt.revision_id, prompt)
+        self._advance_iteration(
+            iteration,
+            actor=actor,
+            reason="M3 next-round prompt confirmed",
+            status=IterationStatus.PROMPT_CONFIRMED,
+            next_prompt_id=prompt.revision_id,
+        )
+        if selection is not None:
+            updated_selection = selection.model_copy(update={
+                "confirmed_patch_revision_ids": prompt.confirmed_patch_revision_ids,
+            })
+            # A selection snapshot is immutable; persist an auditable child
+            # revision rather than mutating the original confirmation.
+            child_revision = f"{selection.selection_id}.r{selection.meta.revision + 1}"
+            updated_selection = updated_selection.model_copy(update={
+                "revision_id": child_revision,
+                "meta": selection.meta.model_copy(update={
+                    "revision": selection.meta.revision + 1,
+                    "parent_revision_id": selection.revision_id,
+                    "created_by": actor,
+                    "reason": "M3 patches confirmed for next round",
+                }),
+            })
+            self.repository.save("feedback_selection", updated_selection.selection_id, child_revision, updated_selection)
+        return prompt
+
+    def create_experiment_plan_from_feedback(
+        self,
+        brief: DesignBrief,
+        result,
+        *,
+        hypothesis_index: int = 0,
+        actor: str = "human",
+        **kwargs,
+    ):
+        """Explicitly hand a selected M3 hypothesis to the M2 planner.
+
+        This is a human command boundary: it accepts only a selected result,
+        persists the selected hypothesis as ``exploratory`` and creates a
+        preregistration-shaped *draft* bundle.  It never creates outcomes or
+        upgrades the hypothesis status.
+        """
+        if not result.selected_candidate_id:
+            raise DomainStateError("an explicit M3 selection is required before planning an experiment")
+        if result.brief_revision_id != brief.revision_id:
+            raise DomainStateError("feedback and brief revisions do not match")
+        critique = next(
+            (item for item in result.critiques if item.candidate_id == result.selected_candidate_id),
+            None,
+        )
+        if critique is None or not critique.hypotheses:
+            raise DomainStateError("selected M3 candidate has no conditional hypothesis to plan")
+        if hypothesis_index < 0 or hypothesis_index >= len(critique.hypotheses):
+            raise DomainStateError("hypothesis_index is outside the selected critique")
+        candidate = next(
+            (item for item in result.candidates if item.candidate_id == result.selected_candidate_id),
+            None,
+        )
+        if candidate is None:
+            raise DomainStateError("selected M3 candidate is not present in the feedback result")
+        source = critique.hypotheses[hypothesis_index]
+        # Nested M3 hypotheses use a generic revision for portability.  Give
+        # the persisted M2 lineage a stable aggregate-specific revision.
+        hypothesis = source.model_copy(update={
+            "revision_id": f"{source.hypothesis_id}.r1",
+            "meta": source.meta.model_copy(update={
+                "created_by": actor,
+                "reason": "human-confirmed M3 hypothesis handed to M2",
+            }),
+        })
+        if self.repository.get_revision("experience_hypothesis", hypothesis.revision_id) is None:
+            self.repository.save("experience_hypothesis", hypothesis.hypothesis_id, hypothesis.revision_id, hypothesis)
+        kwargs.setdefault("brief_revision_id", brief.revision_id)
+        kwargs.setdefault("candidate_revision_id", candidate.candidate_revision_id)
+        kwargs.setdefault("event_ids", tuple(event.event_id for event in candidate.events))
+        return self.create_experiment_plan_bundle(hypothesis, actor=actor, **kwargs)
 
     # ----- contamination / clean-rerun boundary ----------------------------
     def quarantine_output(self, **kwargs) -> UnauthorizedOutput:
@@ -404,6 +752,53 @@ class ExperienceApplicationService:
         return updated
 
     # ----- prototype evidence workflow --------------------------------------
+    def _prototype_analysis_lineage(self, run: PrototypeRun):
+        """Resolve and validate the complete M2 lineage for a formal run."""
+        if not run.experiment_revision_id:
+            return None
+        plan = self.repository.get_revision("experiment_plan", run.experiment_revision_id)
+        if plan is None:
+            raise DomainStateError("prototype run references an unknown experiment revision")
+        if plan.status not in {"preregistered", "approved", "started", "completed"}:
+            raise DomainStateError("prototype run requires a preregistered experiment revision")
+        protocol_review = self.repository.get_revision("analysis_protocol_review", run.analysis_protocol_review_id)
+        if protocol_review is None or protocol_review.status != "approved":
+            raise DomainStateError("prototype run requires an approved analysis protocol review")
+        if plan.analysis_protocol_review_id != protocol_review.revision_id:
+            raise DomainStateError("experiment revision does not reference the supplied analysis protocol review")
+        if protocol_review.experiment_revision_id not in {plan.revision_id, plan.meta.parent_revision_id}:
+            raise DomainStateError("analysis protocol review belongs to another experiment revision")
+        family = self.repository.get_revision("analysis_family", run.analysis_family_revision_id)
+        if family is None or not family.locked:
+            raise DomainStateError("prototype run requires a locked analysis family")
+        if plan.analysis_family_revision_id != family.revision_id:
+            raise DomainStateError("prototype run analysis family does not match the experiment")
+        if not set(run.hypothesis_binding_ids).issubset(plan.hypothesis_binding_ids):
+            raise DomainStateError("prototype run binding is outside the experiment plan")
+        bindings = tuple(
+            self.repository.get_revision("hypothesis_binding", revision_id)
+            or self.repository.get_current("hypothesis_binding", revision_id)
+            for revision_id in run.hypothesis_binding_ids
+        )
+        if any(binding is None for binding in bindings):
+            raise DomainStateError("prototype run references an unknown hypothesis binding")
+        family_binding_ids = set(
+            family.primary_binding_ids + family.secondary_binding_ids + family.exploratory_binding_ids
+        )
+        if any(binding.binding_id not in family_binding_ids or binding.analysis_family_id != family.family_id for binding in bindings):
+            raise DomainStateError("prototype run binding is outside the locked analysis family")
+        if not set(run.condition_snapshot_ids).issubset(plan.condition_snapshot_ids):
+            raise DomainStateError("prototype run condition is outside the experiment plan")
+        conditions = tuple(
+            self.repository.get_revision("condition", revision_id)
+            for revision_id in run.condition_snapshot_ids
+        )
+        if any(condition is None for condition in conditions):
+            raise DomainStateError("prototype run references an unknown condition snapshot")
+        if any(condition.candidate_revision_id != run.candidate_revision_id for condition in conditions):
+            raise DomainStateError("prototype run condition belongs to another candidate revision")
+        return plan, bindings, family, conditions, protocol_review
+
     def import_prototype_run(
         self,
         run: PrototypeRun,
@@ -434,6 +829,7 @@ class ExperienceApplicationService:
             model = self.repository.get_revision("progressive_model", run.model_revision_id)
             if model is not None and model.candidate_revision_id != run.candidate_revision_id:
                 raise DomainStateError("prototype run model revision belongs to another candidate")
+        self._prototype_analysis_lineage(run)
         if self.repository.get_revision("prototype_run", run.revision_id) is not None:
             raise DomainStateError("prototype run revision already imported")
         for asset in run.source_assets:
@@ -486,8 +882,7 @@ class ExperienceApplicationService:
         assets = {asset.asset_id: asset for asset in self.repository.list_revisions("external_asset")}
         if not set(draft.asset_ids).issubset(assets):
             raise DomainStateError("observation draft references an unimported external asset")
-        if any(assets[item].status != "imported" for item in draft.asset_ids):
-            raise DomainStateError("observation draft references an unavailable external asset")
+        draft = normalize_multimodal_draft(draft, assets)
         if self.repository.get_revision("observation_draft", draft.revision_id) is not None:
             raise DomainStateError("observation draft revision already imported")
         self.repository.save("observation_draft", draft.draft_id, draft.revision_id, draft)
@@ -504,33 +899,47 @@ class ExperienceApplicationService:
         reason: str = "external observation manually confirmed",
     ) -> ConfirmedObservation:
         """Convert a pending draft into a confirmed design observation only."""
-        persisted = self.repository.get_revision("observation_draft", draft.revision_id)
+        persisted = self.repository.get_current("observation_draft", draft.draft_id)
         if persisted is None:
             raise DomainStateError("observation draft is not persisted")
+        if persisted.revision_id != draft.revision_id:
+            raise DomainStateError("observation draft revision is stale")
         if persisted.confirmation != "pending":
             raise DomainStateError("observation draft has already been reviewed")
         if confirmation not in {"accepted", "modified"}:
             raise DomainStateError("only accepted or modified drafts can create a confirmed observation")
+        if not is_named_human_actor(actor):
+            raise DomainStateError("multimodal observation confirmation requires a human reviewer")
         assets = {asset.asset_id: asset for asset in self.repository.list_revisions("external_asset")}
-        if not set(draft.asset_ids).issubset(assets):
+        if not set(persisted.asset_ids).issubset(assets):
             raise DomainStateError("observation draft references an unimported external asset")
-        source_asset = next((assets[item] for item in draft.asset_ids if item in assets), None)
-        if source_asset is None:
+        source_assets = tuple(assets[item] for item in persisted.asset_ids if item in assets)
+        if not source_assets:
             raise DomainStateError("confirmed observation requires an external asset source")
-        observation_id = draft.confirmed_observation_id or _id("asset-observation")
-        observed_value = value if confirmation == "modified" and value is not None else draft.proposed_value
+        observed_value = value if confirmation == "modified" and value is not None else persisted.proposed_value
+        issues = multimodal_confirmation_issues(persisted, source_assets, value=observed_value)
+        if issues:
+            raise DomainStateError("multimodal observation cannot be confirmed: " + ", ".join(issues))
+        observation_id = persisted.confirmed_observation_id or _id("asset-observation")
+        derived = any(asset.provenance in {"blender_derived", "design_derived"} for asset in source_assets)
         observation = ConfirmedObservation(
             observation_id=observation_id,
             meta=RevisionMeta(revision=1, created_by=actor, reason=reason),
-            source_fact_id=draft.source_fact_id,
-            subject=draft.subject,
-            predicate=draft.predicate,
+            source_fact_id=persisted.source_fact_id,
+            subject=persisted.subject,
+            predicate=persisted.predicate,
             value=observed_value,
-            source_locator=f"asset:{source_asset.asset_id}#sha256:{source_asset.sha256}",
+            source_locator=multimodal_source_locator(persisted, source_assets),
             confirmation=confirmation,
             confirmed_by=actor,
-            provenance="blender_derived" if source_asset.provenance in {"blender_derived", "design_derived"} else "external_asset",
-            source_draft_id=draft.draft_id,
+            provenance="blender_derived" if derived else "external_asset",
+            source_draft_id=persisted.draft_id,
+            asset_ids=persisted.asset_ids,
+            image_region=persisted.image_region,
+            video_segment=persisted.effective_video_segment,
+            claim_category=classify_observation_claim(persisted, value=observed_value),
+            calibration_refs=tuple(asset.calibration_ref for asset in source_assets if asset.calibration_ref),
+            limitations=persisted.limitations,
         )
         next_revision = persisted.meta.revision + 1
         updated = persisted.model_copy(update={
@@ -541,7 +950,7 @@ class ExperienceApplicationService:
         })
         self.repository.save("observation_draft", updated.draft_id, updated.revision_id, updated)
         self.repository.save("confirmed_observation", observation.observation_id, observation.observation_id, observation)
-        self._record(event_type="ObservationDraftConfirmed", aggregate_id=draft.draft_id, revision_id=updated.revision_id, actor=actor, reason=reason, data={"observation_id": observation.observation_id, "provenance": observation.provenance})
+        self._record(event_type="ObservationDraftConfirmed", aggregate_id=persisted.draft_id, revision_id=updated.revision_id, actor=actor, reason=reason, data={"observation_id": observation.observation_id, "provenance": observation.provenance})
         return observation
 
     def review_observation_draft(
@@ -558,8 +967,12 @@ class ExperienceApplicationService:
             return self.confirm_observation_draft(draft, actor=actor, confirmation=decision, value=value, reason=reason)
         if decision not in {"rejected", "not_observable"}:
             raise DomainStateError("observation review decision must be accepted, modified, rejected or not_observable")
-        persisted = self.repository.get_revision("observation_draft", draft.revision_id)
-        if persisted is None or persisted.confirmation != "pending":
+        persisted = self.repository.get_current("observation_draft", draft.draft_id)
+        if persisted is None:
+            raise DomainStateError("observation draft is not pending")
+        if persisted.revision_id != draft.revision_id:
+            raise DomainStateError("observation draft revision is stale")
+        if persisted.confirmation != "pending":
             raise DomainStateError("observation draft is not pending")
         next_revision = persisted.meta.revision + 1
         updated = persisted.model_copy(update={
@@ -616,6 +1029,42 @@ class ExperienceApplicationService:
             raise DomainStateError("measurement observation references a stale prototype run revision")
         if observation.condition not in persisted_run.conditions:
             raise DomainStateError("measurement observation condition is not registered on the prototype run")
+        formal_lineage = self._prototype_analysis_lineage(persisted_run)
+        if formal_lineage is not None:
+            _, bindings, family, conditions, protocol_review = formal_lineage
+            condition_revision_id = observation.condition_snapshot_revision_id
+            if condition_revision_id is None and len(conditions) == 1:
+                condition_revision_id = conditions[0].revision_id
+            if condition_revision_id not in persisted_run.condition_snapshot_ids:
+                raise DomainStateError("measurement observation must identify a registered condition snapshot")
+            observation_binding_ids = observation.hypothesis_binding_ids or persisted_run.hypothesis_binding_ids
+            if not set(observation_binding_ids).issubset(persisted_run.hypothesis_binding_ids):
+                raise DomainStateError("measurement observation binding is outside its prototype run")
+            bound_measures = {
+                measure_id
+                for binding in bindings
+                if binding.binding_id in observation_binding_ids
+                for measure_id in binding.measure_ids
+            }
+            if observation.measure_id not in bound_measures:
+                raise DomainStateError("measurement observation measure is not registered by its hypothesis binding")
+            if observation.analysis_family_revision_id not in {None, family.revision_id}:
+                raise DomainStateError("measurement observation analysis family does not match its prototype run")
+            condition = next(item for item in conditions if item.revision_id == condition_revision_id)
+            dependencies = tuple(dict.fromkeys((
+                *observation.dependencies,
+                DependencyRef(object_type="prototype_run", object_id=persisted_run.run_id, revision=persisted_run.meta.revision),
+                DependencyRef(object_type="condition", object_id=condition.condition_id, revision=condition.meta.revision),
+                DependencyRef(object_type="analysis_family", object_id=family.family_id, revision=family.meta.revision),
+                DependencyRef(object_type="analysis_protocol_review", object_id=protocol_review.review_id, revision=protocol_review.meta.revision),
+                *(DependencyRef(object_type="hypothesis_binding", object_id=binding.binding_id, revision=binding.meta.revision) for binding in bindings if binding.binding_id in observation_binding_ids),
+            )))
+            observation = observation.model_copy(update={
+                "condition_snapshot_revision_id": condition_revision_id,
+                "hypothesis_binding_ids": tuple(observation_binding_ids),
+                "analysis_family_revision_id": family.revision_id,
+                "dependencies": dependencies,
+            })
         registered_measures = {
             str(item.get("measure_id"))
             for item in persisted_run.protocol_snapshot.get("measures", [])
@@ -663,6 +1112,8 @@ class ExperienceApplicationService:
         actor: str | None = None,
     ) -> EvidenceReview:
         """Record the human gate that may promote observations to evidence."""
+        if not is_named_human_actor(reviewer):
+            raise DomainStateError("evidence review requires a human reviewer")
         persisted_run = self.repository.get_revision("prototype_run", run.revision_id)
         if persisted_run is None or persisted_run.run_id != run.run_id:
             raise DomainStateError("evidence review references an unknown prototype run")
@@ -690,6 +1141,7 @@ class ExperienceApplicationService:
                 next_rev = item.meta.revision + 1
                 confirmed = item.model_copy(update={"revision_id": f"{item.observation_id}.r{next_rev}", "meta": RevisionMeta(revision=next_rev, parent_revision_id=item.revision_id, created_by=reviewer, reason="human evidence review"), "status": "confirmed", "reviewer": reviewer, "reviewed_at": datetime.now(timezone.utc)})
                 self.repository.save("measurement_observation", confirmed.observation_id, confirmed.revision_id, confirmed)
+                stored[item_id] = confirmed
         level_order = {"none": 0, "exploratory": 1, "observed": 2, "supported": 3, "replicated": 4}
         previous_levels = [
             item.evidence_level_after
@@ -698,6 +1150,20 @@ class ExperienceApplicationService:
         ]
         before_level = max(previous_levels, key=lambda value: level_order.get(value, 0), default="none")
         review_id = _id("evidence-review")
+        dependencies = [
+            DependencyRef(object_type="prototype_run", object_id=run.run_id, revision=run.meta.revision),
+            *(DependencyRef(object_type="measurement_observation", object_id=item_id, revision=stored[item_id].meta.revision) for item_id in eligible),
+        ]
+        formal_lineage = self._prototype_analysis_lineage(run)
+        if formal_lineage is not None:
+            plan, bindings, family, conditions, protocol_review = formal_lineage
+            dependencies.extend((
+                DependencyRef(object_type="experiment_plan", object_id=plan.experiment_id, revision=plan.meta.revision),
+                DependencyRef(object_type="analysis_family", object_id=family.family_id, revision=family.meta.revision),
+                DependencyRef(object_type="analysis_protocol_review", object_id=protocol_review.review_id, revision=protocol_review.meta.revision),
+                *(DependencyRef(object_type="condition", object_id=item.condition_id, revision=item.meta.revision) for item in conditions),
+                *(DependencyRef(object_type="hypothesis_binding", object_id=item.binding_id, revision=item.meta.revision) for item in bindings),
+            ))
         review = EvidenceReview(
             review_id=review_id,
             revision_id=f"{review_id}.r1",
@@ -711,6 +1177,12 @@ class ExperienceApplicationService:
             confirmed_observation_ids=eligible,
             rationale=rationale,
             limitations=tuple(limitations),
+            experiment_revision_id=run.experiment_revision_id,
+            condition_snapshot_ids=run.condition_snapshot_ids,
+            hypothesis_binding_ids=run.hypothesis_binding_ids,
+            analysis_family_revision_id=run.analysis_family_revision_id,
+            analysis_protocol_review_id=run.analysis_protocol_review_id,
+            dependencies=tuple(dict.fromkeys(dependencies)),
         )
         self.repository.save("evidence_review", review.review_id, review.revision_id, review)
         if review.evidence_level_after != "none" and run.model_revision_id:
@@ -733,6 +1205,131 @@ class ExperienceApplicationService:
 
     def confirm_measurement_observations(self, run: PrototypeRun, observation_ids: Iterable[str], *, reviewer: str = "human", evidence_level: str = "observed", rationale: str = "human confirmed measurements") -> EvidenceReview:
         return self.review_evidence(run, decision="accepted", reviewer=reviewer, evidence_level_after=evidence_level, confirmed_observation_ids=observation_ids, rationale=rationale)
+
+    def revise_hypothesis_from_evidence(
+        self,
+        hypothesis: ExperienceHypothesis,
+        review: EvidenceReview,
+        *,
+        status: str,
+        reviewer: str,
+        rationale: str,
+        binding_revision_id: str | None = None,
+    ) -> ExperienceHypothesis:
+        """Create a hypothesis revision after the complete P2 human gate.
+
+        This command does not run an analysis.  It records a named human's
+        interpretation only when real, confirmed measurements retain complete
+        condition/binding/family lineage and the pre-data analysis protocol was
+        approved.  All previous hypothesis revisions remain immutable.
+        """
+        if status not in {"tested", "supported", "rejected"}:
+            raise DomainStateError("evidence can only transition a hypothesis to tested, supported or rejected")
+        if not is_named_human_actor(reviewer):
+            raise DomainStateError("hypothesis evidence interpretation requires a human reviewer")
+        current = self.repository.get_current("experience_hypothesis", hypothesis.hypothesis_id)
+        if current is None or current.revision_id != hypothesis.revision_id:
+            raise DomainStateError("hypothesis revision is not current")
+        persisted_review = self.repository.get_revision("evidence_review", review.revision_id)
+        if persisted_review is None or persisted_review.decision not in {"accepted", "modified", "confirmed"}:
+            raise DomainStateError("hypothesis transition requires an accepting EvidenceReview")
+        run = self.repository.get_current("prototype_run", review.run_id)
+        if run is None:
+            raise DomainStateError("EvidenceReview prototype run is not available")
+        lineage = self._prototype_analysis_lineage(run)
+        if lineage is None:
+            raise DomainStateError("hypothesis transition requires complete M2 analysis lineage")
+        plan, bindings, family, conditions, protocol_review = lineage
+        if (
+            review.experiment_revision_id != plan.revision_id
+            or review.analysis_family_revision_id != family.revision_id
+            or review.analysis_protocol_review_id != protocol_review.revision_id
+            or set(review.condition_snapshot_ids) != {item.revision_id for item in conditions}
+        ):
+            raise DomainStateError("EvidenceReview lineage does not match the prototype run")
+        candidates = tuple(
+            binding for binding in bindings
+            if binding.hypothesis_revision_id == hypothesis.revision_id
+            and (binding_revision_id is None or binding.revision_id == binding_revision_id)
+        )
+        if len(candidates) != 1:
+            raise DomainStateError("select exactly one hypothesis binding for the evidence interpretation")
+        binding = candidates[0]
+        level_order = {"none": 0, "exploratory": 1, "observed": 2, "supported": 3, "replicated": 4}
+        required_level = 2 if status == "tested" else 3
+        if level_order.get(review.evidence_level_after, 0) < required_level:
+            raise DomainStateError(f"{status} hypothesis status requires stronger reviewed evidence")
+        measurements = tuple(
+            self.repository.get_current("measurement_observation", observation_id)
+            for observation_id in review.confirmed_observation_ids
+        )
+        if not measurements or any(item is None or item.status != "confirmed" for item in measurements):
+            raise DomainStateError("hypothesis transition requires current confirmed measurements")
+        bound_measurements = tuple(
+            item for item in measurements
+            if binding.binding_id in item.hypothesis_binding_ids
+            and item.measure_id in binding.measure_ids
+            and item.condition_snapshot_revision_id in review.condition_snapshot_ids
+        )
+        if not bound_measurements:
+            raise DomainStateError("confirmed measurements do not cover the selected hypothesis binding")
+        if not any(item.raw_file_hash or item.source_asset_ids for item in bound_measurements):
+            raise DomainStateError("hypothesis transition requires traceable raw measurements")
+        evidence_id = f"{review.review_id}-{binding.binding_id}"
+        evidence = Evidence(
+            evidence_id=evidence_id,
+            revision_id=f"{evidence_id}.r1",
+            meta=RevisionMeta(revision=1, created_by=reviewer, reason=rationale),
+            kind="experiment",
+            artifact_id=review.review_id,
+            quote_or_locator=";".join(
+                f"measurement:{item.observation_id}@{item.revision_id}" for item in bound_measurements
+            ),
+            experiment_record=review.revision_id,
+            provenance="prototype_measurement",
+            evidence_role="experiment_result",
+            notes=tuple(dict.fromkeys((*review.limitations, rationale))),
+            dependencies=(
+                DependencyRef(object_type="evidence_review", object_id=review.review_id, revision=review.meta.revision),
+                DependencyRef(object_type="analysis_protocol_review", object_id=protocol_review.review_id, revision=protocol_review.meta.revision),
+                DependencyRef(object_type="analysis_family", object_id=family.family_id, revision=family.meta.revision),
+                DependencyRef(object_type="hypothesis_binding", object_id=binding.binding_id, revision=binding.meta.revision),
+                *(DependencyRef(object_type="measurement_observation", object_id=item.observation_id, revision=item.meta.revision) for item in bound_measurements),
+            ),
+        )
+        revisions = self.repository.list_revisions("experience_hypothesis", hypothesis.hypothesis_id)
+        next_revision = max((item.meta.revision for item in revisions), default=hypothesis.meta.revision) + 1
+        updated = hypothesis.model_copy(update={
+            "revision_id": f"{hypothesis.hypothesis_id}.r{next_revision}",
+            "meta": RevisionMeta(
+                revision=next_revision,
+                parent_revision_id=hypothesis.revision_id,
+                created_by=reviewer,
+                reason=rationale,
+            ),
+            "status": status,
+            "evidence": tuple((*hypothesis.evidence, evidence)),
+            "dependencies": tuple(dict.fromkeys((
+                *hypothesis.dependencies,
+                DependencyRef(object_type="evidence_review", object_id=review.review_id, revision=review.meta.revision),
+                DependencyRef(object_type="analysis_protocol_review", object_id=protocol_review.review_id, revision=protocol_review.meta.revision),
+                DependencyRef(object_type="analysis_family", object_id=family.family_id, revision=family.meta.revision),
+                DependencyRef(object_type="hypothesis_binding", object_id=binding.binding_id, revision=binding.meta.revision),
+            ))),
+        })
+        self.repository.save("evidence", evidence.evidence_id, evidence.revision_id, evidence)
+        self.repository.save("experience_hypothesis", updated.hypothesis_id, updated.revision_id, updated)
+        self._record(
+            event_type="HypothesisStatusReviewed",
+            aggregate_id=updated.hypothesis_id,
+            revision_id=updated.revision_id,
+            actor=reviewer,
+            reason=rationale,
+            data={"status": status, "evidence_review_id": review.review_id},
+        )
+        return updated
+
+    update_hypothesis_status_from_evidence = revise_hypothesis_from_evidence
 
     def compile_scenario_policy(self, scenario: FutureMovementScenario, *, actor: str = "system", freeze: bool = False) -> ScenarioPolicy:
         policy = build_scenario_policy(scenario, actor=actor, status="frozen" if freeze else "candidate")

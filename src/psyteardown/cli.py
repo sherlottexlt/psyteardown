@@ -23,6 +23,7 @@ from psyteardown.mcp_server.tools import (
     build_embed_provider as _build_embed_provider,
     build_llm_provider as _build_provider,
 )
+from psyteardown.pipeline.schemas import TeardownResult
 from psyteardown.experience import (
     BlenderDesignToolProvider,
     BlenderProviderError,
@@ -37,6 +38,16 @@ from psyteardown.experience import (
     MeasurementObservation,
     ExternalAsset,
     ObservationDraft,
+    EngineeringIntake,
+    DigitalExperienceDiscovery,
+    DiscoveryTriageDecision,
+    DigitalExperienceDiscoveryCoordinator,
+    build_engineering_intake_from_teardown,
+    EngineeringWorkflowCoordinator,
+    DependencyRef,
+    build_engineering_traceability_report,
+    render_engineering_traceability_json,
+    render_engineering_traceability_markdown,
     DomainStateError,
     build_scenario_policy,
     build_portfolio_case_study,
@@ -72,7 +83,9 @@ from psyteardown.experience import (
     render_research_json,
     render_research_markdown,
     build_experiment_plan,
+    build_experiment_plan_bundle,
     preregister_plan,
+    review_analysis_protocol,
     render_experiment_plan_json,
     render_experiment_plan_markdown,
     run_feedback_loop,
@@ -93,6 +106,8 @@ app.add_typer(kb_app, name="kb")
 app.add_typer(memory_app, name="memory")
 app.add_typer(candidates_app, name="candidates")
 app.add_typer(strategies_app, name="strategies")
+discovery_app = typer.Typer(help="App/数字服务拆解发现、人工分流与跨端投影")
+app.add_typer(discovery_app, name="discovery")
 
 
 @app.command("design-feedback")
@@ -108,14 +123,25 @@ def design_feedback(
         if fmt not in {"json", "md"}:
             raise ValueError("--format 只能是 json 或 md")
         source = DesignBrief.model_validate_json(brief.read_text(encoding="utf-8"))
-        result = run_feedback_loop(source, generator=ScaffoldDesignGenerator(), n=count)
         with SQLiteExperienceRepository(db) as repository:
             if repository.get_revision("brief", source.revision_id) is None:
                 repository.save("brief", source.brief_id, source.revision_id, source)
-            for candidate in result.candidates:
-                repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
-            for critique in result.critiques:
-                repository.save("critique", critique.critique_id, critique.revision_id, critique)
+            generator = ScaffoldDesignGenerator()
+            # Frozen briefs use the application service so the generated batch
+            # receives a formal DesignIteration.  Draft briefs remain an
+            # export-only feedback report until a human freezes them.
+            if source.status == "frozen":
+                result = ExperienceApplicationService(repository).run_design_feedback(
+                    source, generator=generator, n=count
+                )
+            else:
+                result = run_feedback_loop(source, generator=generator, n=count)
+                for candidate in result.candidates:
+                    if repository.get_revision("candidate", candidate.candidate_revision_id) is None:
+                        repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
+                for critique in result.critiques:
+                    if repository.get_revision("critique", critique.revision_id) is None:
+                        repository.save("critique", critique.critique_id, critique.revision_id, critique)
         rendered = render_feedback_json(result) if fmt == "json" else render_feedback_markdown(result)
         if out:
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +160,7 @@ def design_feedback_select(
     feedback: Path = typer.Option(..., "--feedback", help="design-feedback 导出的 JSON"),
     db: Path = typer.Option(Path("output/experience/experience.sqlite3"), "--db", help="SQLite 数据库"),
     candidate_id: str = typer.Option(..., "--candidate", help="人工选择的 candidate ID"),
+    override_reason: str | None = typer.Option(None, "--override-reason", help="选择非首位候选时的人工 override 理由"),
     out: Path | None = typer.Option(None, "--out", "-o", help="输出更新后的反馈 JSON"),
 ):
     """人工选择候选并生成下一轮设计 prompt。"""
@@ -155,17 +182,23 @@ def design_feedback_select(
             critiques=critiques,
             candidates=candidates,
         )
-        updated = select_feedback_candidate(source, result, candidate_id)
-        selection = build_feedback_selection(updated)
         with SQLiteExperienceRepository(db) as repository:
-            for candidate in updated.candidates:
-                if repository.get_revision("candidate", candidate.candidate_revision_id) is None:
-                    repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
-            for critique in updated.critiques:
-                if repository.get_revision("critique", critique.revision_id) is None:
-                    repository.save("critique", critique.critique_id, critique.revision_id, critique)
-            if repository.get_revision("feedback_selection", selection.revision_id) is None:
-                repository.save("feedback_selection", selection.selection_id, selection.revision_id, selection)
+            if result.iteration_id:
+                service = ExperienceApplicationService(repository, design_generator=ScaffoldDesignGenerator())
+                updated, selection = service.select_design_feedback(
+                    source, result, candidate_id, override_reason=override_reason
+                )
+            else:
+                updated = select_feedback_candidate(source, result, candidate_id)
+                selection = build_feedback_selection(updated)
+                for candidate in updated.candidates:
+                    if repository.get_revision("candidate", candidate.candidate_revision_id) is None:
+                        repository.save("candidate", candidate.candidate_id, candidate.candidate_revision_id, candidate)
+                for critique in updated.critiques:
+                    if repository.get_revision("critique", critique.revision_id) is None:
+                        repository.save("critique", critique.critique_id, critique.revision_id, critique)
+                if repository.get_revision("feedback_selection", selection.revision_id) is None:
+                    repository.save("feedback_selection", selection.selection_id, selection.revision_id, selection)
         rendered = render_feedback_json(updated)
         if out:
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -175,6 +208,53 @@ def design_feedback_select(
             typer.echo(rendered)
     except (OSError, ValueError, json.JSONDecodeError, RepositoryError) as exc:
         typer.echo(f"错误:无法确认设计候选: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("design-feedback-next-round")
+def design_feedback_next_round(
+    feedback: Path = typer.Option(..., "--feedback", help="design-feedback-select 导出的 JSON"),
+    brief: Path = typer.Option(..., "--brief", "-i", help="冻结的 DesignBrief JSON 文件"),
+    db: Path = typer.Option(Path("output/experience/experience.sqlite3"), "--db", help="SQLite 数据库"),
+    out: Path | None = typer.Option(None, "--out", "-o", help="第二轮结果 JSON"),
+):
+    """确认 M3 actionable patches 并调用正式 second-round generator。"""
+    try:
+        source = DesignBrief.model_validate_json(brief.read_text(encoding="utf-8"))
+        payload = json.loads(feedback.read_text(encoding="utf-8"))
+        from psyteardown.experience.m3_feedback import DesignFeedbackResult
+        result = DesignFeedbackResult(
+            brief_revision_id=payload["brief_revision_id"],
+            iteration_id=payload.get("iteration_id"),
+            candidate_ids=tuple(payload.get("candidate_ids", ())),
+            critique_ids=tuple(payload.get("critique_ids", ())),
+            ranked_candidate_ids=tuple(payload.get("ranked_candidate_ids", ())),
+            selected_candidate_id=payload.get("selected_candidate_id"),
+            next_prompt=json.dumps(payload["next_prompt"], ensure_ascii=False) if payload.get("next_prompt") else None,
+            critiques=tuple(Critique.model_validate(item) for item in payload.get("critiques", ())),
+            candidates=tuple(DesignCandidate.model_validate(item) for item in payload.get("candidates", ())),
+        )
+        with SQLiteExperienceRepository(db) as repository:
+            service = ExperienceApplicationService(repository, design_generator=ScaffoldDesignGenerator())
+            prompt = service.confirm_feedback_next_prompt(result)
+            iteration = repository.get_current("iteration", result.iteration_id)
+            if iteration is None:
+                raise ValueError("M3 iteration not found")
+            second, candidates = service.generate_second_round(iteration, prompt)
+            rendered = json.dumps({
+                "prompt": prompt.model_dump(mode="json"),
+                "iteration": second.model_dump(mode="json"),
+                "candidate_ids": [candidate.candidate_id for candidate in candidates],
+                "candidate_revision_ids": [candidate.candidate_revision_id for candidate in candidates],
+            }, ensure_ascii=False, indent=2)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            typer.echo(f"已写入 {out}")
+        else:
+            typer.echo(rendered)
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法生成第二轮设计候选: {exc}", err=True)
         raise typer.Exit(code=1)
 
 
@@ -198,9 +278,16 @@ def experiment_plan(
                 raise ValueError("research JSON 中没有 hypotheses")
             value = value["hypotheses"][0]
         source = ExperienceHypothesis.model_validate(value)
-        plan = build_experiment_plan(source, brief_revision_id=value.get("brief_revision_id", "unbound-brief.r1") if isinstance(value, dict) else "unbound-brief.r1")
+        plan, binding, family, conditions = build_experiment_plan_bundle(
+            source,
+            brief_revision_id=value.get("brief_revision_id", "unbound-brief.r1") if isinstance(value, dict) else "unbound-brief.r1",
+        )
         with SQLiteExperienceRepository(db) as repository:
             repository.save("experiment_plan", plan.experiment_id, plan.revision_id, plan)
+            repository.save("hypothesis_binding", binding.binding_id, binding.revision_id, binding)
+            repository.save("analysis_family", family.family_id, family.revision_id, family)
+            for condition in conditions:
+                repository.save("condition", condition.condition_id, condition.revision_id, condition)
         rendered = render_experiment_plan_json(plan) if fmt == "json" else render_experiment_plan_markdown(plan)
         if out:
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -210,6 +297,59 @@ def experiment_plan(
             typer.echo(rendered)
     except (OSError, ValueError, json.JSONDecodeError, RepositoryError) as exc:
         typer.echo(f"错误:无法生成实验规划: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("experiment-analysis-review")
+def experiment_analysis_review(
+    input: Path = typer.Option(..., "--input", "-i", help="ExperimentPlan JSON 文件或数据库中的 experiment_id"),
+    db: Path = typer.Option(Path("output/experience/experience.sqlite3"), "--db", help="SQLite 数据库"),
+    reviewer: str = typer.Option(..., "--reviewer", help="人工分析协议审查者"),
+    approve: bool = typer.Option(False, "--approve/--reject", help="批准或驳回分析协议 gate"),
+    rationale: str = typer.Option("analysis protocol reviewed", "--rationale"),
+    out: Path | None = typer.Option(None, "--out", "-o", help="输出 review JSON"),
+):
+    """在真实数据导入前，人工审查样本量、停止规则、缺失策略和分析族。"""
+    try:
+        raw = input.read_text(encoding="utf-8") if input.exists() else None
+        with SQLiteExperienceRepository(db) as repository:
+            if raw is not None:
+                plan = ExperimentPlan.model_validate_json(raw)
+            else:
+                revisions = repository.list_revisions("experiment_plan", input.name)
+                if not revisions:
+                    raise ValueError(f"实验规划不存在: {input.name}")
+                plan = revisions[-1]
+            family = repository.get_revision("analysis_family", plan.analysis_family_revision_id) if plan.analysis_family_revision_id else None
+            bindings = [
+                repository.get_revision("hypothesis_binding", revision)
+                or repository.get_current("hypothesis_binding", revision)
+                for revision in plan.hypothesis_binding_ids
+            ]
+            bindings = [item for item in bindings if item is not None]
+            conditions = [repository.get_revision("condition", revision) for revision in plan.condition_snapshot_ids]
+            conditions = [item for item in conditions if item is not None]
+            review = review_analysis_protocol(
+                plan,
+                reviewer=reviewer,
+                family=family,
+                bindings=bindings,
+                conditions=conditions,
+                approved=approve,
+                finalize=True,
+                rationale=rationale,
+                actor=reviewer,
+            )
+            repository.save("analysis_protocol_review", review.review_id, review.revision_id, review)
+        rendered = json.dumps(review.model_dump(mode="json"), ensure_ascii=False, indent=2)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            typer.echo(f"已写入 {out}")
+        else:
+            typer.echo(rendered)
+    except (OSError, ValueError, json.JSONDecodeError, RepositoryError) as exc:
+        typer.echo(f"错误:无法完成分析协议审查: {exc}", err=True)
         raise typer.Exit(code=1)
 
 
@@ -236,6 +376,28 @@ def experiment_preregister(
                     raise ValueError(f"实验规划不存在: {input.name}")
                 plan = revisions[-1]
             updated = preregister_plan(plan, actor=actor)
+            if updated.analysis_family_revision_id:
+                family = repository.get_revision("analysis_family", updated.analysis_family_revision_id)
+                if family is not None and not family.locked:
+                    next_revision = family.meta.revision + 1
+                    locked = family.model_copy(update={
+                        "revision_id": f"{family.family_id}.r{next_revision}",
+                        "meta": family.meta.model_copy(update={
+                            "revision": next_revision,
+                            "parent_revision_id": family.revision_id,
+                            "created_by": actor,
+                            "reason": "analysis family locked at preregistration",
+                        }),
+                        "locked": True,
+                    })
+                    repository.save("analysis_family", locked.family_id, locked.revision_id, locked)
+                    updated = updated.model_copy(update={
+                        "analysis_family_revision_id": locked.revision_id,
+                        "protocol_snapshot": {
+                            **dict(updated.protocol_snapshot),
+                            "analysis_family_revision_id": locked.revision_id,
+                        },
+                    })
             repository.save("experiment_plan", updated.experiment_id, updated.revision_id, updated)
         rendered = render_experiment_plan_json(updated) if fmt == "json" else render_experiment_plan_markdown(updated)
         if out:
@@ -573,21 +735,331 @@ def import_external_asset(
         raise typer.Exit(code=1)
 
 
+@app.command("engineering-init")
+def initialize_engineering_project(
+    db: Path = typer.Option(..., "--db"),
+    input: Path = typer.Option(..., "--input", "-i", help="EngineeringIntake JSON 文件"),
+):
+    """从场景和产品用途初始化需求 revisions 与并行工程角色任务。"""
+    try:
+        intake = EngineeringIntake.model_validate_json(input.read_text(encoding="utf-8"))
+        with SQLiteExperienceRepository(db) as repository:
+            workflow = EngineeringWorkflowCoordinator(repository)
+            project, requirements = workflow.initialize_project(intake)
+            tasks = tuple(
+                repository.get_current("engineering_task", task_id)
+                for task_id in project.role_task_ids
+            )
+            typer.echo(json.dumps({
+                "project": project.model_dump(mode="json"),
+                "requirements": [item.model_dump(mode="json") for item in requirements],
+                "tasks": [item.model_dump(mode="json") for item in tasks if item is not None],
+            }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法初始化工程项目: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("import-teardown")
+def discovery_import_teardown(
+    db: Path = typer.Option(..., "--db"),
+    input: Path = typer.Option(..., "--input", "-i", help="TeardownResult JSON 文件"),
+    discovery_id: str = typer.Option(..., "--discovery-id"),
+    source_ref: str | None = typer.Option(None, "--source-ref"),
+    out: Path | None = typer.Option(None, "--out", "-o"),
+):
+    """导入 App/数字服务拆解，只创建待分流 Discovery，不创建工程需求。"""
+    try:
+        result = TeardownResult.model_validate_json(input.read_text(encoding="utf-8"))
+        with SQLiteExperienceRepository(db) as repository:
+            discovery = DigitalExperienceDiscoveryCoordinator(repository).import_teardown(
+                result, discovery_id=discovery_id, source_ref=source_ref
+            )
+        rendered = discovery.model_dump_json(indent=2)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            typer.echo(f"已写入 {out}")
+        else:
+            typer.echo(rendered)
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法导入数字体验发现: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("triage")
+def discovery_triage(
+    db: Path = typer.Option(..., "--db"),
+    discovery_id: str = typer.Option(..., "--discovery-id"),
+    decisions: Path = typer.Option(..., "--decisions", help="DiscoveryTriageDecision JSON 数组"),
+    reviewer: str = typer.Option(..., "--reviewer"),
+    rationale: str = typer.Option(..., "--rationale"),
+    out: Path | None = typer.Option(None, "--out", "-o"),
+):
+    """具名人员逐条分流 App 信号；不得由 AI 自动路由。"""
+    try:
+        raw = json.loads(decisions.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            raise ValueError("decisions must be a JSON array")
+        values = tuple(DiscoveryTriageDecision.model_validate(item) for item in raw)
+        with SQLiteExperienceRepository(db) as repository:
+            discovery = repository.get_current("digital_experience_discovery", discovery_id)
+            if discovery is None or not isinstance(discovery, DigitalExperienceDiscovery):
+                raise DomainStateError("digital experience discovery is unavailable")
+            updated = DigitalExperienceDiscoveryCoordinator(repository).triage(
+                discovery, decisions=values, reviewer=reviewer, rationale=rationale
+            )
+        rendered = updated.model_dump_json(indent=2)
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            typer.echo(f"已写入 {out}")
+        else:
+            typer.echo(rendered)
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法完成数字体验分流: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@discovery_app.command("project-to-engineering")
+def discovery_project_to_engineering(
+    db: Path = typer.Option(..., "--db"),
+    discovery_id: str = typer.Option(..., "--discovery-id"),
+    project_id: str = typer.Option(..., "--project-id"),
+    scenario: str = typer.Option(..., "--scenario"),
+    target_segment: str = typer.Option(..., "--target-segment"),
+):
+    """仅将人工分流的设备交互候选投影为 explore/draft 工程入口。"""
+    try:
+        with SQLiteExperienceRepository(db) as repository:
+            discovery = repository.get_current("digital_experience_discovery", discovery_id)
+            if discovery is None or not isinstance(discovery, DigitalExperienceDiscovery):
+                raise DomainStateError("digital experience discovery is unavailable")
+            coordinator = DigitalExperienceDiscoveryCoordinator(repository)
+            intake = coordinator.build_engineering_intake(
+                discovery,
+                project_id=project_id,
+                scenario=scenario,
+                target_segment=target_segment,
+            )
+            project, requirements = EngineeringWorkflowCoordinator(repository).initialize_project(intake)
+            tasks = tuple(repository.get_current("engineering_task", task_id) for task_id in project.role_task_ids)
+            typer.echo(json.dumps({
+                "intake": intake.model_dump(mode="json"),
+                "project": project.model_dump(mode="json"),
+                "requirements": [item.model_dump(mode="json") for item in requirements],
+                "tasks": [item.model_dump(mode="json") for item in tasks if item is not None],
+                "review_required": True,
+            }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法将数字体验发现投影到工程: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("engineering-init-from-teardown", hidden=True)
+def legacy_engineering_init_from_teardown(
+    db: Path = typer.Option(..., "--db"),
+    input: Path = typer.Option(..., "--input", "-i"),
+    project_id: str = typer.Option(..., "--project-id"),
+    scenario: str | None = typer.Option(None, "--scenario"),
+    target_segment: str | None = typer.Option(None, "--target-segment"),
+    created_by: str = typer.Option("ai-discovery-bridge", "--created-by"),
+    source_ref: str | None = typer.Option(None, "--source-ref"),
+):
+    """Deprecated compatibility alias; use discovery import/triage/project-to-engineering."""
+    try:
+        result = TeardownResult.model_validate_json(input.read_text(encoding="utf-8"))
+        intake = build_engineering_intake_from_teardown(
+            result,
+            project_id=project_id,
+            scenario=scenario,
+            target_segment=target_segment,
+            created_by=created_by,
+            source_ref=source_ref,
+        )
+        with SQLiteExperienceRepository(db) as repository:
+            project, requirements = EngineeringWorkflowCoordinator(repository).initialize_project(intake)
+            tasks = tuple(repository.get_current("engineering_task", task_id) for task_id in project.role_task_ids)
+        typer.echo(json.dumps({
+            "deprecated": True,
+            "migration": "use discovery import-teardown, discovery triage, discovery project-to-engineering",
+            "intake": intake.model_dump(mode="json"),
+            "project": project.model_dump(mode="json"),
+            "requirements": [item.model_dump(mode="json") for item in requirements],
+            "tasks": [item.model_dump(mode="json") for item in tasks if item is not None],
+            "review_required": True,
+        }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法从产品拆解初始化工程项目: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("engineering-requirements-review")
+def review_engineering_requirements(
+    db: Path = typer.Option(..., "--db"),
+    project_id: str = typer.Option(..., "--project-id"),
+    reviewer: str = typer.Option(..., "--reviewer", help="具名系统工程 reviewer"),
+    rationale: str = typer.Option(..., "--rationale"),
+):
+    """人工确认需求来源、默认假设和验收条件，并解锁并行专业任务。"""
+    try:
+        with SQLiteExperienceRepository(db) as repository:
+            project = repository.get_current("engineering_project", project_id)
+            if project is None:
+                raise DomainStateError("engineering project is unavailable")
+            workflow = EngineeringWorkflowCoordinator(repository)
+            updated, requirements = workflow.approve_requirements(
+                project, reviewer=reviewer, rationale=rationale
+            )
+            ready = workflow.ready_role_tasks(updated)
+            typer.echo(json.dumps({
+                "project": updated.model_dump(mode="json"),
+                "requirements": [item.model_dump(mode="json") for item in requirements],
+                "ready_tasks": [item.model_dump(mode="json") for item in ready],
+            }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法审查工程需求: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("engineering-gate-review")
+def review_engineering_gate(
+    db: Path = typer.Option(..., "--db"),
+    project_id: str = typer.Option(..., "--project-id"),
+    to_stage: str = typer.Option(..., "--to-stage"),
+    evidence: Path = typer.Option(..., "--evidence", help="DependencyRef JSON 数组"),
+    reviewer: str = typer.Option(..., "--reviewer"),
+    decision: str = typer.Option("approved", "--decision"),
+    rationale: str = typer.Option(..., "--rationale"),
+):
+    """按顺序人工审查工程状态门；不得跳级或省略正式对象证据。"""
+    try:
+        raw = json.loads(evidence.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            raise ValueError("evidence must be a JSON array")
+        refs = tuple(DependencyRef.model_validate(item) for item in raw)
+        with SQLiteExperienceRepository(db) as repository:
+            project = repository.get_current("engineering_project", project_id)
+            if project is None:
+                raise DomainStateError("engineering project is unavailable")
+            updated, gate = EngineeringWorkflowCoordinator(repository).review_stage_gate(
+                project,
+                to_stage=to_stage,
+                evidence_refs=refs,
+                reviewer=reviewer,
+                decision=decision,
+                rationale=rationale,
+            )
+            typer.echo(json.dumps({
+                "project": updated.model_dump(mode="json"),
+                "gate": gate.model_dump(mode="json"),
+            }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法完成工程 gate 审查: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("engineering-status")
+def engineering_status(
+    db: Path = typer.Option(..., "--db"),
+    project_id: str = typer.Option(..., "--project-id"),
+):
+    """查询项目 stage、需求、任务、开放冲突和过期工程对象。"""
+    try:
+        with SQLiteExperienceRepository(db) as repository:
+            project = repository.get_current("engineering_project", project_id)
+            if project is None:
+                raise DomainStateError("engineering project is unavailable")
+            workflow = EngineeringWorkflowCoordinator(repository)
+            requirements = tuple(
+                repository.get_current("engineering_requirement", revision_id.rsplit(".r", 1)[0])
+                for revision_id in project.requirement_revision_ids
+            )
+            tasks = tuple(
+                repository.get_current("engineering_task", task_id)
+                for task_id in project.role_task_ids
+            )
+            conflicts = tuple(
+                repository.get_current("engineering_conflict", conflict_id)
+                for conflict_id in project.open_conflict_ids
+            )
+            typer.echo(json.dumps({
+                "project": project.model_dump(mode="json"),
+                "requirements": [item.model_dump(mode="json") for item in requirements if item is not None],
+                "tasks": [item.model_dump(mode="json") for item in tasks if item is not None],
+                "ready_task_ids": [item.task_id for item in workflow.ready_role_tasks(project)],
+                "open_conflicts": [item.model_dump(mode="json") for item in conflicts if item is not None],
+                "stale_objects": [item.model_dump(mode="json") for item in workflow.registry.stale_objects()],
+            }, ensure_ascii=False, indent=2))
+    except (OSError, ValueError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法读取工程项目状态: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("engineering-traceability")
+def engineering_traceability(
+    db: Path = typer.Option(..., "--db"),
+    project_id: str = typer.Option(..., "--project-id"),
+    fmt: str = typer.Option("md", "--format", "-f", help="md 或 json"),
+    out: Path | None = typer.Option(None, "--out", "-o"),
+):
+    """导出需求到工程对象、测试、原始结果和 reviewer 的可追溯性报告。"""
+    if fmt not in {"md", "json"}:
+        typer.echo("错误:--format 只能是 md 或 json。", err=True)
+        raise typer.Exit(code=1)
+    try:
+        with SQLiteExperienceRepository(db) as repository:
+            report = build_engineering_traceability_report(repository, project_id)
+            rendered = (
+                render_engineering_traceability_json(report)
+                if fmt == "json"
+                else render_engineering_traceability_markdown(report)
+            )
+        if out:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(rendered, encoding="utf-8")
+            typer.echo(f"已写入 {out}")
+        else:
+            typer.echo(rendered)
+    except (OSError, ValueError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法生成工程可追溯性报告: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command("observation-draft-review")
 def review_observation_draft(
     db: Path = typer.Option(..., "--db"),
     input: Path = typer.Option(..., "--input", "-i", help="ObservationDraft JSON 文件"),
     decision: str = typer.Option("accepted", "--decision"),
     value: str | None = typer.Option(None, "--value"),
+    actor: str = typer.Option("human-reviewer", "--actor", help="具名人工 reviewer"),
 ):
     """人工确认外部资产观察草案；仅产生 design fact observation。"""
     try:
         draft = ObservationDraft.model_validate_json(input.read_text(encoding="utf-8"))
         with SQLiteExperienceRepository(db) as repository:
-            result = ExperienceApplicationService(repository).review_observation_draft(draft, decision=decision, value=value)
+            result = ExperienceApplicationService(repository).review_observation_draft(
+                draft, decision=decision, value=value, actor=actor
+            )
             typer.echo(result.model_dump_json(indent=2))
     except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
         typer.echo(f"错误:无法复核观察草案: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("observation-draft-import")
+def import_observation_draft(
+    db: Path = typer.Option(..., "--db"),
+    input: Path = typer.Option(..., "--input", "-i", help="ObservationDraft JSON 文件"),
+):
+    """导入图片区域/视频时间段观察草案；缺失模态会显式降级。"""
+    try:
+        draft = ObservationDraft.model_validate_json(input.read_text(encoding="utf-8"))
+        with SQLiteExperienceRepository(db) as repository:
+            result = ExperienceApplicationService(repository).import_observation_draft(draft)
+            typer.echo(result.model_dump_json(indent=2))
+    except (OSError, ValueError, json.JSONDecodeError, DomainStateError, RepositoryError) as exc:
+        typer.echo(f"错误:无法导入观察草案: {exc}", err=True)
         raise typer.Exit(code=1)
 
 

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 from pathlib import Path
 from typing import Callable
 
@@ -20,6 +21,14 @@ from psyteardown.report.render import render_json, render_markdown
 from psyteardown.review.critic import review_case
 from psyteardown.review.models import CaseReview
 from psyteardown.strategy.store import StrategyStore
+from psyteardown.experience.engineering import EngineeringOrchestrator
+from psyteardown.experience.engineering_reporting import (
+    build_engineering_traceability_report,
+    render_engineering_traceability_json,
+    render_engineering_traceability_markdown,
+)
+from psyteardown.experience.models import DomainStateError
+from psyteardown.experience.sqlite import SQLiteExperienceRepository
 
 DEFAULT_STORE = Path(".psyteardown/cases.db")
 
@@ -238,3 +247,85 @@ def review_case_tool(case_id: str, *, store: Path, llm: LLMProvider) -> str:
     lines += [f"- 缺陷:{w}" for w in rev.weaknesses]
     lines += [f"- 建议:{s}" for s in rev.suggestions]
     return "\n".join(lines)
+
+
+def engineering_status_tool(project_id: str, *, store: Path) -> str:
+    """Return the current engineering project, tasks, conflicts and stale objects.
+
+    This is a read-only projection.  It does not review requirements, advance
+    a gate, execute an engineering tool, or approve a release.
+    """
+    project_id = (project_id or "").strip()
+    if not project_id:
+        return "错误:工程项目 ID 为空。"
+    with SQLiteExperienceRepository(store) as repository:
+        project = repository.get_current("engineering_project", project_id)
+        if project is None:
+            return f"工程项目不存在:{project_id}"
+        registry = EngineeringOrchestrator(repository)
+        requirements = tuple(
+            repository.get_current(
+                "engineering_requirement", revision_id.rsplit(".r", 1)[0]
+            )
+            for revision_id in project.requirement_revision_ids
+        )
+        tasks = tuple(
+            repository.get_current("engineering_task", task_id)
+            for task_id in project.role_task_ids
+        )
+        conflicts = tuple(
+            repository.get_current("engineering_conflict", conflict_id)
+            for conflict_id in project.open_conflict_ids
+        )
+        ready = {
+            task.task_id
+            for task in registry.ready_tasks()
+            if task.task_id in project.role_task_ids
+        }
+        payload = {
+            "project": project.model_dump(mode="json"),
+            "requirements": [
+                item.model_dump(mode="json") for item in requirements if item is not None
+            ],
+            "tasks": [
+                item.model_dump(mode="json") for item in tasks if item is not None
+            ],
+            "ready_task_ids": sorted(ready),
+            "open_conflicts": [
+                item.model_dump(mode="json") for item in conflicts if item is not None
+            ],
+            "stale_objects": [
+                item.model_dump(mode="json") for item in registry.stale_objects()
+            ],
+            "boundary": (
+                "read-only status; no AI or MCP call can approve an engineering, "
+                "physical-validation, compliance, manufacturing, or release gate"
+            ),
+        }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def engineering_traceability_tool(
+    project_id: str,
+    *,
+    store: Path,
+    fmt: str = "md",
+) -> str:
+    """Render the read-only requirement-to-test/reviewer traceability report."""
+    project_id = (project_id or "").strip()
+    if not project_id:
+        return "错误:工程项目 ID 为空。"
+    if fmt not in {"md", "json"}:
+        return "错误:format 只能是 md 或 json。"
+    with SQLiteExperienceRepository(store) as repository:
+        if repository.get_current("engineering_project", project_id) is None:
+            return f"工程项目不存在:{project_id}"
+        try:
+            report = build_engineering_traceability_report(repository, project_id)
+        except DomainStateError as exc:
+            return f"错误:无法生成工程可追溯报告: {exc}"
+    return (
+        render_engineering_traceability_json(report)
+        if fmt == "json"
+        else render_engineering_traceability_markdown(report)
+    )

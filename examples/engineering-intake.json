@@ -1,0 +1,47 @@
+{
+  "intake_id": "wearable-intake",
+  "project_id": "wearable-project",
+  "revision_id": "wearable-intake.r1",
+  "meta": {
+    "revision": 1,
+    "created_by": "product-owner",
+    "reason": "declared product scenario and purpose"
+  },
+  "scenario": "public crowded transit while walking, boarding and standing",
+  "product_purpose": "provide a low-distraction wearable control with an explicit cancellation path",
+  "target_segment": "consented adult commuters",
+  "target_markets": [
+    "CN"
+  ],
+  "business_goals": [
+    "explore a maintainable wearable product direction"
+  ],
+  "maintenance_assumptions": [
+    "replaceable wearable attachment is an unverified business assumption"
+  ],
+  "cost_assumptions": [
+    "target cost has not been supplied and must not be inferred"
+  ],
+  "declared_requirements": [
+    {
+      "requirement_id": "wearable-explicit-cancel",
+      "title": "explicit cancellation",
+      "description": "the wearer can terminate routine feedback without sustained visual attention",
+      "requirement_type": "must",
+      "acceptance_criteria": [
+        "a preregistered physical task protocol verifies an explicit cancellation path under the scoped transit conditions"
+      ],
+      "source": "product owner declaration",
+      "source_type": "user_declared",
+      "priority": 1,
+      "applicable_scope": [
+        "routine feedback during public transit"
+      ],
+      "verification_methods": [
+        "instrumented prototype task test"
+      ],
+      "verification_owner": "test-lead",
+      "hard_constraint": true
+    }
+  ]
+}

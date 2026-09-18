@@ -7,6 +7,10 @@ from psyteardown.experience import (
     ExperienceHypothesis,
     ExperimentVariable,
     build_experiment_plan,
+    build_experiment_plan_bundle,
+    revise_condition_snapshot,
+    review_analysis_protocol,
+    validate_analysis_protocol,
     plan_completeness,
     preregister_plan,
     render_experiment_plan_json,
@@ -51,3 +55,30 @@ def test_json_export_is_machine_readable():
     payload = json.loads(render_experiment_plan_json(plan))
     assert payload["status"] == "draft"
     assert payload["research_question"]
+
+
+def test_bundle_creates_binding_analysis_family_and_hashed_conditions():
+    plan, binding, family, conditions = build_experiment_plan_bundle(hypothesis())
+    assert plan.hypothesis_binding_ids == (binding.binding_id,)
+    assert plan.analysis_family_revision_id == family.revision_id
+    assert plan.condition_snapshot_ids == tuple(item.revision_id for item in conditions)
+    assert family.primary_binding_ids == (binding.binding_id,)
+    assert all(item.content_hash_value == item.content_hash for item in conditions)
+    assert validate_analysis_protocol(plan.model_copy(update={"status": "preregistered"}), family=family, bindings=[binding], conditions=conditions) == ("analysis_family_not_locked",)
+
+
+def test_condition_revision_preserves_parent_and_changes_hash():
+    plan, _, _, conditions = build_experiment_plan_bundle(hypothesis())
+    child = revise_condition_snapshot(conditions[0], variable_values=conditions[0].variable_values, reason="clarify condition")
+    assert child.meta.parent_revision_id == conditions[0].revision_id
+    assert child.revision_id != conditions[0].revision_id
+
+
+def test_analysis_protocol_review_requires_human_gate():
+    plan, binding, family, conditions = build_experiment_plan_bundle(hypothesis())
+    preregistered = plan.model_copy(update={"status": "preregistered"})
+    pending = review_analysis_protocol(preregistered, reviewer="method", family=family, bindings=[binding], conditions=conditions)
+    assert pending.status == "pending"
+    locked = family.model_copy(update={"locked": True})
+    approved = review_analysis_protocol(preregistered, reviewer="method", family=locked, bindings=[binding], conditions=conditions, approved=True)
+    assert approved.status == "approved"

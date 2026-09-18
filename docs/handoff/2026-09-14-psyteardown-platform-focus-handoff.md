@@ -286,6 +286,11 @@ JSON；`design-feedback-select` 需要显式人工选择，随后才生成带
 prompt，并持久化 `DesignFeedbackSelection`。系统不会在生成或排序阶段自动
 批准候选，也不会把 hypothesis 标记为 `supported`。
 
+M3 第二切片已补充 Markdown 跨候选报告、`DesignFeedbackSelection` 持久化、
+`ExperienceApplicationService.run_design_feedback` / `select_design_feedback`，
+并将人工确认反馈投影为显式 `explore`/`constrain` `VariablePatch`。完整
+`DesignIteration` 第二轮生成仍需后续接入，避免把未确认的反馈直接推进为设计事实。
+
 M3 当前仍需继续补齐：将反馈选择接入完整 `DesignIteration` / `SelectionDecision`
 revision 链，支持基于确认 VariablePatch 的第二轮候选生成，以及跨候选报告和
 人工覆盖理由导出。所有 M3 改动后继续运行 `pytest -q`。

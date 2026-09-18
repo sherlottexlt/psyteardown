@@ -82,7 +82,10 @@ def build_external_asset(
         raise FileNotFoundError(file_path)
     digest = hashlib.sha256(file_path.read_bytes()).hexdigest()
     inferred_kind = asset_kind or (file_path.suffix.lower().lstrip(".") or "other")
-    if inferred_kind not in {"glb", "gltf", "png", "jpg", "jpeg", "cad", "other"}:
+    if inferred_kind not in {
+        "glb", "gltf", "png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif",
+        "mp4", "mov", "webm", "mkv", "m4v", "avi", "wav", "mp3", "cad", "other",
+    }:
         inferred_kind = "other"
     stable_id = asset_id or f"external-asset-{digest[:12]}"
     return ExternalAsset(

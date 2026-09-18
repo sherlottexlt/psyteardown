@@ -1,5 +1,7 @@
 """mcp_server.tools 单测:全离线(FakeProvider / FakeEmbeddingProvider)。"""
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from psyteardown.embed.base import FakeEmbeddingProvider
@@ -204,3 +206,111 @@ def test_analyze_product_max_n_defaults_unchanged(tmp_path, monkeypatch):
                     embed_factory=_fake_embed_factory)
     assert seen["max_n"] == 8
     assert seen["min_n"] == 5
+
+
+def _seed_engineering_project(database: Path) -> None:
+    from psyteardown.experience import (
+        EngineeringOrchestrator,
+        EngineeringProjectRevision,
+        EngineeringRequirement,
+        RevisionMeta,
+        SQLiteExperienceRepository,
+        VerificationTestRun,
+        dependency_ref,
+    )
+
+    reviewed_at = datetime(2026, 9, 17, tzinfo=timezone.utc)
+    with SQLiteExperienceRepository(database) as repository:
+        registry = EngineeringOrchestrator(repository)
+        requirement = registry.register("requirement", EngineeringRequirement(
+            requirement_id="mcp-cancel",
+            revision_id="mcp-cancel.r1",
+            meta=RevisionMeta(
+                revision=1,
+                created_by="system-engineer-li",
+                reason="reviewed requirement",
+            ),
+            status="approved",
+            reviewer="system-engineer-li",
+            reviewed_at=reviewed_at,
+            title="explicit cancellation",
+            requirement_type="must",
+            hard_constraint=True,
+            source_type="user_declared",
+            source_refs=("owner interview",),
+            acceptance_criteria=("instrumented test confirms cancellation",),
+            verification_methods=("physical task test",),
+        ))
+        registry.register("verification_test", VerificationTestRun(
+            test_run_id="mcp-cancel-test",
+            revision_id="mcp-cancel-test.r1",
+            meta=RevisionMeta(
+                revision=1,
+                created_by="test-lead",
+                reason="physical result reviewed",
+            ),
+            status="approved",
+            reviewer="test-lead",
+            reviewed_at=reviewed_at,
+            protocol_id="cancel-protocol.r1",
+            test_type="physical task test",
+            sample_ids=("prototype-1",),
+            raw_measurement_refs=("cancel.csv#sha256:a",),
+            result="pass",
+            evidence_review_id="evidence-review.r1",
+            dependencies=(dependency_ref("requirement", requirement.requirement_id, 1),),
+        ))
+        registry.register("project", EngineeringProjectRevision(
+            project_id="mcp-project",
+            revision_id="mcp-project.r1",
+            meta=RevisionMeta(
+                revision=1,
+                created_by="system-engineer-li",
+                reason="project snapshot",
+            ),
+            intake_revision_id="mcp-intake.r1",
+            scenario="walking transit",
+            product_purpose="bounded cancellation",
+            requirement_revision_ids=(requirement.revision_id,),
+            dependencies=(dependency_ref("requirement", requirement.requirement_id, 1),),
+        ))
+
+
+def test_engineering_status_tool_is_read_only_projection(tmp_path):
+    from psyteardown.mcp_server.tools import engineering_status_tool
+
+    database = tmp_path / "experience.db"
+    _seed_engineering_project(database)
+    payload = json.loads(engineering_status_tool("mcp-project", store=database))
+    assert payload["project"]["project_id"] == "mcp-project"
+    assert payload["requirements"][0]["status"] == "approved"
+    assert payload["stale_objects"] == []
+    assert "no AI or MCP call can approve" in payload["boundary"]
+
+
+def test_engineering_traceability_tool_renders_both_formats(tmp_path):
+    from psyteardown.mcp_server.tools import engineering_traceability_tool
+
+    database = tmp_path / "experience.db"
+    _seed_engineering_project(database)
+    markdown = engineering_traceability_tool("mcp-project", store=database)
+    assert "# Engineering Traceability" in markdown
+    assert "`traceable`" in markdown
+    payload = json.loads(
+        engineering_traceability_tool("mcp-project", store=database, fmt="json")
+    )
+    assert payload["status"] == "traceable"
+
+
+def test_engineering_mcp_tools_report_invalid_input_without_mutation(tmp_path):
+    from psyteardown.mcp_server.tools import (
+        engineering_status_tool,
+        engineering_traceability_tool,
+    )
+
+    database = tmp_path / "empty.db"
+    assert engineering_status_tool(" ", store=database).startswith("错误:")
+    assert engineering_status_tool("missing", store=database) == "工程项目不存在:missing"
+    assert engineering_traceability_tool(
+        "missing", store=database, fmt="yaml"
+    ).startswith("错误:format")

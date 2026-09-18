@@ -29,12 +29,23 @@ DesignBrief
 - `DesignFeedbackSelection`：保存选择、candidate revision、critique、排序和
   prompt JSON 的不可变快照，已加入 SQLite registry。
 - `render_feedback_json`：导出候选、Critique、排序与 prompt，便于下游生成器消费。
+- `render_feedback_markdown`：生成跨候选比较表和逐候选排序因素，保留风险、
+  未知、权衡和可操作修改。
+- `build_actionable_patches`：人工选择后把反馈转成 `explore`/`constrain`
+  `VariablePatch`；不凭空发明目标值，后续由研究员确认具体修复。
+- 冻结 brief 的 M3 bundle 会挂到正式 `DesignIteration`；人工选择会写入
+  `CandidatePartialOrder` / `SelectionDecision` / `DesignFeedbackSelection`，非首位候选必须提供 `override_reason`。
+- `confirm_feedback_next_prompt` 将确认 patch 写入 `NextDesignPrompt`，并由既有
+  `generate_second_round` 生成第二轮候选；CLI 新增 `design-feedback-next-round`。
+- `create_experiment_plan_from_feedback` 提供显式的人类 handoff 到 M2：仅保存
+  `exploratory` hypothesis 并创建 preregistration draft，绝不从排序自动生成实验结果。
 
 CLI：
 
 ```powershell
 python -m psyteardown.cli design-feedback --brief brief.json --db feedback.sqlite --out feedback.json
 python -m psyteardown.cli design-feedback-select --brief brief.json --feedback feedback.json --db feedback.sqlite --candidate <candidate-id> --out selected.json
+python -m psyteardown.cli design-feedback-next-round --brief brief.json --feedback selected.json --db feedback.sqlite --out second-round.json
 ```
 
 ## 重要边界
@@ -49,18 +60,11 @@ python -m psyteardown.cli design-feedback-select --brief brief.json --feedback f
 
 ## 下一步
 
-1. 将 `DesignFeedbackSelection` 映射到 `DesignIteration` / `SelectionDecision`
-   正式 revision 链，保留人工 override reason。
-2. 把确认的 actionable change 转成 `VariablePatch`，调用既有
-   `generate_second_round` 生成第二轮候选。
-3. 增加跨候选 Markdown 比较报告，展示 Evidence、hard risks、tradeoffs、unknowns
-   和排序理由。
-4. 增加 3 个设计任务 × 5 个候选的稳定性/错误否决测试。
-5. 与 M2 的 `HypothesisBinding`、`AnalysisFamily` 和 preregistration 规划建立
-   连接；不能从反馈排序自动创建实验结果。
+继续在真实研究员确认、物理测量和 Result Review 后推进 M2 preregistration；M3
+排序本身仍不构成实验结果或 hypothesis support。
 
 ## 回归
 
-当前全量测试基线：`358 passed, 2 skipped`。
+当前全量测试基线：`371 passed, 2 skipped`。
 Transit Anchor 仍为 `geometry_ready / design-review confirmed /
 physical validation pending`。

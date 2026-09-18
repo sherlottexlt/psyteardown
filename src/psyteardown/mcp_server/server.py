@@ -1,4 +1,4 @@
-"""MCP server 装配:环境变量 → 依赖,FastMCP 注册 6 工具,stdio 传输。零业务逻辑。
+"""MCP server 装配:环境变量 → 依赖,FastMCP 注册工具,stdio 传输。零业务逻辑。
 
 mcp 包只在本模块内 import(可选依赖);tools.py 保持零 mcp 依赖。
 """
@@ -13,6 +13,11 @@ from psyteardown.mcp_server import tools
 
 def _store() -> Path:
     return Path(os.environ.get("PSYTEARDOWN_STORE", str(tools.DEFAULT_STORE)))
+
+
+def _experience_store() -> Path:
+    """Engineering/experience DB, falling back to the shared configured DB."""
+    return Path(os.environ.get("PSYTEARDOWN_EXPERIENCE_STORE", str(_store())))
 
 
 @lru_cache(maxsize=1)
@@ -80,6 +85,28 @@ def build_server():
     def memory_stats() -> str:
         """案例库统计(案例数)。"""
         return _guard(tools.memory_stats_tool, store=_store())
+
+    @mcp.tool()
+    def engineering_status(project_id: str) -> str:
+        """只读查询工程项目的 stage、需求、任务、冲突和过期对象。
+
+        该工具不会执行工程软件、评审证据或推进任何 gate。
+        """
+        return _guard(
+            tools.engineering_status_tool,
+            project_id,
+            store=_experience_store(),
+        )
+
+    @mcp.tool()
+    def engineering_traceability(project_id: str, format: str = "md") -> str:
+        """只读导出需求到工程对象、测试、原始结果和 reviewer 的追溯报告。"""
+        return _guard(
+            tools.engineering_traceability_tool,
+            project_id,
+            store=_experience_store(),
+            fmt=format,
+        )
 
     return mcp
 

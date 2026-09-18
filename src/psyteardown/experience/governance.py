@@ -38,6 +38,29 @@ from .models import (
 )
 
 
+# Fields that can be changed by a pre-run amendment.  Identity and lineage
+# fields are immutable; changing a protocol-level field still creates a new
+# ExperimentPlan revision and must be visible in the amendment record.
+AMENDABLE_PREREGISTRATION_FIELDS = frozenset({
+    "research_question", "independent_variables", "control_conditions",
+    "dependent_measures", "sample_plan", "confounds", "stopping_rules",
+    "success_criteria", "ethics_notes", "protocol_snapshot",
+    "analysis_family_revision_id", "condition_snapshot_ids",
+    # Compatibility names used by early M2 callers.
+    "sample", "measures", "analysis", "conditions", "stopping",
+})
+
+
+def validate_amendment_fields(changed_fields: Iterable[str]) -> tuple[str, ...]:
+    fields = tuple(dict.fromkeys(str(field).strip() for field in changed_fields if str(field).strip()))
+    if not fields:
+        raise ValueError("amendment must name changed fields")
+    unknown = tuple(field for field in fields if field not in AMENDABLE_PREREGISTRATION_FIELDS)
+    if unknown:
+        raise ValueError("amendment contains immutable or unknown fields: " + ", ".join(unknown))
+    return fields
+
+
 def _id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:12]}"
 
@@ -72,16 +95,16 @@ def build_dependency_graph(
 def amend_preregistration(plan: ExperimentPlan, *, changed_fields: Iterable[str], reason: str, approved_by: str, actor: str = "human") -> tuple[ExperimentPlan, PreregistrationAmendment]:
     if plan.status in {"started", "completed", "stale", "suspended"}:
         raise ValueError("preregistration cannot be amended after experiment start")
-    fields = tuple(dict.fromkeys(changed_fields))
-    if not fields:
-        raise ValueError("amendment must name changed fields")
+    fields = validate_amendment_fields(changed_fields)
     next_revision = plan.meta.revision + 1
+    amendment_id = _id("amendment")
     updated = plan.model_copy(update={
         "revision_id": f"{plan.experiment_id}.r{next_revision}",
         "meta": RevisionMeta(revision=next_revision, parent_revision_id=plan.revision_id, created_by=actor, reason=reason),
+        "amendment_ids": tuple(plan.amendment_ids) + (amendment_id,),
     })
     amendment = PreregistrationAmendment(
-        amendment_id=_id("amendment"), revision_id=f"amendment-{next_revision}",
+        amendment_id=amendment_id, revision_id=f"{amendment_id}.r1",
         meta=RevisionMeta(revision=1, created_by=approved_by, reason=reason),
         experiment_revision_id=updated.revision_id, changed_fields=fields,
         reason=reason, approved_by=approved_by,
@@ -281,6 +304,7 @@ def validate_event_log_chain(logs: Iterable[EventLogRecord]) -> bool:
 
 
 __all__ = [
+    "AMENDABLE_PREREGISTRATION_FIELDS", "validate_amendment_fields",
     "amend_preregistration", "assess_independence", "build_dependency_graph",
     "build_outbox_event", "commit_job_result", "create_job_snapshot",
     "classify_canary_failure", "critical_path_coverage", "merge_release_grants",

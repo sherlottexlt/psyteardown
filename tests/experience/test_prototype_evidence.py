@@ -5,6 +5,8 @@ import pytest
 from psyteardown.experience import (
     DomainStateError,
     EvidenceReview,
+    Evidence,
+    ExperienceHypothesis,
     ExperienceApplicationService,
     MeasurementObservation,
     PrototypeAsset,
@@ -133,3 +135,133 @@ def test_blender_run_does_not_change_portfolio_protocol_status(tmp_path: Path):
         )
         assert case.prototype_validation_protocol.status == "planned"
         assert case.evidence_workflow["blender_is_not_evidence"] is True
+
+
+def _hypothesis() -> ExperienceHypothesis:
+    return ExperienceHypothesis(
+        hypothesis_id="hyp-physical",
+        revision_id="hyp-physical.r1",
+        meta=_meta("researcher", "conditional hypothesis"),
+        target_population="consented commuters",
+        task_condition="cancel while walking",
+        environment_condition="lab walking proxy",
+        social_condition="shared setting",
+        physical_features=("bounded cancellation control",),
+        user_actions=("press cancel",),
+        construct="perceived control",
+        mechanism="a bounded response may preserve control",
+        predicted_outcome="shorter cancellation time",
+        alternative_explanations=("practice effect",),
+        evidence=(Evidence(
+            evidence_id="declared-source",
+            kind="text",
+            artifact_id="brief.md",
+            quote_or_locator="requirements/cancellation",
+        ),),
+        validation_method="preregistered prototype comparison",
+    )
+
+
+def test_formal_measurements_flow_through_m2_gate_before_hypothesis_revision(tmp_path: Path):
+    with SQLiteExperienceRepository(tmp_path / "formal-evidence.db") as repo:
+        service = ExperienceApplicationService(repo)
+        hypothesis = _hypothesis()
+        service.save_hypothesis(hypothesis)
+        plan, binding, _, conditions = service.create_experiment_plan_bundle(
+            hypothesis,
+            candidate_revision_id="candidate.r1",
+            facts_snapshot_id="facts.r1",
+            actor="researcher",
+        )
+        preregistered = service.preregister_experiment_plan(plan, actor="researcher")
+        protocol_review = service.review_analysis_protocol(
+            preregistered,
+            reviewer="method-lead",
+            approved=True,
+            rationale="analysis protocol complete before data import",
+        )
+        assert protocol_review.status == "approved"
+        reviewed_plan = repo.get_current("experiment_plan", plan.experiment_id)
+        family = repo.get_revision("analysis_family", reviewed_plan.analysis_family_revision_id)
+        assert family.locked is True
+
+        run = PrototypeRun(
+            run_id="formal-run",
+            revision_id="formal-run.r1",
+            meta=_meta("test-engineer", "formal prototype run"),
+            protocol_id=reviewed_plan.experiment_id,
+            protocol_revision=reviewed_plan.revision_id,
+            candidate_revision_id="candidate.r1",
+            device_revision="physical-device.r1",
+            conditions=tuple(item.condition_id for item in conditions),
+            participant_scope="consented adult participant",
+            context_scope="lab walking proxy",
+            experiment_revision_id=reviewed_plan.revision_id,
+            condition_snapshot_ids=reviewed_plan.condition_snapshot_ids,
+            hypothesis_binding_ids=reviewed_plan.hypothesis_binding_ids,
+            analysis_family_revision_id=reviewed_plan.analysis_family_revision_id,
+            analysis_protocol_review_id=protocol_review.revision_id,
+        )
+        service.import_prototype_run(run)
+        measurement = MeasurementObservation(
+            observation_id="formal-measurement",
+            revision_id="formal-measurement.r1",
+            meta=_meta("test-engineer", "raw result import"),
+            run_id=run.run_id,
+            measure_id=binding.measure_ids[0],
+            metric="cancellation time",
+            method="instrumented timer",
+            condition=conditions[0].condition_id,
+            condition_snapshot_revision_id=conditions[0].revision_id,
+            value=420,
+            unit="ms",
+            raw_file_hash="d" * 64,
+        )
+        imported = service.import_measurement_observation(measurement, run=run)
+        assert imported.hypothesis_binding_ids == (binding.binding_id,)
+        assert imported.analysis_family_revision_id == family.revision_id
+        evidence_review = service.confirm_measurement_observations(
+            run,
+            [imported.observation_id],
+            reviewer="evidence-lead",
+            evidence_level="supported",
+            rationale="raw timing record reviewed",
+        )
+        assert evidence_review.analysis_protocol_review_id == protocol_review.revision_id
+
+        revised = service.revise_hypothesis_from_evidence(
+            hypothesis,
+            evidence_review,
+            status="supported",
+            reviewer="research-lead",
+            rationale="predeclared outcome supported within this condition",
+        )
+        assert revised.status == "supported"
+        assert revised.meta.parent_revision_id == hypothesis.revision_id
+        assert revised.evidence[-1].kind == "experiment"
+        assert repo.get_revision("experience_hypothesis", hypothesis.revision_id).status == "exploratory"
+
+
+def test_hypothesis_cannot_change_from_legacy_review_without_analysis_gate(tmp_path: Path):
+    with SQLiteExperienceRepository(tmp_path / "ungated.db") as repo:
+        service = ExperienceApplicationService(repo)
+        hypothesis = _hypothesis()
+        service.save_hypothesis(hypothesis)
+        run = _run()
+        service.import_prototype_run(run)
+        measurement = _observation().model_copy(update={"raw_file_hash": "e" * 64})
+        service.import_measurement_observation(measurement, run=run)
+        review = service.confirm_measurement_observations(
+            run,
+            [measurement.observation_id],
+            reviewer="evidence-lead",
+            evidence_level="supported",
+        )
+        with pytest.raises(DomainStateError, match="complete M2 analysis lineage"):
+            service.revise_hypothesis_from_evidence(
+                hypothesis,
+                review,
+                status="supported",
+                reviewer="research-lead",
+                rationale="must remain gated",
+            )

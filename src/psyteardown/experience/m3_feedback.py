@@ -23,6 +23,8 @@ from psyteardown.experience.models import (
     Evidence,
     Observation,
     RevisionMeta,
+    VariablePatch,
+    PatchScope,
 )
 from psyteardown.experience.rules import build_candidate
 
@@ -166,6 +168,16 @@ def rank_candidates(brief: DesignBrief, critiques: Iterable[Critique]) -> tuple[
     return tuple(item.candidate_id for item in sorted(values, key=key))
 
 
+def rank_reasons(critique: Critique) -> tuple[str, ...]:
+    """Return the exact deterministic factors used by ``rank_candidates``."""
+    return (
+        "hard_risk" if critique.hard_risks else "no_hard_risk",
+        "unknowns_present" if critique.unknowns else "no_unknowns",
+        "actionable_feedback" if critique.actionable_changes else "no_actionable_feedback",
+        "stable_candidate_id_tiebreak",
+    )
+
+
 def build_next_prompt(brief: DesignBrief, selected: DesignCandidate, critique: Critique) -> str:
     """Project only confirmed-safe, operational feedback into the next prompt."""
     changes = tuple(change for change in critique.actionable_changes if any(variable in change for variable in selected.changed_variable_ids))
@@ -256,6 +268,50 @@ def build_feedback_selection(result: DesignFeedbackResult, *, actor: str = "huma
     )
 
 
+def build_actionable_patches(
+    result: DesignFeedbackResult,
+    *,
+    actor: str = "human",
+) -> tuple[VariablePatch, ...]:
+    """Translate selected critique changes into reviewable explore patches.
+
+    The planner never invents a target value.  ``constrain`` patches preserve
+    the current value while making the variable an explicit subject of the
+    next controlled comparison; a researcher may later replace them with a
+    concrete confirmed value.
+    """
+    if not result.selected_candidate_id:
+        raise ValueError("actionable patches require a human-selected candidate")
+    candidate = next(item for item in result.candidates if item.candidate_id == result.selected_candidate_id)
+    critique = next(item for item in result.critiques if item.candidate_id == result.selected_candidate_id)
+    patches: list[VariablePatch] = []
+    for index, variable_id in enumerate(candidate.changed_variable_ids, start=1):
+        matching_change = next(
+            (change for change in critique.actionable_changes if variable_id in change),
+            None,
+        )
+        if matching_change is None:
+            continue
+        current = next((value for value in candidate.variables if value.variable_id == variable_id), None)
+        patches.append(VariablePatch(
+            patch_id=f"{candidate.candidate_id}.m3-patch-{index}",
+            revision_id=f"{candidate.candidate_id}.m3-patch-{index}.r1",
+            meta=RevisionMeta(revision=1, created_by=actor, reason="M3 actionable feedback captured"),
+            review_item_revision_id=critique.revision_id,
+            variable_id=variable_id,
+            operation="constrain",
+            from_value=current,
+            to_value=None,
+            scope=PatchScope(global_scope=True),
+            enforcement="explore",
+            rationale=matching_change,
+            evidence_refs=critique.evidence_ids,
+            expected_effect="make the variable explicit for a controlled next-round comparison",
+            verification="compare the selected candidate with a matched alternative",
+        ))
+    return tuple(patches)
+
+
 def render_feedback_json(result: DesignFeedbackResult) -> str:
     return json.dumps({
         "brief_revision_id": result.brief_revision_id,
@@ -278,16 +334,18 @@ def render_feedback_markdown(result: DesignFeedbackResult) -> str:
         f"- Ranked candidates: {', '.join(result.ranked_candidate_ids) or 'none'}",
         f"- Human selection: `{result.selected_candidate_id or 'pending'}`", "",
         "## Candidate comparison", "",
-        "| Candidate | Hard risks | Unknowns | Actionable changes |",
-        "|---|---:|---:|---:|",
+        "| Candidate | Evidence | Hard risks | Unknowns | Tradeoffs | Actionable changes |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
     for critique in result.critiques:
         lines.append(
-            f"| `{critique.candidate_id}` | {len(critique.hard_risks)} | {len(critique.unknowns)} | {len(critique.actionable_changes)} |"
+            f"| `{critique.candidate_id}` | {len(critique.evidence_ids)} | {len(critique.hard_risks)} | {len(critique.unknowns)} | {len(critique.tradeoffs)} | {len(critique.actionable_changes)} |"
         )
     lines += ["", "## Review notes", ""]
     for critique in result.critiques:
         lines.append(f"### `{critique.candidate_id}`")
+        if critique.evidence_ids:
+            lines.append("- evidence: " + "; ".join(critique.evidence_ids))
         if critique.hard_risks:
             lines.append("- hard risks: " + "; ".join(critique.hard_risks))
         if critique.tradeoffs:
@@ -296,6 +354,7 @@ def render_feedback_markdown(result: DesignFeedbackResult) -> str:
             lines.append("- actionable changes: " + "; ".join(critique.actionable_changes))
         if critique.unknowns:
             lines.append("- unknowns: " + "; ".join(critique.unknowns))
+        lines.append("- rank factors: " + "; ".join(rank_reasons(critique)))
         lines.append("")
     if result.next_prompt:
         lines += ["## Next-round prompt", "", "```json", result.next_prompt, "```", ""]

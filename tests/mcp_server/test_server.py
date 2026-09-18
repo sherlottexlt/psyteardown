@@ -7,13 +7,15 @@ import pytest
 pytest.importorskip("mcp")
 
 
-def test_build_server_registers_six_tools():
+def test_build_server_registers_engineering_read_tools():
     from psyteardown.mcp_server.server import build_server
 
     srv = build_server()
     names = {t.name for t in asyncio.run(srv.list_tools())}
-    assert names == {"teardown", "similar", "review_case",
-                     "kb_list", "kb_show", "memory_stats"}
+    assert names == {
+        "teardown", "similar", "review_case", "kb_list", "kb_show",
+        "memory_stats", "engineering_status", "engineering_traceability",
+    }
 
 
 def test_main_without_mcp_gives_install_hint(monkeypatch, capsys):

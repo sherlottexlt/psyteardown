@@ -13,6 +13,7 @@ from psyteardown.experience import (
     RevisionMeta,
     SQLiteExperienceRepository,
     amend_preregistration,
+    validate_amendment_fields,
     assess_independence,
     build_dependency_graph,
     classify_canary_failure,
@@ -48,8 +49,15 @@ def test_preregistration_amendment_before_start_creates_new_revision():
     updated, amendment = amend_preregistration(plan("preregistered"), changed_fields=["sample", "sample"], reason="power update", approved_by="method")
     assert updated.meta.revision == 2
     assert amendment.changed_fields == ("sample",)
+    assert updated.amendment_ids == (amendment.amendment_id,)
     with pytest.raises(ValueError):
         amend_preregistration(plan("started"), changed_fields=["sample"], reason="late", approved_by="method")
+
+
+def test_amendment_rejects_immutable_or_unknown_fields():
+    assert validate_amendment_fields(["sample", "sample"]) == ("sample",)
+    with pytest.raises(ValueError):
+        validate_amendment_fields(["hypothesis_binding_ids"])
 
 
 def test_start_requires_approved_plan_and_pins_irreversible_event():
