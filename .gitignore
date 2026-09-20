@@ -14,3 +14,7 @@ tmp/
 docs/resume/
 docs/portfolio/vaux-*
 scripts/
+
+# Local Product Studio development ledger; public product direction lives in
+# docs/superpowers/specs/2026-09-20-psyteardown-ai-product-studio-north-star.md
+docs/product-studio/
