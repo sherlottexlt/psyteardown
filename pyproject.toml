@@ -9,16 +9,19 @@ dependencies = [
     "typer>=0.12",
     "anthropic>=0.69",
     "numpy>=1.26",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "httpx>=0.28"]
 embed = ["sentence-transformers>=2.2"]
 mcp = ["mcp>=1.2"]
 
 [project.scripts]
 psyteardown = "psyteardown.cli:app"
 psyteardown-mcp = "psyteardown.mcp_server.server:main"
+psyteardown-studio-api = "psyteardown.api.app:run"
 
 [build-system]
 requires = ["setuptools>=68"]

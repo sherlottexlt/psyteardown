@@ -1,9 +1,14 @@
 # psyteardown 后续方向与完整实现计划
 
 - 初始日期：2026-09-08
-- 本次更新：2026-09-18
-- 状态：当前架构与后续实施主文档
+- 本次更新：2026-09-20
+- 状态：当前可信研发内核与实施基线；不再单独作为平台上位北极星
 - 适用范围：从 App/数字服务产品拆解，发展为带体验研究、AI 设计反馈和工程验证边界的协同研发平台
+
+> 2026-09-20 定位更新：平台面向用户的上位目标、交互形式和技术路线见
+> [`2026-09-20-psyteardown-ai-product-studio-north-star.md`](2026-09-20-psyteardown-ai-product-studio-north-star.md)。
+> 本文继续作为 Discovery、Experience、Design、Engineering 和 Quality 可信内核的实现与事实基线；
+> 文中“最终目标”应按研发内核目标理解，不再代表完整用户产品的范围。
 
 ## 0. 当前一句话结论
 
@@ -490,4 +495,4 @@ evidence level = none
 
 > 一个以数字产品发现和真实场景为输入、以体验假设和工程对象为共享语言、以 revision graph 为记忆、以验证 Gate 为控制、以真实测试为裁判的 AI 辅助研发平台。
 
-当前最值得继续做的是 Discovery/CLI 收敛和 Transit Anchor 的真实样机闭环，而不是立即更换 CLI 框架或扩展未经验证的自动化 Agent。
+在本可信研发内核范围内，Discovery/CLI 收敛和 Transit Anchor 的真实样机闭环仍是有效任务；但按 2026-09-20 的平台上位方向，整体产品优先级调整为先走通“模糊意图 → Product Contract → Product Thesis → 可运行数字产品 → 自动测试与修复 → 用户反馈 → 可交付结果”的 Product Studio 纵向切片。Transit Anchor 保留为后续硬件 realization pack 的验证案例。

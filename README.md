@@ -1,8 +1,10 @@
-# psyteardown — 体验假设与验证 Agent
+# psyteardown — AI Product Studio（开发中）
 
-psyteardown 把产品或设计候选中的可观察事实，连接到人的动作与使用情境、心理机制假设、体验风险、设计修改和验证实验，输出可追溯的 Markdown / JSON 结果。
+长期目标是让用户从一个不完整愿望或现实困扰出发，获得可运行、可验证并可持续演化的产品。完整方向见 [AI Product Studio 北极星](docs/superpowers/specs/2026-09-20-psyteardown-ai-product-studio-north-star.md)，开发交接从 [Product Studio 开发台账](docs/product-studio/README.md) 开始。
 
-项目从“心理驱动的产品拆解 Agent”逐步扩展为“产品体验假设与验证系统”，当前同时支持文本拆解和结构化体验设计 vertical slice。
+当前**可使用的部分仍是可信研发内核**：文本拆解、结构化体验研究、设计反馈及工程验证边界。新 Product Studio 的领域与持久化代码目前只是已测试原型；Web 工作空间和从模糊意图生成可运行产品的闭环尚未完成。
+
+继续开发前先看 [当前状态](docs/product-studio/CURRENT_STATE.md)、[路线图](docs/product-studio/ROADMAP.md) 和 [决策登记册](docs/product-studio/DECISION_REGISTER.md)。旧 ADR 仅在原体验/工程内核范围内有效，不自动成为新平台决策。
 
 核心原则：观察、解释、预测和验证分开；AI 可以提议，但不能自行批准；Blender/渲染图可以帮助讨论，但不能冒充样机证据。
 
@@ -112,8 +114,10 @@ Claude Desktop 在 `claude_desktop_config.json` 的 `mcpServers` 里加:
 - `review` — 元认知自评:拆解后批判性质量自评,信号回流 strategize / reflect
 - `mcp_server` — 交付层:MCP server(FastMCP/stdio),8 个工具;与 CLI 共享编排
 - `experience` — 结构化体验、Discovery 与工程协同域：数字体验发现、DesignBrief、候选、实验、样机证据、工程对象、依赖失效、人工 gate、制造/法规和跨案例知识
+- `product` — ProductIntent、ProblemModel、OutcomeContract、ProductThesis 与项目应用服务的探索性原型；字段、确认门和持久化边界待验证
+- `api` — FastAPI `/api/v1` 草稿，A3 已暂停；当前环境存在 FastAPI/Starlette 版本冲突，尚未通过启动或 HTTP 集成测试
 
-CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superpowers/`、`docs/adr/` 和 `docs/handoff/`。
+现有 CLI 仍是旧内核的薄入口。新平台方向见 `docs/superpowers/specs/`，开发状态与历史见 `docs/product-studio/`；`docs/adr/` 是既有内核的历史决策记录，不应直接用于锁定新平台的领域模型。
 
 ## 当前状态
 
@@ -132,20 +136,26 @@ CLI 仅为薄入口。完整设计、架构决策和交接记录见 `docs/superp
 - 质量与知识 P4/P5：DVP&R、FMEA、试产良率、法规/可靠性、制造准备、发布、工程/供应商/售后变更，以及人工批准后才能进入默认查询的跨案例工程知识。
 - Discovery 边界：App/数字服务拆解先进入 `DigitalExperienceDiscovery`，再由具名 reviewer 通过 `DiscoveryTriageDecision` 逐条分流；只有设备交互候选可以进入工程 intake。
 
+### Product Studio 开发状态
+
+- A1/A2：四个上位对象、项目命令、乐观并发及 InMemory/SQLite 持久化有测试覆盖，状态是 `prototype tested`，不是已确认的最终架构。
+- A3：FastAPI 路由与 DTO 已有草稿，但当前环境的 FastAPI 0.115.6 与 Starlette 1.3.1 组合在启动时失败；尚无 HTTP 集成测试，工作包已暂停。
+- 首条纵向切片的具体用户与问题尚未决定。需先用真实任务检验 A1/A2 的最小字段和人工确认边界，再恢复 A3、建设 Web 工作台。
+
 ### 当前边界
 
 - Transit Anchor 当前为 `geometry_ready / design-review confirmed / physical validation pending`。
 - 目前 `PrototypeRun=0`、`MeasurementObservation=0`、`EvidenceReview=0`，`evidence level=none`。
 - Blender、GLB、PNG 和 virtual preflight 都是 derived/design material，不证明尺寸、舒适度、触觉检出率、稳定性、隐私结果或用户偏好。
-- 已具备视觉/视频观察、CAD/CAE/DFM/BOM 的适配与审查边界，但尚未配置真实多模态模型、真实工程工具连接、实体样机数据、认证实验室或 Web 工作台。
+- 已具备视觉/视频观察、CAD/CAE/DFM/BOM 的适配与审查边界，但尚未配置真实多模态模型、真实工程工具连接、实体样机数据、认证实验室或 Product Studio Web 工作台。
 - 工程对象处于平台能力层；没有真实原始结果、具名 reviewer 和完整 gate 时，系统不会宣称可制造、合规、量产或发布。
 
 ### 下一步路线
 
-1. 为 Transit Anchor 制作真实样机并导入真实原始测量，由具名人员完成 `EvidenceReview`。
-2. 接入实际 CAD/CAE/DFM/BOM、供应商和成本数据源；保留工具原始结果与人工审查记录。
-3. 接入适用市场的真实可靠性和认证证据，再执行制造准备和发布 gate。
-4. 制作 Transit Anchor 实物样机并导入真实测量；再将工程项目、任务、冲突和状态门暴露给可选的 Web/API 工作台。
+1. 选定首条数字产品的具体用户和现实问题，用它校准 A1/A2 原型的字段、人工确认门槛与旧内核衔接；不以旧 ADR 的 `accepted` 状态代替新决策。
+2. 解决 FastAPI/Starlette 版本冲突，验证 A3 HTTP 契约与 SQLite 重启恢复后再恢复 API 开发。
+3. 建立 React/TypeScript Product Studio，走通“模糊意图 → Product Contract → 多个 Product Thesis → 可运行 Web 产品 → 自动测试与修复 → 用户反馈 → 导出”的真实闭环。
+4. 保留体验与工程链作为可信研发内核；Transit Anchor 仅是后续硬件 pack 案例，其证据等级须由真实样机、测量和具名 `EvidenceReview` 推进。
 
 ### 工程项目 CLI
 
@@ -176,12 +186,14 @@ MCP 工程读取工具默认与 `PSYTEARDOWN_STORE` 共享数据库；可用 `PS
 
 ## 后续方向
 
-项目后续不止于文本产品心理拆解，而是分层发展为“产品 Discovery → 体验假设 → 设计反馈 → 工程验证”的协同平台。原始拆解面向 App/数字服务，先产生 `DigitalExperienceDiscovery` 和待分流信号；它不能直接成为机械、材料、制造或法规结论。完整定位、领域模型、分阶段实现计划、CLI/MCP 边界与验收标准见 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](docs/superpowers/specs/2026-09-08-psyteardown-future-direction-and-implementation-plan.md)。
+项目的上位方向是面向个人与企业的 AI Product Studio：用户可以从一个不完整愿望、现实问题、商业目标或进行中的项目开始，平台承担大部分研究、方案搜索、设计、实现、测试和修复工作，最终交付可运行产品以及与关键声明绑定的证据、未知和风险。用户产品形态、交互模式、心理学位置、技术架构和第一条纵向切片见 [`2026-09-20-psyteardown-ai-product-studio-north-star.md`](docs/superpowers/specs/2026-09-20-psyteardown-ai-product-studio-north-star.md)。
+
+现有“产品 Discovery → 体验假设 → 设计反馈 → 工程验证”能力作为可信研发内核继续保留。App/数字服务拆解先产生 `DigitalExperienceDiscovery` 和待分流信号，不能直接成为机械、材料、制造或法规结论。当前实现基线、领域对象、CLI/MCP 边界与工程验收标准见 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](docs/superpowers/specs/2026-09-08-psyteardown-future-direction-and-implementation-plan.md)。
 
 ### 当前验证状态
 
 ```text
-406 passed, 2 skipped
+438 passed, 2 skipped, 1 warning（A1/A2 有覆盖；A3 API 未通过启动/HTTP 测试）
 ```
 
 当前 Transit Anchor 仍为 `geometry_ready / design-review confirmed / physical validation pending`；`PrototypeRun=0`、`MeasurementObservation=0`、`EvidenceReview=0`、`evidence level=none`。因此仓库中的 Blender、GLB、PNG、virtual preflight 和 scenario replay 仍是设计/策略材料，不是样机、认证或制造证据。

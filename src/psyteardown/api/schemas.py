@@ -1,0 +1,255 @@
+"""Versioned HTTP transport DTOs for the Product Studio API."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from psyteardown.product.commands import (
+    OutcomeContractProposal,
+    ProblemModelProposal,
+    ProductIntentProposal,
+    ProductThesisProposal,
+)
+from psyteardown.product.models import (
+    HumanConfirmation,
+    OutcomeContract,
+    ProblemModel,
+    ProductIntent,
+    ProductProject,
+    ProductProjectView,
+    ProductThesis,
+    RevisionImpact,
+    SourceReference,
+    ThesisDisposition,
+)
+
+
+class TransportModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CreateProjectRequest(TransportModel):
+    name: str = Field(min_length=1)
+    collaboration_mode: Literal["managed", "co_design", "governance"] = "managed"
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    created_from: list[SourceReference] = Field(default_factory=list)
+
+
+class ChangeProjectStatusRequest(TransportModel):
+    expected_revision: int = Field(ge=1)
+    to_status: Literal["active", "paused", "archived"]
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class SubmitProductIntentRequest(TransportModel):
+    proposal: ProductIntentProposal
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    intent_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class SubmitProblemModelRequest(TransportModel):
+    proposal: ProblemModelProposal
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    problem_model_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class SubmitOutcomeContractRequest(TransportModel):
+    proposal: OutcomeContractProposal
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    outcome_contract_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class SubmitProductThesisRequest(TransportModel):
+    proposal: ProductThesisProposal
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    thesis_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class ConfirmRevisionRequest(TransportModel):
+    expected_revision: int = Field(ge=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class TransitionProductThesisRequest(TransportModel):
+    expected_revision: int = Field(ge=1)
+    to_status: Literal["exploring", "selected", "paused", "rejected"]
+    actor: str = Field(min_length=1)
+    actor_type: Literal["human", "system"]
+    reason: str = Field(min_length=1)
+    authorization_ref: str | None = None
+
+
+class RevisionMetaResponse(TransportModel):
+    revision: int
+    parent_revision_id: str | None
+    created_at: datetime
+    created_by: str
+    reason: str
+
+
+class ProductProjectResponse(TransportModel):
+    project_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    name: str
+    collaboration_mode: Literal["managed", "co_design", "governance"]
+    status: Literal["active", "paused", "archived"]
+    created_from: list[SourceReference]
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductProject) -> "ProductProjectResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class ProductIntentResponse(ProductIntentProposal):
+    project_id: str
+    intent_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    status: Literal["proposed", "confirmed"]
+    confirmation: HumanConfirmation | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductIntent) -> "ProductIntentResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class ProblemModelResponse(ProblemModelProposal):
+    project_id: str
+    problem_model_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    status: Literal["proposed", "confirmed"]
+    dependencies: list[dict[str, Any]]
+    confirmation: HumanConfirmation | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProblemModel) -> "ProblemModelResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class OutcomeContractResponse(OutcomeContractProposal):
+    project_id: str
+    outcome_contract_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    status: Literal["proposed", "confirmed"]
+    dependencies: list[dict[str, Any]]
+    confirmation: HumanConfirmation | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: OutcomeContract) -> "OutcomeContractResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class ProductThesisResponse(ProductThesisProposal):
+    project_id: str
+    thesis_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    status: Literal["proposed", "exploring", "selected", "paused", "rejected"]
+    dependencies: list[dict[str, Any]]
+    disposition: ThesisDisposition | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductThesis) -> "ProductThesisResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class RevisionImpactResponse(TransportModel):
+    dependent_type: Literal["problem_model", "outcome_contract", "product_thesis"]
+    dependent_id: str
+    dependent_revision_id: str
+    impact: Literal["review_required", "stale"]
+    changed_dependency: dict[str, Any]
+    reason: str
+
+    @classmethod
+    def from_domain(cls, value: RevisionImpact) -> "RevisionImpactResponse":
+        return cls.model_validate(value.model_dump(mode="python"))
+
+
+class ProductProjectViewResponse(TransportModel):
+    project: ProductProjectResponse
+    product_intent: ProductIntentResponse | None
+    problem_model: ProblemModelResponse | None
+    outcome_contract: OutcomeContractResponse | None
+    product_theses: list[ProductThesisResponse]
+    recorded_impacts: list[RevisionImpactResponse]
+
+    @classmethod
+    def from_domain(cls, value: ProductProjectView) -> "ProductProjectViewResponse":
+        return cls(
+            project=ProductProjectResponse.from_domain(value.project),
+            product_intent=(
+                ProductIntentResponse.from_domain(value.product_intent)
+                if value.product_intent
+                else None
+            ),
+            problem_model=(
+                ProblemModelResponse.from_domain(value.problem_model)
+                if value.problem_model
+                else None
+            ),
+            outcome_contract=(
+                OutcomeContractResponse.from_domain(value.outcome_contract)
+                if value.outcome_contract
+                else None
+            ),
+            product_theses=[
+                ProductThesisResponse.from_domain(item)
+                for item in value.product_theses
+            ],
+            recorded_impacts=[
+                RevisionImpactResponse.from_domain(item)
+                for item in value.recorded_impacts
+            ],
+        )
+
+
+class HealthResponse(TransportModel):
+    status: Literal["ok"] = "ok"
+    api_version: Literal["v1"] = "v1"
+    service: Literal["psyteardown-product-studio"] = "psyteardown-product-studio"
+
+
+class ApiErrorIssue(TransportModel):
+    location: list[str | int]
+    code: str
+    message: str
+
+
+class ApiErrorDetail(TransportModel):
+    code: str
+    message: str
+    request_id: str
+    issues: list[ApiErrorIssue] = Field(default_factory=list)
+
+
+class ApiErrorResponse(TransportModel):
+    error: ApiErrorDetail
+
+
+def _with_content_hash(value: Any) -> dict[str, Any]:
+    payload = value.model_dump(mode="python")
+    payload["content_hash"] = value.content_hash
+    return payload
