@@ -1,7 +1,6 @@
-"""证据溯源:校验 evidence 是否为产品原文的逐字片段。
+"""证据溯源：校验 evidence 是否为产品原文的逐字片段。
 
-纯函数,不认识 LLM。归一化规则与实测依据见
-docs/superpowers/specs/2026-09-02-step3-evidence-grounding-design.md §5。
+纯函数，不认识 LLM；归一化规则由本模块测试锁定。
 """
 
 import unicodedata

@@ -3,7 +3,7 @@
 - 日期：2026-09-20
 - 状态：方向基线，供后续产品设计、领域建模和实施决策使用
 - 层级：平台上位产品规格
-- 下位实施基线：[`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](2026-09-08-psyteardown-future-direction-and-implementation-plan.md)
+- 既有研发内核：仓库当前的 Discovery、Experience、Design、Engineering 与 Quality 代码及测试；旧开发文档仅在本地保留
 - 目的：记录 2026-09-20 关于平台真正要做什么、用户如何使用、AI 如何完成大部分工作以及技术栈如何演进的讨论结论
 
 ## 0. 决策摘要
@@ -642,7 +642,7 @@ MCP 不是平台的唯一 UI，也不能绕过 Domain Command、权限、预算�
 - 读操作可以提供面向页面的组合 projection，但 projection 不承载写逻辑；
 - 耗时操作返回 `job_id`，不绑定 HTTP 请求生命周期。
 
-这一选择延续 [`ADR 0033`](../../adr/0033-local-web-review-workspace.md) 和 [`ADR 0085`](../../adr/0085-api-organized-by-domain-resources-and-commands.md)，但把工作台定位从“Review Workspace”扩展为完整 Product Studio。
+这一选择延续既有本地 Review Workspace 和领域命令 API 的实现经验，但把工作台定位从“Review Workspace”扩展为完整 Product Studio。旧 ADR 只作为本地历史资料，不再作为公开产品方向文档。
 
 #### 数据与资产
 
@@ -872,7 +872,7 @@ Transit Anchor 继续作为硬件 realization pack 的验证案例，而不是�
 
 ### 16.1 保留为可信研发内核
 
-现有 [`2026-09-08-psyteardown-future-direction-and-implementation-plan.md`](2026-09-08-psyteardown-future-direction-and-implementation-plan.md) 继续作为以下内容的实施基线：
+仓库现有代码与自动化测试继续作为以下可信研发内核能力的事实基线；旧实施计划仅在本地保留，不再作为公开产品文档：
 
 - Discovery 和体验研究；
 - 证据、观察和假设；

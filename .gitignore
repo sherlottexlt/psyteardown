@@ -4,17 +4,21 @@ __pycache__/
 .pytest_cache/
 .psyteardown/
 .env.local
-.field-test/store/
-.field-test/*.log
+.field-test/
+CONTEXT.md
 
 # Local/generated artifacts (not part of the source distribution)
 output/experience/
 output/pdf/
 tmp/
 docs/resume/
-docs/portfolio/vaux-*
 scripts/
 
-# Local Product Studio development ledger; public product direction lives in
-# docs/superpowers/specs/2026-09-20-psyteardown-ai-product-studio-north-star.md
-docs/product-studio/
+# Keep development/history documents local. The only public product document
+# under docs/ is the current North Star specification.
+docs/*
+!docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+docs/superpowers/specs/*
+!docs/superpowers/specs/2026-09-20-psyteardown-ai-product-studio-north-star.md
