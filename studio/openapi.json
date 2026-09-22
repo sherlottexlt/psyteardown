@@ -1,0 +1,5343 @@
+{
+  "components": {
+    "schemas": {
+      "ApiErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ApiErrorDetail",
+        "type": "object"
+      },
+      "ApiErrorIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "location": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "code",
+          "message"
+        ],
+        "title": "ApiErrorIssue",
+        "type": "object"
+      },
+      "ApiErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiErrorResponse",
+        "type": "object"
+      },
+      "ChangeProjectStatusRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_status": {
+            "enum": [
+              "active",
+              "paused",
+              "archived"
+            ],
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "to_status",
+          "actor",
+          "reason"
+        ],
+        "title": "ChangeProjectStatusRequest",
+        "type": "object"
+      },
+      "CompetingExplanation": {
+        "additionalProperties": false,
+        "properties": {
+          "cheapest_falsification": {
+            "minLength": 1,
+            "title": "Cheapest Falsification",
+            "type": "string"
+          },
+          "contradicting_fact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Contradicting Fact Ids",
+            "type": "array"
+          },
+          "explanation_id": {
+            "minLength": 1,
+            "title": "Explanation Id",
+            "type": "string"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "supporting_fact_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Supporting Fact Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "explanation_id",
+          "statement",
+          "cheapest_falsification"
+        ],
+        "title": "CompetingExplanation",
+        "type": "object"
+      },
+      "ConfirmRevisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "actor",
+          "reason"
+        ],
+        "title": "ConfirmRevisionRequest",
+        "type": "object"
+      },
+      "CreateGenerationJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationBudgetRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "reason"
+        ],
+        "title": "CreateGenerationJobRequest",
+        "type": "object"
+      },
+      "CreateProjectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "collaboration_mode": {
+            "default": "managed",
+            "enum": [
+              "managed",
+              "co_design",
+              "governance"
+            ],
+            "title": "Collaboration Mode",
+            "type": "string"
+          },
+          "created_from": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "title": "Created From",
+            "type": "array"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "actor",
+          "reason"
+        ],
+        "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "CreateProposalJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "product_intent",
+              "problem_model",
+              "outcome_contract",
+              "product_theses",
+              "web_generation_contract"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "raw_input": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Input"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "actor",
+          "reason"
+        ],
+        "title": "CreateProposalJobRequest",
+        "type": "object"
+      },
+      "DeliveryEstimate": {
+        "additionalProperties": false,
+        "properties": {
+          "initial_delivery_cost": {
+            "minLength": 1,
+            "title": "Initial Delivery Cost",
+            "type": "string"
+          },
+          "maintenance_burden": {
+            "minLength": 1,
+            "title": "Maintenance Burden",
+            "type": "string"
+          },
+          "operating_cost": {
+            "minLength": 1,
+            "title": "Operating Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "initial_delivery_cost",
+          "operating_cost",
+          "maintenance_burden"
+        ],
+        "title": "DeliveryEstimate",
+        "type": "object"
+      },
+      "DeliveryMaturity": {
+        "enum": [
+          "concept",
+          "runnable_prototype",
+          "field_trial",
+          "operational_candidate",
+          "released_product"
+        ],
+        "title": "DeliveryMaturity",
+        "type": "string"
+      },
+      "FalsifiablePrediction": {
+        "additionalProperties": false,
+        "properties": {
+          "cheapest_test": {
+            "minLength": 1,
+            "title": "Cheapest Test",
+            "type": "string"
+          },
+          "failure_observation": {
+            "minLength": 1,
+            "title": "Failure Observation",
+            "type": "string"
+          },
+          "prediction": {
+            "minLength": 1,
+            "title": "Prediction",
+            "type": "string"
+          },
+          "prediction_id": {
+            "minLength": 1,
+            "title": "Prediction Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prediction_id",
+          "prediction",
+          "failure_observation",
+          "cheapest_test"
+        ],
+        "title": "FalsifiablePrediction",
+        "type": "object"
+      },
+      "GeneratedFile": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_count": {
+            "minimum": 0.0,
+            "title": "Byte Count",
+            "type": "integer"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "minLength": 1,
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "byte_count",
+          "sha256"
+        ],
+        "title": "GeneratedFile",
+        "type": "object"
+      },
+      "GenerationBudget": {
+        "additionalProperties": false,
+        "description": "Small, explicit limits for one local source-generation job.",
+        "properties": {
+          "max_attempts": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_bytes": {
+            "default": 1048576,
+            "maximum": 1048576.0,
+            "minimum": 1.0,
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_duration_seconds": {
+            "default": 60,
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Max Duration Seconds",
+            "type": "integer"
+          },
+          "max_files": {
+            "default": 64,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Files",
+            "type": "integer"
+          }
+        },
+        "title": "GenerationBudget",
+        "type": "object"
+      },
+      "GenerationBudgetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "max_attempts": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_bytes": {
+            "default": 1048576,
+            "maximum": 1048576.0,
+            "minimum": 1.0,
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_duration_seconds": {
+            "default": 60,
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Max Duration Seconds",
+            "type": "integer"
+          },
+          "max_files": {
+            "default": 64,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Files",
+            "type": "integer"
+          }
+        },
+        "title": "GenerationBudgetRequest",
+        "type": "object"
+      },
+      "GenerationJobActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "GenerationJobActionRequest",
+        "type": "object"
+      },
+      "GenerationManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedFile"
+            },
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "manifest_version": {
+            "const": "b3-v1",
+            "default": "b3-v1",
+            "title": "Manifest Version",
+            "type": "string"
+          },
+          "template_id": {
+            "const": "react_typescript_vite_spa",
+            "default": "react_typescript_vite_spa",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "template_version": {
+            "default": "b2-v1",
+            "minLength": 1,
+            "title": "Template Version",
+            "type": "string"
+          },
+          "total_bytes": {
+            "minimum": 0.0,
+            "title": "Total Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "total_bytes"
+        ],
+        "title": "GenerationManifest",
+        "type": "object"
+      },
+      "GenerationSandboxPolicy": {
+        "additionalProperties": false,
+        "description": "The B3 sandbox declaration; it is not an execution grant.",
+        "properties": {
+          "execution_policy": {
+            "const": "not_executed",
+            "default": "not_executed",
+            "title": "Execution Policy",
+            "type": "string"
+          },
+          "network_policy": {
+            "const": "none",
+            "default": "none",
+            "title": "Network Policy",
+            "type": "string"
+          },
+          "secret_policy": {
+            "const": "none",
+            "default": "none",
+            "title": "Secret Policy",
+            "type": "string"
+          },
+          "symlink_policy": {
+            "const": "deny",
+            "default": "deny",
+            "title": "Symlink Policy",
+            "type": "string"
+          },
+          "workspace_scope": {
+            "const": "project_job",
+            "default": "project_job",
+            "title": "Workspace Scope",
+            "type": "string"
+          }
+        },
+        "title": "GenerationSandboxPolicy",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "api_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "service": {
+            "const": "psyteardown-product-studio",
+            "default": "psyteardown-product-studio",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "HumanConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed_at": {
+            "format": "date-time",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "confirmed_by": {
+            "minLength": 1,
+            "title": "Confirmed By",
+            "type": "string"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed_by",
+          "confirmed_at",
+          "rationale"
+        ],
+        "title": "HumanConfirmation",
+        "type": "object"
+      },
+      "MechanismHypothesis": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "expected_change": {
+            "minLength": 1,
+            "title": "Expected Change",
+            "type": "string"
+          },
+          "mechanism_id": {
+            "minLength": 1,
+            "title": "Mechanism Id",
+            "type": "string"
+          },
+          "proposed_intervention": {
+            "minLength": 1,
+            "title": "Proposed Intervention",
+            "type": "string"
+          },
+          "uncertainty": {
+            "minLength": 1,
+            "title": "Uncertainty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mechanism_id",
+          "condition",
+          "proposed_intervention",
+          "expected_change",
+          "uncertainty"
+        ],
+        "title": "MechanismHypothesis",
+        "type": "object"
+      },
+      "OutcomeContractProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "applicable_contexts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applicable Contexts",
+            "type": "array"
+          },
+          "intent_revision_id": {
+            "minLength": 1,
+            "title": "Intent Revision Id",
+            "type": "string"
+          },
+          "minimum_delivery_maturity": {
+            "$ref": "#/components/schemas/DeliveryMaturity",
+            "default": "concept"
+          },
+          "problem_model_revision_id": {
+            "minLength": 1,
+            "title": "Problem Model Revision Id",
+            "type": "string"
+          },
+          "prohibited_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/ProhibitedOutcome"
+            },
+            "title": "Prohibited Outcomes",
+            "type": "array"
+          },
+          "prohibited_outcomes_reviewed": {
+            "default": false,
+            "title": "Prohibited Outcomes Reviewed",
+            "type": "boolean"
+          },
+          "required_real_world_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Real World Evidence",
+            "type": "array"
+          },
+          "resource_boundary": {
+            "$ref": "#/components/schemas/ResourceBoundary"
+          },
+          "stop_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/StopCondition"
+            },
+            "title": "Stop Conditions",
+            "type": "array"
+          },
+          "success_indicators": {
+            "items": {
+              "$ref": "#/components/schemas/SuccessIndicator"
+            },
+            "title": "Success Indicators",
+            "type": "array"
+          },
+          "target_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/TargetOutcome"
+            },
+            "title": "Target Outcomes",
+            "type": "array"
+          },
+          "target_segments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intent_revision_id",
+          "problem_model_revision_id",
+          "resource_boundary"
+        ],
+        "title": "OutcomeContractProposal",
+        "type": "object"
+      },
+      "OutcomeContractResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "applicable_contexts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applicable Contexts",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "intent_revision_id": {
+            "minLength": 1,
+            "title": "Intent Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "minimum_delivery_maturity": {
+            "$ref": "#/components/schemas/DeliveryMaturity",
+            "default": "concept"
+          },
+          "outcome_contract_id": {
+            "title": "Outcome Contract Id",
+            "type": "string"
+          },
+          "problem_model_revision_id": {
+            "minLength": 1,
+            "title": "Problem Model Revision Id",
+            "type": "string"
+          },
+          "prohibited_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/ProhibitedOutcome"
+            },
+            "title": "Prohibited Outcomes",
+            "type": "array"
+          },
+          "prohibited_outcomes_reviewed": {
+            "default": false,
+            "title": "Prohibited Outcomes Reviewed",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "required_real_world_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Real World Evidence",
+            "type": "array"
+          },
+          "resource_boundary": {
+            "$ref": "#/components/schemas/ResourceBoundary"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stop_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/StopCondition"
+            },
+            "title": "Stop Conditions",
+            "type": "array"
+          },
+          "success_indicators": {
+            "items": {
+              "$ref": "#/components/schemas/SuccessIndicator"
+            },
+            "title": "Success Indicators",
+            "type": "array"
+          },
+          "target_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/TargetOutcome"
+            },
+            "title": "Target Outcomes",
+            "type": "array"
+          },
+          "target_segments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intent_revision_id",
+          "problem_model_revision_id",
+          "resource_boundary",
+          "project_id",
+          "outcome_contract_id",
+          "revision_id",
+          "meta",
+          "status",
+          "dependencies",
+          "confirmation",
+          "content_hash"
+        ],
+        "title": "OutcomeContractResponse",
+        "type": "object"
+      },
+      "ProblemAssumption": {
+        "additionalProperties": false,
+        "properties": {
+          "assumption_id": {
+            "minLength": 1,
+            "title": "Assumption Id",
+            "type": "string"
+          },
+          "cheapest_validation": {
+            "minLength": 1,
+            "title": "Cheapest Validation",
+            "type": "string"
+          },
+          "consequence_if_wrong": {
+            "minLength": 1,
+            "title": "Consequence If Wrong",
+            "type": "string"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assumption_id",
+          "statement",
+          "consequence_if_wrong",
+          "cheapest_validation"
+        ],
+        "title": "ProblemAssumption",
+        "type": "object"
+      },
+      "ProblemFact": {
+        "additionalProperties": false,
+        "properties": {
+          "fact_id": {
+            "minLength": 1,
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "minItems": 1,
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "statement",
+          "source_refs"
+        ],
+        "title": "ProblemFact",
+        "type": "object"
+      },
+      "ProblemModelProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemAssumption"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "competing_explanations": {
+            "items": {
+              "$ref": "#/components/schemas/CompetingExplanation"
+            },
+            "title": "Competing Explanations",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemFact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "intent_revision_id": {
+            "minLength": 1,
+            "title": "Intent Revision Id",
+            "type": "string"
+          },
+          "stakeholder_tensions": {
+            "items": {
+              "$ref": "#/components/schemas/StakeholderTension"
+            },
+            "title": "Stakeholder Tensions",
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemUnknown"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intent_revision_id"
+        ],
+        "title": "ProblemModelProposal",
+        "type": "object"
+      },
+      "ProblemModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemAssumption"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "competing_explanations": {
+            "items": {
+              "$ref": "#/components/schemas/CompetingExplanation"
+            },
+            "title": "Competing Explanations",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemFact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "intent_revision_id": {
+            "minLength": 1,
+            "title": "Intent Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "problem_model_id": {
+            "title": "Problem Model Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "stakeholder_tensions": {
+            "items": {
+              "$ref": "#/components/schemas/StakeholderTension"
+            },
+            "title": "Stakeholder Tensions",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemUnknown"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intent_revision_id",
+          "project_id",
+          "problem_model_id",
+          "revision_id",
+          "meta",
+          "status",
+          "dependencies",
+          "confirmation",
+          "content_hash"
+        ],
+        "title": "ProblemModelResponse",
+        "type": "object"
+      },
+      "ProblemUnknown": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_impact": {
+            "minLength": 1,
+            "title": "Decision Impact",
+            "type": "string"
+          },
+          "next_step": {
+            "minLength": 1,
+            "title": "Next Step",
+            "type": "string"
+          },
+          "question": {
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "unknown_id": {
+            "minLength": 1,
+            "title": "Unknown Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unknown_id",
+          "question",
+          "decision_impact",
+          "next_step"
+        ],
+        "title": "ProblemUnknown",
+        "type": "object"
+      },
+      "ProductGenerationJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/GenerationBudget"
+          },
+          "checkpoint_step": {
+            "anyOf": [
+              {
+                "enum": [
+                  "prepare",
+                  "generate",
+                  "validate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Step"
+          },
+          "consumed_bytes": {
+            "title": "Consumed Bytes",
+            "type": "integer"
+          },
+          "consumed_cost_units": {
+            "title": "Consumed Cost Units",
+            "type": "integer"
+          },
+          "consumed_duration_seconds": {
+            "title": "Consumed Duration Seconds",
+            "type": "number"
+          },
+          "consumed_files": {
+            "title": "Consumed Files",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "input_dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Input Dependencies",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "web_product",
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "deterministic_template",
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_version": {
+            "title": "Provider Version",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/GenerationSandboxPolicy"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "paused",
+              "succeeded",
+              "failed",
+              "stale_input",
+              "budget_exhausted",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "workspace_relative_path": {
+            "title": "Workspace Relative Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "revision_id",
+          "meta",
+          "project_id",
+          "kind",
+          "status",
+          "provider",
+          "provider_version",
+          "input_dependencies",
+          "web_generation_contract_revision_id",
+          "workspace_id",
+          "workspace_relative_path",
+          "budget",
+          "sandbox",
+          "fingerprint",
+          "attempt",
+          "checkpoint_step",
+          "consumed_files",
+          "consumed_bytes",
+          "consumed_duration_seconds",
+          "consumed_cost_units",
+          "manifest",
+          "error_code",
+          "error_summary",
+          "content_hash"
+        ],
+        "title": "ProductGenerationJobResponse",
+        "type": "object"
+      },
+      "ProductIntentProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_people": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected People",
+            "type": "array"
+          },
+          "current_situation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Situation"
+          },
+          "desired_change": {
+            "minLength": 1,
+            "title": "Desired Change",
+            "type": "string"
+          },
+          "explicit_non_goals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Explicit Non Goals",
+            "type": "array"
+          },
+          "known_constraints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Constraints",
+            "type": "array"
+          },
+          "resource_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resource Preferences",
+            "type": "array"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "minItems": 1,
+            "title": "Source Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "desired_change",
+          "affected_people",
+          "source_refs"
+        ],
+        "title": "ProductIntentProposal",
+        "type": "object"
+      },
+      "ProductIntentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_people": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected People",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "current_situation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Situation"
+          },
+          "desired_change": {
+            "minLength": 1,
+            "title": "Desired Change",
+            "type": "string"
+          },
+          "explicit_non_goals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Explicit Non Goals",
+            "type": "array"
+          },
+          "intent_id": {
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "known_constraints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Constraints",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "resource_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resource Preferences",
+            "type": "array"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "minItems": 1,
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "desired_change",
+          "affected_people",
+          "source_refs",
+          "project_id",
+          "intent_id",
+          "revision_id",
+          "meta",
+          "status",
+          "confirmation",
+          "content_hash"
+        ],
+        "title": "ProductIntentResponse",
+        "type": "object"
+      },
+      "ProductProjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "collaboration_mode": {
+            "enum": [
+              "managed",
+              "co_design",
+              "governance"
+            ],
+            "title": "Collaboration Mode",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_from": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "title": "Created From",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "revision_id",
+          "meta",
+          "name",
+          "collaboration_mode",
+          "status",
+          "created_from",
+          "content_hash"
+        ],
+        "title": "ProductProjectResponse",
+        "type": "object"
+      },
+      "ProductProjectViewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome_contract": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutcomeContractResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problem_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemModelResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductIntentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_theses": {
+            "items": {
+              "$ref": "#/components/schemas/ProductThesisResponse"
+            },
+            "title": "Product Theses",
+            "type": "array"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProductProjectResponse"
+          },
+          "recorded_impacts": {
+            "items": {
+              "$ref": "#/components/schemas/RevisionImpactResponse"
+            },
+            "title": "Recorded Impacts",
+            "type": "array"
+          },
+          "web_generation_contract": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebProductGenerationContractResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "project",
+          "product_intent",
+          "problem_model",
+          "outcome_contract",
+          "product_theses",
+          "web_generation_contract",
+          "recorded_impacts"
+        ],
+        "title": "ProductProjectViewResponse",
+        "type": "object"
+      },
+      "ProductProposalJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "input_dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Input Dependencies",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "product_intent",
+              "problem_model",
+              "outcome_contract",
+              "product_theses",
+              "web_generation_contract"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "deterministic_fake",
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_version": {
+            "title": "Provider Version",
+            "type": "string"
+          },
+          "raw_input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Input"
+          },
+          "result_expected_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Expected Revision"
+          },
+          "result_object_id": {
+            "title": "Result Object Id",
+            "type": "string"
+          },
+          "result_object_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Result Object Ids",
+            "type": "array"
+          },
+          "result_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Revision Id"
+          },
+          "result_revision_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Result Revision Ids",
+            "type": "array"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "stale_input",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "revision_id",
+          "meta",
+          "project_id",
+          "kind",
+          "status",
+          "provider",
+          "provider_version",
+          "input_dependencies",
+          "result_object_id",
+          "result_object_ids",
+          "result_expected_revision",
+          "raw_input",
+          "fingerprint",
+          "attempt",
+          "result_revision_id",
+          "result_revision_ids",
+          "error_code",
+          "error_summary",
+          "content_hash"
+        ],
+        "title": "ProductProposalJobResponse",
+        "type": "object"
+      },
+      "ProductThesisProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery_estimate": {
+            "$ref": "#/components/schemas/DeliveryEstimate"
+          },
+          "differentiation": {
+            "minLength": 1,
+            "title": "Differentiation",
+            "type": "string"
+          },
+          "falsifiable_predictions": {
+            "items": {
+              "$ref": "#/components/schemas/FalsifiablePrediction"
+            },
+            "minItems": 1,
+            "title": "Falsifiable Predictions",
+            "type": "array"
+          },
+          "key_risks": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Key Risks",
+            "type": "array"
+          },
+          "key_unknowns": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Key Unknowns",
+            "type": "array"
+          },
+          "mechanism_hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/MechanismHypothesis"
+            },
+            "minItems": 1,
+            "title": "Mechanism Hypotheses",
+            "type": "array"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "outcome_contract_revision_id": {
+            "minLength": 1,
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "problem_model_revision_id": {
+            "minLength": 1,
+            "title": "Problem Model Revision Id",
+            "type": "string"
+          },
+          "product_promise": {
+            "minLength": 1,
+            "title": "Product Promise",
+            "type": "string"
+          },
+          "realization_modes": {
+            "items": {
+              "enum": [
+                "software",
+                "hardware",
+                "service",
+                "content",
+                "process",
+                "hybrid"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Realization Modes",
+            "type": "array"
+          },
+          "validation_strategy": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationStep"
+            },
+            "minItems": 1,
+            "title": "Validation Strategy",
+            "type": "array"
+          }
+        },
+        "required": [
+          "problem_model_revision_id",
+          "outcome_contract_revision_id",
+          "name",
+          "product_promise",
+          "differentiation",
+          "realization_modes",
+          "mechanism_hypotheses",
+          "falsifiable_predictions",
+          "validation_strategy",
+          "key_unknowns",
+          "key_risks",
+          "delivery_estimate"
+        ],
+        "title": "ProductThesisProposal",
+        "type": "object"
+      },
+      "ProductThesisResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "delivery_estimate": {
+            "$ref": "#/components/schemas/DeliveryEstimate"
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "differentiation": {
+            "minLength": 1,
+            "title": "Differentiation",
+            "type": "string"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThesisDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "falsifiable_predictions": {
+            "items": {
+              "$ref": "#/components/schemas/FalsifiablePrediction"
+            },
+            "minItems": 1,
+            "title": "Falsifiable Predictions",
+            "type": "array"
+          },
+          "key_risks": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Key Risks",
+            "type": "array"
+          },
+          "key_unknowns": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Key Unknowns",
+            "type": "array"
+          },
+          "mechanism_hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/MechanismHypothesis"
+            },
+            "minItems": 1,
+            "title": "Mechanism Hypotheses",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "outcome_contract_revision_id": {
+            "minLength": 1,
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "problem_model_revision_id": {
+            "minLength": 1,
+            "title": "Problem Model Revision Id",
+            "type": "string"
+          },
+          "product_promise": {
+            "minLength": 1,
+            "title": "Product Promise",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "realization_modes": {
+            "items": {
+              "enum": [
+                "software",
+                "hardware",
+                "service",
+                "content",
+                "process",
+                "hybrid"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Realization Modes",
+            "type": "array"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "exploring",
+              "selected",
+              "paused",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "thesis_id": {
+            "title": "Thesis Id",
+            "type": "string"
+          },
+          "validation_strategy": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationStep"
+            },
+            "minItems": 1,
+            "title": "Validation Strategy",
+            "type": "array"
+          }
+        },
+        "required": [
+          "problem_model_revision_id",
+          "outcome_contract_revision_id",
+          "name",
+          "product_promise",
+          "differentiation",
+          "realization_modes",
+          "mechanism_hypotheses",
+          "falsifiable_predictions",
+          "validation_strategy",
+          "key_unknowns",
+          "key_risks",
+          "delivery_estimate",
+          "project_id",
+          "thesis_id",
+          "revision_id",
+          "meta",
+          "status",
+          "dependencies",
+          "disposition",
+          "content_hash"
+        ],
+        "title": "ProductThesisResponse",
+        "type": "object"
+      },
+      "ProhibitedOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "detection_method": {
+            "minLength": 1,
+            "title": "Detection Method",
+            "type": "string"
+          },
+          "prohibited_outcome_id": {
+            "minLength": 1,
+            "title": "Prohibited Outcome Id",
+            "type": "string"
+          },
+          "response": {
+            "minLength": 1,
+            "title": "Response",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "hard",
+              "strong_avoidance",
+              "watch"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prohibited_outcome_id",
+          "description",
+          "severity",
+          "detection_method",
+          "response"
+        ],
+        "title": "ProhibitedOutcome",
+        "type": "object"
+      },
+      "ProposalJobActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "ProposalJobActionRequest",
+        "type": "object"
+      },
+      "ResourceBoundary": {
+        "additionalProperties": false,
+        "properties": {
+          "data_boundary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Boundary"
+          },
+          "economic_budget": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Economic Budget"
+          },
+          "explicit_unknowns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Explicit Unknowns",
+            "type": "array"
+          },
+          "maintenance_budget": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Budget"
+          },
+          "time_budget": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Budget"
+          },
+          "user_attention_budget": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Attention Budget"
+          }
+        },
+        "title": "ResourceBoundary",
+        "type": "object"
+      },
+      "RevisionImpactResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_dependency": {
+            "additionalProperties": true,
+            "title": "Changed Dependency",
+            "type": "object"
+          },
+          "dependent_id": {
+            "title": "Dependent Id",
+            "type": "string"
+          },
+          "dependent_revision_id": {
+            "title": "Dependent Revision Id",
+            "type": "string"
+          },
+          "dependent_type": {
+            "enum": [
+              "problem_model",
+              "outcome_contract",
+              "product_thesis",
+              "web_generation_contract"
+            ],
+            "title": "Dependent Type",
+            "type": "string"
+          },
+          "impact": {
+            "enum": [
+              "review_required",
+              "stale"
+            ],
+            "title": "Impact",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dependent_type",
+          "dependent_id",
+          "dependent_revision_id",
+          "impact",
+          "changed_dependency",
+          "reason"
+        ],
+        "title": "RevisionImpactResponse",
+        "type": "object"
+      },
+      "RevisionMetaResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "parent_revision_id",
+          "created_at",
+          "created_by",
+          "reason"
+        ],
+        "title": "RevisionMetaResponse",
+        "type": "object"
+      },
+      "SourceReference": {
+        "additionalProperties": false,
+        "description": "A compact pointer to the origin of a product-domain statement.",
+        "properties": {
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locator"
+          },
+          "revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Id"
+          },
+          "source_id": {
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "user_input",
+              "imported_artifact",
+              "research",
+              "evidence",
+              "tool_result",
+              "model_proposal",
+              "human_decision"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_type",
+          "source_id"
+        ],
+        "title": "SourceReference",
+        "type": "object"
+      },
+      "StakeholderTension": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "stakeholder_refs": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Stakeholder Refs",
+            "type": "array"
+          },
+          "tension_id": {
+            "minLength": 1,
+            "title": "Tension Id",
+            "type": "string"
+          },
+          "unresolved_value_choice": {
+            "minLength": 1,
+            "title": "Unresolved Value Choice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tension_id",
+          "stakeholder_refs",
+          "description",
+          "unresolved_value_choice"
+        ],
+        "title": "StakeholderTension",
+        "type": "object"
+      },
+      "StopCondition": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "stop",
+              "reframe",
+              "escalate"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "condition": {
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "condition_id": {
+            "minLength": 1,
+            "title": "Condition Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition_id",
+          "condition",
+          "action"
+        ],
+        "title": "StopCondition",
+        "type": "object"
+      },
+      "SubmitOutcomeContractRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "outcome_contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Contract Id"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/OutcomeContractProposal"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitOutcomeContractRequest",
+        "type": "object"
+      },
+      "SubmitProblemModelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "problem_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Model Id"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ProblemModelProposal"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitProblemModelRequest",
+        "type": "object"
+      },
+      "SubmitProductIntentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "intent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent Id"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ProductIntentProposal"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitProductIntentRequest",
+        "type": "object"
+      },
+      "SubmitProductThesisRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ProductThesisProposal"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "thesis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis Id"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitProductThesisRequest",
+        "type": "object"
+      },
+      "SubmitWebProductGenerationContractRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/WebProductGenerationContractProposalRequest"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "web_generation_contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Generation Contract Id"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitWebProductGenerationContractRequest",
+        "type": "object"
+      },
+      "SuccessIndicator": {
+        "additionalProperties": false,
+        "properties": {
+          "desired_direction": {
+            "minLength": 1,
+            "title": "Desired Direction",
+            "type": "string"
+          },
+          "indicator_id": {
+            "minLength": 1,
+            "title": "Indicator Id",
+            "type": "string"
+          },
+          "observation_method": {
+            "minLength": 1,
+            "title": "Observation Method",
+            "type": "string"
+          },
+          "operational_definition": {
+            "minLength": 1,
+            "title": "Operational Definition",
+            "type": "string"
+          },
+          "required_evidence": {
+            "enum": [
+              "deterministic_check",
+              "tool_result",
+              "expert_review",
+              "real_user_observation",
+              "operational_result"
+            ],
+            "title": "Required Evidence",
+            "type": "string"
+          },
+          "threshold_or_target": {
+            "minLength": 1,
+            "title": "Threshold Or Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_id",
+          "operational_definition",
+          "observation_method",
+          "desired_direction",
+          "threshold_or_target",
+          "required_evidence"
+        ],
+        "title": "SuccessIndicator",
+        "type": "object"
+      },
+      "TargetOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "indicator_ids": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Indicator Ids",
+            "type": "array"
+          },
+          "outcome_id": {
+            "minLength": 1,
+            "title": "Outcome Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome_id",
+          "description"
+        ],
+        "title": "TargetOutcome",
+        "type": "object"
+      },
+      "ThesisDisposition": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "exploring",
+              "selected",
+              "paused",
+              "rejected"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_type": {
+            "enum": [
+              "human",
+              "system"
+            ],
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "authorization_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Ref"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decided_by": {
+            "minLength": 1,
+            "title": "Decided By",
+            "type": "string"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "decided_by",
+          "actor_type",
+          "decided_at",
+          "rationale"
+        ],
+        "title": "ThesisDisposition",
+        "type": "object"
+      },
+      "TransitionProductThesisRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "actor_type": {
+            "enum": [
+              "human",
+              "system"
+            ],
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "authorization_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Ref"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_status": {
+            "enum": [
+              "exploring",
+              "selected",
+              "paused",
+              "rejected"
+            ],
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "to_status",
+          "actor",
+          "actor_type",
+          "reason"
+        ],
+        "title": "TransitionProductThesisRequest",
+        "type": "object"
+      },
+      "ValidationStep": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_cost": {
+            "minLength": 1,
+            "title": "Estimated Cost",
+            "type": "string"
+          },
+          "evidence_level": {
+            "enum": [
+              "deterministic_check",
+              "simulation",
+              "expert_review",
+              "real_user_observation",
+              "operational_result"
+            ],
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "method": {
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "pass_condition": {
+            "minLength": 1,
+            "title": "Pass Condition",
+            "type": "string"
+          },
+          "question": {
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "validation_step_id": {
+            "minLength": 1,
+            "title": "Validation Step Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation_step_id",
+          "question",
+          "method",
+          "evidence_level",
+          "pass_condition",
+          "estimated_cost"
+        ],
+        "title": "ValidationStep",
+        "type": "object"
+      },
+      "WebAcceptanceCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "assertion": {
+            "minLength": 1,
+            "title": "Assertion",
+            "type": "string"
+          },
+          "check_id": {
+            "minLength": 1,
+            "title": "Check Id",
+            "type": "string"
+          },
+          "evidence_level": {
+            "const": "deterministic_check",
+            "default": "deterministic_check",
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_id",
+          "task_id",
+          "assertion"
+        ],
+        "title": "WebAcceptanceCheck",
+        "type": "object"
+      },
+      "WebContentSlot": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "fallback_text": {
+            "minLength": 1,
+            "title": "Fallback Text",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "semantic_role": {
+            "enum": [
+              "heading",
+              "instruction",
+              "label",
+              "status",
+              "error",
+              "confirmation"
+            ],
+            "title": "Semantic Role",
+            "type": "string"
+          },
+          "slot_id": {
+            "minLength": 1,
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "outcome_contract",
+              "product_thesis",
+              "user_input",
+              "local_fixture"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "semantic_role",
+          "description",
+          "source_kind",
+          "fallback_text"
+        ],
+        "title": "WebContentSlot",
+        "type": "object"
+      },
+      "WebProductGenerationContractProposalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_checks": {
+            "items": {
+              "$ref": "#/components/schemas/WebAcceptanceCheck"
+            },
+            "title": "Acceptance Checks",
+            "type": "array"
+          },
+          "app_title": {
+            "title": "App Title",
+            "type": "string"
+          },
+          "content_slots": {
+            "items": {
+              "$ref": "#/components/schemas/WebContentSlot"
+            },
+            "title": "Content Slots",
+            "type": "array"
+          },
+          "outcome_contract_revision_id": {
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "product_thesis_revision_id": {
+            "title": "Product Thesis Revision Id",
+            "type": "string"
+          },
+          "screens": {
+            "items": {
+              "$ref": "#/components/schemas/WebScreenSpec"
+            },
+            "title": "Screens",
+            "type": "array"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/WebStateSpec"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/WebTaskSpec"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "product_thesis_revision_id",
+          "outcome_contract_revision_id",
+          "app_title",
+          "screens",
+          "tasks",
+          "states",
+          "content_slots",
+          "acceptance_checks",
+          "source_refs"
+        ],
+        "title": "WebProductGenerationContractProposalRequest",
+        "type": "object"
+      },
+      "WebProductGenerationContractResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_checks": {
+            "items": {
+              "$ref": "#/components/schemas/WebAcceptanceCheck"
+            },
+            "title": "Acceptance Checks",
+            "type": "array"
+          },
+          "app_title": {
+            "title": "App Title",
+            "type": "string"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "content_slots": {
+            "items": {
+              "$ref": "#/components/schemas/WebContentSlot"
+            },
+            "title": "Content Slots",
+            "type": "array"
+          },
+          "data_policy": {
+            "const": "local_fixture_only",
+            "title": "Data Policy",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "development_dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Development Dependencies",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "network_policy": {
+            "const": "none",
+            "title": "Network Policy",
+            "type": "string"
+          },
+          "outcome_contract_revision_id": {
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "output_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Output Paths",
+            "type": "array"
+          },
+          "product_thesis_revision_id": {
+            "title": "Product Thesis Revision Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "runtime_dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Runtime Dependencies",
+            "type": "array"
+          },
+          "screens": {
+            "items": {
+              "$ref": "#/components/schemas/WebScreenSpec"
+            },
+            "title": "Screens",
+            "type": "array"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/WebStateSpec"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/WebTaskSpec"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "template_id": {
+            "const": "react_typescript_vite_spa",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "template_version": {
+            "title": "Template Version",
+            "type": "string"
+          },
+          "web_generation_contract_id": {
+            "title": "Web Generation Contract Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "web_generation_contract_id",
+          "project_id",
+          "revision_id",
+          "meta",
+          "product_thesis_revision_id",
+          "outcome_contract_revision_id",
+          "status",
+          "template_id",
+          "template_version",
+          "app_title",
+          "screens",
+          "tasks",
+          "states",
+          "content_slots",
+          "acceptance_checks",
+          "runtime_dependencies",
+          "development_dependencies",
+          "output_paths",
+          "network_policy",
+          "data_policy",
+          "source_refs",
+          "dependencies",
+          "confirmation",
+          "content_hash"
+        ],
+        "title": "WebProductGenerationContractResponse",
+        "type": "object"
+      },
+      "WebScreenSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "purpose": {
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "screen_id": {
+            "minLength": 1,
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "state_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "State Ids",
+            "type": "array"
+          },
+          "task_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "title",
+          "purpose",
+          "task_ids",
+          "state_ids"
+        ],
+        "title": "WebScreenSpec",
+        "type": "object"
+      },
+      "WebStateSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "ready",
+              "loading",
+              "empty",
+              "error",
+              "success",
+              "paused",
+              "stopped"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "recovery_action": {
+            "minLength": 1,
+            "title": "Recovery Action",
+            "type": "string"
+          },
+          "state_id": {
+            "minLength": 1,
+            "title": "State Id",
+            "type": "string"
+          },
+          "user_visible_behavior": {
+            "minLength": 1,
+            "title": "User Visible Behavior",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state_id",
+          "kind",
+          "user_visible_behavior",
+          "recovery_action"
+        ],
+        "title": "WebStateSpec",
+        "type": "object"
+      },
+      "WebTaskSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "minLength": 1,
+            "title": "Goal",
+            "type": "string"
+          },
+          "screen_id": {
+            "minLength": 1,
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "success_criteria": {
+            "minLength": 1,
+            "title": "Success Criteria",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "user_decision_limit": {
+            "minLength": 1,
+            "title": "User Decision Limit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "screen_id",
+          "goal",
+          "success_criteria",
+          "user_decision_limit"
+        ],
+        "title": "WebTaskSpec",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is not installed, executed, or exposed as a preview.",
+    "title": "psyteardown Product Studio API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/v1/projects": {
+      "post": {
+        "operationId": "create_project_api_v1_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}": {
+      "get": {
+        "operationId": "get_project_api_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProjectViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Project",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs": {
+      "get": {
+        "operationId": "list_generation_jobs_api_v1_projects__project_id__generation_jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                  },
+                  "title": "Response List Generation Jobs Api V1 Projects  Project Id  Generation Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Generation Jobs",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_generation_job_api_v1_projects__project_id__generation_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGenerationJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_generation_job_api_v1_projects__project_id__generation_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/cancellations": {
+      "post": {
+        "operationId": "cancel_generation_job_api_v1_projects__project_id__generation_jobs__job_id__cancellations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Cancel Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/pauses": {
+      "post": {
+        "operationId": "pause_generation_job_api_v1_projects__project_id__generation_jobs__job_id__pauses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Pause Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/resumes": {
+      "post": {
+        "operationId": "resume_generation_job_api_v1_projects__project_id__generation_jobs__job_id__resumes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Resume Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/retries": {
+      "post": {
+        "operationId": "retry_generation_job_api_v1_projects__project_id__generation_jobs__job_id__retries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Retry Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/runs": {
+      "post": {
+        "operationId": "run_generation_job_api_v1_projects__project_id__generation_jobs__job_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Run Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/outcome-contract/proposals": {
+      "post": {
+        "operationId": "submit_outcome_contract_api_v1_projects__project_id__outcome_contract_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitOutcomeContractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeContractResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Outcome Contract",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/outcome-contract/{outcome_contract_id}/confirmations": {
+      "post": {
+        "operationId": "confirm_outcome_contract_revision_api_v1_projects__project_id__outcome_contract__outcome_contract_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "outcome_contract_id",
+            "required": true,
+            "schema": {
+              "title": "Outcome Contract Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeContractResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Confirm Outcome Contract Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/problem-model/proposals": {
+      "post": {
+        "operationId": "submit_problem_model_api_v1_projects__project_id__problem_model_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitProblemModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemModelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Problem Model",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/problem-model/{problem_model_id}/confirmations": {
+      "post": {
+        "operationId": "confirm_problem_model_revision_api_v1_projects__project_id__problem_model__problem_model_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "problem_model_id",
+            "required": true,
+            "schema": {
+              "title": "Problem Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemModelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Confirm Problem Model Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/product-intent/proposals": {
+      "post": {
+        "operationId": "submit_product_intent_api_v1_projects__project_id__product_intent_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitProductIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Product Intent",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/product-intent/{intent_id}/confirmations": {
+      "post": {
+        "operationId": "confirm_product_intent_revision_api_v1_projects__project_id__product_intent__intent_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "title": "Intent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Confirm Product Intent Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/product-theses/proposals": {
+      "post": {
+        "operationId": "submit_product_thesis_api_v1_projects__project_id__product_theses_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitProductThesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductThesisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Product Thesis",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/product-theses/{thesis_id}/transitions": {
+      "post": {
+        "operationId": "transition_product_thesis_revision_api_v1_projects__project_id__product_theses__thesis_id__transitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "thesis_id",
+            "required": true,
+            "schema": {
+              "title": "Thesis Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionProductThesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductThesisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Transition Product Thesis Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/proposal-jobs": {
+      "get": {
+        "operationId": "list_proposal_jobs_api_v1_projects__project_id__proposal_jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductProposalJobResponse"
+                  },
+                  "title": "Response List Proposal Jobs Api V1 Projects  Project Id  Proposal Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Proposal Jobs",
+        "tags": [
+          "product-proposal-jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_proposal_job_api_v1_projects__project_id__proposal_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProposalJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProposalJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Proposal Job",
+        "tags": [
+          "product-proposal-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/proposal-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_proposal_job_api_v1_projects__project_id__proposal_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProposalJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Proposal Job",
+        "tags": [
+          "product-proposal-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/proposal-jobs/{job_id}/retries": {
+      "post": {
+        "operationId": "retry_proposal_job_api_v1_projects__project_id__proposal_jobs__job_id__retries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProposalJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Retry Proposal Job",
+        "tags": [
+          "product-proposal-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/proposal-jobs/{job_id}/runs": {
+      "post": {
+        "operationId": "run_proposal_job_api_v1_projects__project_id__proposal_jobs__job_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProposalJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Run Proposal Job",
+        "tags": [
+          "product-proposal-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/status": {
+      "post": {
+        "operationId": "change_project_status_api_v1_projects__project_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeProjectStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Change Project Status",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/web-generation-contract/proposals": {
+      "post": {
+        "operationId": "submit_web_generation_contract_api_v1_projects__project_id__web_generation_contract_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitWebProductGenerationContractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebProductGenerationContractResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Web Generation Contract",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/web-generation-contract/{web_generation_contract_id}/confirmations": {
+      "post": {
+        "operationId": "confirm_web_generation_contract_revision_api_v1_projects__project_id__web_generation_contract__web_generation_contract_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "web_generation_contract_id",
+            "required": true,
+            "schema": {
+              "title": "Web Generation Contract Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebProductGenerationContractResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Confirm Web Generation Contract Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    }
+  }
+}

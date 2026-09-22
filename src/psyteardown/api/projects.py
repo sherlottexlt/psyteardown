@@ -23,6 +23,8 @@ from psyteardown.api.schemas import (
     SubmitProductIntentRequest,
     SubmitProductThesisRequest,
     TransitionProductThesisRequest,
+    SubmitWebProductGenerationContractRequest,
+    WebProductGenerationContractResponse,
 )
 from psyteardown.product import (
     ChangeProductProjectStatus,
@@ -36,6 +38,8 @@ from psyteardown.product import (
     SubmitProductIntentProposal,
     SubmitProductThesisProposal,
     TransitionProductThesis,
+    ConfirmWebProductGenerationContract,
+    SubmitWebProductGenerationContractProposal,
 )
 
 
@@ -299,3 +303,51 @@ async def transition_product_thesis_revision(
         )
     )
     return ProductThesisResponse.from_domain(value)
+
+
+@router.post(
+    "/{project_id}/web-generation-contract/proposals",
+    response_model=WebProductGenerationContractResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+async def submit_web_generation_contract(
+    project_id: str,
+    request: SubmitWebProductGenerationContractRequest,
+    service: Service,
+) -> WebProductGenerationContractResponse:
+    value = service.submit_web_generation_contract(
+        SubmitWebProductGenerationContractProposal(
+            project_id=project_id,
+            proposal=request.proposal,
+            actor=request.actor,
+            reason=request.reason,
+            web_generation_contract_id=request.web_generation_contract_id,
+            expected_revision=request.expected_revision,
+        )
+    )
+    return WebProductGenerationContractResponse.from_domain(value)
+
+
+@router.post(
+    "/{project_id}/web-generation-contract/{web_generation_contract_id}/confirmations",
+    response_model=WebProductGenerationContractResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+async def confirm_web_generation_contract_revision(
+    project_id: str,
+    web_generation_contract_id: str,
+    request: ConfirmRevisionRequest,
+    service: Service,
+) -> WebProductGenerationContractResponse:
+    value = service.confirm_web_generation_contract(
+        ConfirmWebProductGenerationContract(
+            project_id=project_id,
+            web_generation_contract_id=web_generation_contract_id,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            reason=request.reason,
+        )
+    )
+    return WebProductGenerationContractResponse.from_domain(value)

@@ -1,0 +1,250 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ApiClientError,
+  confirmWebGenerationContract,
+  createGenerationJob,
+  listGenerationJobs,
+  runGenerationJob,
+  confirmRevision,
+  createProposalJob,
+  getProject,
+  listProposalJobs,
+  reviseOutcomeContract,
+  reviseProblemModel,
+  reviseProductIntent,
+  runProposalJob,
+  transitionThesis,
+} from "../api/client";
+import type {
+  EditableOutcomeContract,
+  EditableProblemModel,
+  EditableProductIntent,
+  ProductProjectView,
+  ProductThesis,
+  ProposalJobKind,
+  RevisionWriteResult,
+} from "../api/types";
+import { Badge, statusLabel } from "../components/Badge";
+import { formatApiError, humanDecisionCount } from "../domain/project";
+import { CommandView } from "./CommandView";
+import { ContractView } from "./ContractView";
+import { DecisionsView } from "./DecisionsView";
+import { EvidenceView } from "./EvidenceView";
+import { WorkbenchView } from "./WorkbenchView";
+
+type Area = "command" | "contract" | "workbench" | "decisions" | "evidence";
+
+const navigation: Array<{ id: Area; label: string; index: string }> = [
+  { id: "command", label: "对话与指挥", index: "01" },
+  { id: "contract", label: "产品契约", index: "02" },
+  { id: "workbench", label: "产品工作台", index: "03" },
+  { id: "decisions", label: "决策与待办", index: "04" },
+  { id: "evidence", label: "证据与进度", index: "05" },
+];
+
+function modeLabel(mode: string): string {
+  return { managed: "托管模式", co_design: "共同设计", governance: "治理模式" }[mode] ?? mode;
+}
+
+export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit: () => void }) {
+  const [area, setArea] = useState<Area>("contract");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const query = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => getProject(projectId),
+    retry: false,
+  });
+  const jobsQuery = useQuery({
+    queryKey: ["proposal-jobs", projectId],
+    queryFn: () => listProposalJobs(projectId),
+    retry: false,
+  });
+  const generationJobsQuery = useQuery({
+    queryKey: ["generation-jobs", projectId],
+    queryFn: () => listGenerationJobs(projectId),
+    retry: false,
+  });
+
+  async function refreshAfter(action: () => Promise<unknown>) {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await action();
+      await query.refetch();
+      await generationJobsQuery.refetch();
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleConfirm(view: ProductProjectView, type: "product-intent" | "problem-model" | "outcome-contract") {
+    const object = {
+      "product-intent": view.product_intent,
+      "problem-model": view.problem_model,
+      "outcome-contract": view.outcome_contract,
+    }[type];
+    if (!object) return;
+    const objectId = "intent_id" in object ? object.intent_id : "problem_model_id" in object ? object.problem_model_id : object.outcome_contract_id;
+    void refreshAfter(() => confirmRevision({
+      projectId,
+      objectType: type,
+      objectId,
+      revision: object.meta.revision,
+      reason: `Confirmed ${type} in Product Studio`,
+    }));
+  }
+
+  function handleThesisTransition(thesis: ProductThesis, status: "exploring" | "selected") {
+    void refreshAfter(() => transitionThesis({
+      projectId,
+      thesis,
+      toStatus: status,
+      reason: status === "selected" ? "Selected in Product Studio" : "Authorized low-cost exploration in Product Studio",
+    }));
+  }
+
+  async function handleIntentRevision(draft: EditableProductIntent): Promise<RevisionWriteResult> {
+    const intent = query.data?.product_intent;
+    if (!intent) return { status: "error", message: "当前产品意图不可用，请刷新后重试。" };
+    setBusy(true);
+    setActionError(null);
+    try {
+      await reviseProductIntent({ projectId, intent, draft });
+      await query.refetch();
+      return { status: "saved" };
+    } catch (error) {
+      if (error instanceof ApiClientError && error.code === "revision_conflict") {
+        const refreshed = await query.refetch();
+        return {
+          status: "conflict",
+          latestRevision: refreshed.data?.product_intent?.meta.revision ?? intent.meta.revision,
+        };
+      }
+      return { status: "error", message: formatApiError(error) };
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleProblemRevision(draft: EditableProblemModel): Promise<RevisionWriteResult> {
+    const problem = query.data?.problem_model;
+    if (!problem) return { status: "error", message: "当前问题模型不可用，请刷新后重试。" };
+    setBusy(true);
+    try {
+      await reviseProblemModel({ projectId, problem, draft });
+      await query.refetch();
+      return { status: "saved" };
+    } catch (error) {
+      if (error instanceof ApiClientError && error.code === "revision_conflict") {
+        const refreshed = await query.refetch();
+        return { status: "conflict", latestRevision: refreshed.data?.problem_model?.meta.revision ?? problem.meta.revision };
+      }
+      return { status: "error", message: formatApiError(error) };
+    } finally { setBusy(false); }
+  }
+
+  async function handleOutcomeRevision(draft: EditableOutcomeContract): Promise<RevisionWriteResult> {
+    const contract = query.data?.outcome_contract;
+    if (!contract) return { status: "error", message: "当前结果契约不可用，请刷新后重试。" };
+    setBusy(true);
+    try {
+      await reviseOutcomeContract({ projectId, contract, draft });
+      await query.refetch();
+      return { status: "saved" };
+    } catch (error) {
+      if (error instanceof ApiClientError && error.code === "revision_conflict") {
+        const refreshed = await query.refetch();
+        return { status: "conflict", latestRevision: refreshed.data?.outcome_contract?.meta.revision ?? contract.meta.revision };
+      }
+      return { status: "error", message: formatApiError(error) };
+    } finally { setBusy(false); }
+  }
+
+  async function handleGenerate(kind: ProposalJobKind) {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createProposalJob({ projectId, kind });
+      await jobsQuery.refetch();
+      const completed = await runProposalJob({ projectId, jobId: queued.job_id });
+      await Promise.all([query.refetch(), jobsQuery.refetch()]);
+      if (completed.status !== "succeeded") {
+        setActionError(
+          completed.status === "stale_input"
+            ? "生成输入已经变化，结果未提交。请确认最新上游内容后重新发起。"
+            : completed.error_summary ?? "提案任务没有成功完成。",
+        );
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
+  async function handleGenerateProduct() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createGenerationJob({ projectId });
+      await generationJobsQuery.refetch();
+      const completed = await runGenerationJob({ projectId, jobId: queued.job_id });
+      await generationJobsQuery.refetch();
+      if (completed.status !== "succeeded") {
+        setActionError(completed.error_summary ?? "生成 workspace 未完成。");
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
+  if (query.isLoading) {
+    return <main className="loading-screen"><div className="loading-mark"><span /><span /><span /></div><p>正在读取产品模型…</p></main>;
+  }
+  if (query.isError || !query.data) {
+    return <main className="error-screen"><p className="eyebrow">Workspace unavailable</p><h1>无法打开这个产品工作空间</h1><p>{formatApiError(query.error)}</p><div><button className="button button--primary" onClick={() => void query.refetch()}>重试</button><button className="button button--quiet" onClick={onExit}>返回新建项目</button></div></main>;
+  }
+
+  const view = query.data;
+  const decisions = humanDecisionCount(view);
+  return (
+    <main className="studio-shell">
+      <aside className="studio-sidebar">
+        <button className="brand brand--button" onClick={onExit} aria-label="返回 Product Studio 首页">
+          <span className="brand__signal" aria-hidden="true"><i /><i /><i /></span><span>psyteardown</span>
+        </button>
+        <div className="project-switcher"><span>当前计划</span><strong>{view.project.name}</strong><small>{modeLabel(view.project.collaboration_mode)} · r{view.project.meta.revision}</small></div>
+        <nav aria-label="产品工作区">
+          {navigation.map((item) => (
+            <button className={area === item.id ? "is-active" : ""} key={item.id} onClick={() => setArea(item.id)}>
+              <span>{item.index}</span>{item.label}
+              {item.id === "decisions" && decisions ? <i>{decisions}</i> : null}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer"><span className="status-light" /><div><strong>本地工作空间</strong><small>数据保存在本机 SQLite</small></div></div>
+      </aside>
+      <section className="studio-main">
+        <header className="studio-topbar">
+          <div><span className="mobile-brand">psyteardown</span><Badge tone={view.project.status === "active" ? "good" : "warn"}>{statusLabel(view.project.status)}</Badge><span className="topbar-id">{view.project.project_id}</span></div>
+          <div><button className="icon-button" onClick={() => void query.refetch()} title="刷新" aria-label="刷新项目">↻</button><span className="topbar-separator" /><span className="save-status">所有结构化更改由后端保存</span></div>
+        </header>
+        <nav className="mobile-nav" aria-label="移动端产品工作区">{navigation.map((item) => <button className={area === item.id ? "is-active" : ""} onClick={() => setArea(item.id)} key={item.id}>{item.label}</button>)}</nav>
+        {actionError ? <div className="action-error" role="alert"><span>{actionError}</span><button onClick={() => setActionError(null)}>关闭</button></div> : null}
+        <div className="studio-content">
+          {area === "command" ? <CommandView view={view} /> : null}
+          {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
+          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} onGenerateProduct={() => void handleGenerateProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+            const contract = view.web_generation_contract;
+            if (!contract) return;
+            void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));
+          }} /> : null}
+          {area === "decisions" ? <DecisionsView view={view} busy={busy} onConfirm={(type) => handleConfirm(view, type)} onThesisTransition={handleThesisTransition} /> : null}
+          {area === "evidence" ? <EvidenceView view={view} /> : null}
+        </div>
+      </section>
+    </main>
+  );
+}

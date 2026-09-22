@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import TypeVar
 
 from psyteardown.experience.models import AuditEvent, DomainEvent
-from psyteardown.product.models import RevisionImpact
+from psyteardown.product.jobs import _validate_job_revision
+from psyteardown.product.generation import _validate_generation_job_revision
+from psyteardown.product.models import ProductGenerationJob, ProductProposalJob, RevisionImpact
 from psyteardown.product.repositories import (
     ProductRepositoryError,
     ProductSnapshot,
@@ -85,6 +87,52 @@ CREATE TABLE IF NOT EXISTS product_revision_impacts (
 );
 CREATE INDEX IF NOT EXISTS idx_product_impacts_project
     ON product_revision_impacts (project_id, dependent_type, dependent_id);
+CREATE TABLE IF NOT EXISTS product_job_revisions (
+    job_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    revision_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    job_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (job_id, revision),
+    UNIQUE (revision_id)
+);
+CREATE INDEX IF NOT EXISTS idx_product_jobs_project
+    ON product_job_revisions (project_id, job_id, revision);
+CREATE INDEX IF NOT EXISTS idx_product_jobs_fingerprint
+    ON product_job_revisions (project_id, fingerprint, revision);
+CREATE TABLE IF NOT EXISTS product_job_current (
+    job_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    FOREIGN KEY (job_id, revision)
+      REFERENCES product_job_revisions (job_id, revision)
+);
+CREATE TABLE IF NOT EXISTS product_generation_job_revisions (
+    job_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    revision_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    job_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (job_id, revision),
+    UNIQUE (revision_id)
+);
+CREATE INDEX IF NOT EXISTS idx_product_generation_jobs_project
+    ON product_generation_job_revisions (project_id, job_id, revision);
+CREATE INDEX IF NOT EXISTS idx_product_generation_jobs_fingerprint
+    ON product_generation_job_revisions (project_id, fingerprint, revision);
+CREATE TABLE IF NOT EXISTS product_generation_job_current (
+    job_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    FOREIGN KEY (job_id, revision)
+      REFERENCES product_generation_job_revisions (job_id, revision)
+);
 """
 
 
@@ -194,6 +242,161 @@ class SQLiteProductRepository:
             "SELECT audit_json FROM product_audit_events ORDER BY rowid"
         ).fetchall()
         return [AuditEvent.model_validate_json(row[0]) for row in rows]
+
+    def get_job(self, job_id: str) -> ProductProposalJob | None:
+        row = self._conn.execute(
+            "SELECT r.job_json FROM product_job_current c "
+            "JOIN product_job_revisions r ON r.job_id=c.job_id "
+            "AND r.revision=c.revision WHERE c.job_id=?",
+            (job_id,),
+        ).fetchone()
+        return ProductProposalJob.model_validate_json(row[0]) if row else None
+
+    def list_jobs(
+        self, *, project_id: str | None = None
+    ) -> list[ProductProposalJob]:
+        if project_id is None:
+            rows = self._conn.execute(
+                "SELECT r.job_json FROM product_job_current c "
+                "JOIN product_job_revisions r ON r.job_id=c.job_id "
+                "AND r.revision=c.revision ORDER BY r.created_at, r.job_id"
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT r.job_json FROM product_job_current c "
+                "JOIN product_job_revisions r ON r.job_id=c.job_id "
+                "AND r.revision=c.revision WHERE c.project_id=? "
+                "ORDER BY r.created_at, r.job_id",
+                (project_id,),
+            ).fetchall()
+        return [ProductProposalJob.model_validate_json(row[0]) for row in rows]
+
+    def save_job(
+        self,
+        job: ProductProposalJob,
+        *,
+        expected_revision: int | None,
+    ) -> ProductProposalJob:
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            row = self._conn.execute(
+                "SELECT r.job_json FROM product_job_current c "
+                "JOIN product_job_revisions r ON r.job_id=c.job_id "
+                "AND r.revision=c.revision WHERE c.job_id=?",
+                (job.job_id,),
+            ).fetchone()
+            current = ProductProposalJob.model_validate_json(row[0]) if row else None
+            _validate_job_revision(current, job, expected_revision)
+            self._conn.execute(
+                "INSERT INTO product_job_revisions "
+                "(job_id,project_id,revision,revision_id,status,fingerprint,job_json,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    job.job_id,
+                    job.project_id,
+                    job.meta.revision,
+                    job.revision_id,
+                    job.status,
+                    job.fingerprint,
+                    job.model_dump_json(),
+                    job.meta.created_at.isoformat(),
+                ),
+            )
+            self._conn.execute(
+                "INSERT INTO product_job_current (job_id,project_id,revision) "
+                "VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET "
+                "project_id=excluded.project_id,revision=excluded.revision",
+                (job.job_id, job.project_id, job.meta.revision),
+            )
+            self._conn.commit()
+        except ProductRepositoryError:
+            self._conn.rollback()
+            raise
+        except sqlite3.IntegrityError as exc:
+            self._conn.rollback()
+            raise ProductRepositoryError(
+                "atomic proposal job revision failed; transaction rolled back"
+            ) from exc
+        except Exception:
+            self._conn.rollback()
+            raise
+        return job
+
+    def get_generation_job(self, job_id: str) -> ProductGenerationJob | None:
+        row = self._conn.execute(
+            "SELECT r.job_json FROM product_generation_job_current c "
+            "JOIN product_generation_job_revisions r ON r.job_id=c.job_id "
+            "AND r.revision=c.revision WHERE c.job_id=?",
+            (job_id,),
+        ).fetchone()
+        return ProductGenerationJob.model_validate_json(row[0]) if row else None
+
+    def list_generation_jobs(
+        self, *, project_id: str | None = None
+    ) -> list[ProductGenerationJob]:
+        query = (
+            "SELECT r.job_json FROM product_generation_job_current c "
+            "JOIN product_generation_job_revisions r ON r.job_id=c.job_id "
+            "AND r.revision=c.revision"
+        )
+        params: tuple[object, ...] = ()
+        if project_id is not None:
+            query += " WHERE c.project_id=?"
+            params = (project_id,)
+        query += " ORDER BY r.created_at, r.job_id"
+        rows = self._conn.execute(query, params).fetchall()
+        return [ProductGenerationJob.model_validate_json(row[0]) for row in rows]
+
+    def save_generation_job(
+        self,
+        job: ProductGenerationJob,
+        *,
+        expected_revision: int | None,
+    ) -> ProductGenerationJob:
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            row = self._conn.execute(
+                "SELECT r.job_json FROM product_generation_job_current c "
+                "JOIN product_generation_job_revisions r ON r.job_id=c.job_id "
+                "AND r.revision=c.revision WHERE c.job_id=?",
+                (job.job_id,),
+            ).fetchone()
+            current = ProductGenerationJob.model_validate_json(row[0]) if row else None
+            _validate_generation_job_revision(current, job, expected_revision)
+            self._conn.execute(
+                "INSERT INTO product_generation_job_revisions "
+                "(job_id,project_id,revision,revision_id,status,fingerprint,job_json,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    job.job_id,
+                    job.project_id,
+                    job.meta.revision,
+                    job.revision_id,
+                    job.status,
+                    job.fingerprint,
+                    job.model_dump_json(),
+                    job.meta.created_at.isoformat(),
+                ),
+            )
+            self._conn.execute(
+                "INSERT INTO product_generation_job_current (job_id,project_id,revision) "
+                "VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET "
+                "project_id=excluded.project_id,revision=excluded.revision",
+                (job.job_id, job.project_id, job.meta.revision),
+            )
+            self._conn.commit()
+        except ProductRepositoryError:
+            self._conn.rollback()
+            raise
+        except sqlite3.IntegrityError as exc:
+            self._conn.rollback()
+            raise ProductRepositoryError(
+                "atomic generation job revision failed; transaction rolled back"
+            ) from exc
+        except Exception:
+            self._conn.rollback()
+            raise
+        return job
 
     def save_command(
         self,

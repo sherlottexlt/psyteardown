@@ -16,9 +16,15 @@ from fastapi.responses import JSONResponse
 
 from psyteardown.api.errors import error_response, register_error_handlers
 from psyteardown.api.projects import router as projects_router
+from psyteardown.api.proposal_jobs import router as proposal_jobs_router
+from psyteardown.api.generation_jobs import router as generation_jobs_router
 from psyteardown.api.schemas import HealthResponse
 from psyteardown.product import (
     ProductApplicationService,
+    InMemoryProductJobRepository,
+    ProductGenerationJobService,
+    InMemoryProductGenerationJobRepository,
+    ProductProposalJobService,
     SQLiteProductRepository,
 )
 
@@ -38,6 +44,8 @@ def create_app(
     service: ProductApplicationService | None = None,
     clock: Callable[[], datetime] | None = None,
     id_factory: Callable[[str], str] | None = None,
+    job_service: ProductProposalJobService | None = None,
+    generation_job_service: ProductGenerationJobService | None = None,
     allowed_hosts: Sequence[str] = tuple(DEFAULT_ALLOWED_HOSTS),
     allowed_origins: Sequence[str] = DEFAULT_ALLOWED_ORIGINS,
 ) -> FastAPI:
@@ -54,6 +62,19 @@ def create_app(
         repository = None
         if service is not None:
             app.state.product_service = service
+            app.state.product_job_service = job_service or ProductProposalJobService(
+                service,
+                InMemoryProductJobRepository(),
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
+            app.state.product_generation_job_service = generation_job_service or ProductGenerationJobService(
+                service,
+                InMemoryProductGenerationJobRepository(),
+                workspace_root=Path("output/product-studio/workspaces"),
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
         else:
             repository = SQLiteProductRepository(resolved_path)
             kwargs = {}
@@ -64,10 +85,23 @@ def create_app(
             app.state.product_service = ProductApplicationService(
                 repository, **kwargs
             )
+            app.state.product_job_service = ProductProposalJobService(
+                app.state.product_service,
+                repository,
+                **kwargs,
+            )
+            app.state.product_generation_job_service = ProductGenerationJobService(
+                app.state.product_service,
+                repository,
+                workspace_root=resolved_path.parent / "workspaces",
+                **kwargs,
+            )
         try:
             yield
         finally:
             app.state.product_service = None
+            app.state.product_job_service = None
+            app.state.product_generation_job_service = None
             if owns_repository and repository is not None:
                 repository.close()
 
@@ -76,8 +110,9 @@ def create_app(
         version="0.1.0",
         description=(
             "Local-first command and projection API for Product Studio. "
-            "Model generation and other long-running work are not executed "
-            "inside these synchronous endpoints."
+            "Proposal and generation work is created as a persisted job; an "
+            "explicit run command performs only the bounded local step. "
+            "Generated source is not installed, executed, or exposed as a preview."
         ),
         lifespan=lifespan,
     )
@@ -122,6 +157,8 @@ def create_app(
         return HealthResponse()
 
     application.include_router(projects_router, prefix="/api/v1")
+    application.include_router(proposal_jobs_router, prefix="/api/v1")
+    application.include_router(generation_jobs_router, prefix="/api/v1")
     return application
 
 

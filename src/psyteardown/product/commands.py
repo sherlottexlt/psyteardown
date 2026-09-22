@@ -24,6 +24,11 @@ from psyteardown.product.models import (
     SuccessIndicator,
     TargetOutcome,
     ValidationStep,
+    WebAcceptanceCheck,
+    WebContentSlot,
+    WebScreenSpec,
+    WebStateSpec,
+    WebTaskSpec,
 )
 
 
@@ -164,3 +169,32 @@ class TransitionProductThesis(BoundaryModel):
     actor_type: Literal["human", "system"]
     reason: Identifier
     authorization_ref: str | None = None
+
+
+class WebProductGenerationContractProposal(BoundaryModel):
+    product_thesis_revision_id: Identifier
+    outcome_contract_revision_id: Identifier
+    app_title: Identifier
+    screens: list[WebScreenSpec] = Field(min_length=1)
+    tasks: list[WebTaskSpec] = Field(min_length=1)
+    states: list[WebStateSpec] = Field(min_length=1)
+    content_slots: list[WebContentSlot] = Field(min_length=1)
+    acceptance_checks: list[WebAcceptanceCheck] = Field(min_length=1)
+    source_refs: list[SourceReference] = Field(min_length=1)
+
+
+class SubmitWebProductGenerationContractProposal(BoundaryModel):
+    project_id: Identifier
+    proposal: WebProductGenerationContractProposal
+    actor: Identifier
+    reason: Identifier
+    web_generation_contract_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class ConfirmWebProductGenerationContract(BoundaryModel):
+    project_id: Identifier
+    web_generation_contract_id: Identifier
+    expected_revision: int = Field(ge=1)
+    actor: Identifier
+    reason: Identifier

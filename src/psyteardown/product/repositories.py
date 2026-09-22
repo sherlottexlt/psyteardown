@@ -12,11 +12,12 @@ from psyteardown.product.models import (
     ProductIntent,
     ProductProject,
     ProductThesis,
+    WebProductGenerationContract,
     RevisionImpact,
 )
 
 
-ProductSnapshot = ProductProject | ProductIntent | ProblemModel | OutcomeContract | ProductThesis
+ProductSnapshot = ProductProject | ProductIntent | ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
 T = TypeVar("T", bound=ProductSnapshot)
 
 
@@ -26,6 +27,7 @@ PRODUCT_MODEL_TYPES: dict[str, type[ProductSnapshot]] = {
     "problem_model": ProblemModel,
     "outcome_contract": OutcomeContract,
     "product_thesis": ProductThesis,
+    "web_generation_contract": WebProductGenerationContract,
 }
 
 
@@ -63,6 +65,7 @@ class ProductRepository(Protocol):
 
     @property
     def audit_events(self) -> list[AuditEvent]: ...
+
 
 
 def model_for(object_type: str) -> type[ProductSnapshot]:
@@ -251,4 +254,6 @@ def _stable_id(value: ProductSnapshot) -> str:
         return value.problem_model_id
     if isinstance(value, OutcomeContract):
         return value.outcome_contract_id
+    if isinstance(value, WebProductGenerationContract):
+        return value.web_generation_contract_id
     return value.thesis_id

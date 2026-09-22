@@ -463,8 +463,193 @@ class ProductThesis(FrozenModel):
         return self
 
 
+# B2 freezes one realization template for the first digital-product slice.
+# These constants are intentionally narrow: choosing a template does not grant
+# permission to execute generated code or access external services.
+WEB_TEMPLATE_ID = "react_typescript_vite_spa"
+WEB_TEMPLATE_VERSION = "b2-v1"
+WEB_RUNTIME_DEPENDENCIES = ("react", "react-dom")
+WEB_DEVELOPMENT_DEPENDENCIES = (
+    "@vitejs/plugin-react",
+    "@playwright/test",
+    "@testing-library/react",
+    "typescript",
+    "vite",
+    "vitest",
+)
+WEB_OUTPUT_PATHS = (
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/styles.css",
+    "tests/",
+    "public/",
+)
+
+
+class WebScreenSpec(FrozenModel):
+    screen_id: Identifier
+    title: Identifier
+    purpose: Identifier
+    task_ids: tuple[Identifier, ...] = Field(min_length=1)
+    state_ids: tuple[Identifier, ...] = Field(min_length=1)
+
+
+class WebTaskSpec(FrozenModel):
+    task_id: Identifier
+    screen_id: Identifier
+    goal: Identifier
+    success_criteria: Identifier
+    user_decision_limit: Identifier
+
+
+class WebStateSpec(FrozenModel):
+    state_id: Identifier
+    kind: Literal[
+        "ready", "loading", "empty", "error", "success", "paused", "stopped"
+    ]
+    user_visible_behavior: Identifier
+    recovery_action: Identifier
+
+
+class WebContentSlot(FrozenModel):
+    slot_id: Identifier
+    semantic_role: Literal[
+        "heading",
+        "instruction",
+        "label",
+        "status",
+        "error",
+        "confirmation",
+    ]
+    description: Identifier
+    source_kind: Literal[
+        "outcome_contract",
+        "product_thesis",
+        "user_input",
+        "local_fixture",
+    ]
+    fallback_text: Identifier
+    required: bool = True
+
+
+class WebAcceptanceCheck(FrozenModel):
+    check_id: Identifier
+    task_id: Identifier
+    assertion: Identifier
+    evidence_level: Literal["deterministic_check"] = "deterministic_check"
+
+
+class WebProductGenerationContract(FrozenModel):
+    """Minimal, traceable input contract for the first Web realization.
+
+    This object describes what a later generator may build. It is deliberately
+    not a source tree, dependency lockfile, execution grant, or user-result
+    claim.
+    """
+
+    web_generation_contract_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    product_thesis_revision_id: Identifier
+    outcome_contract_revision_id: Identifier
+    status: Literal["proposed", "confirmed"] = "proposed"
+    template_id: Literal["react_typescript_vite_spa"] = WEB_TEMPLATE_ID
+    template_version: Identifier = WEB_TEMPLATE_VERSION
+    app_title: Identifier
+    screens: tuple[WebScreenSpec, ...] = Field(min_length=1, max_length=5)
+    tasks: tuple[WebTaskSpec, ...] = Field(min_length=1, max_length=8)
+    states: tuple[WebStateSpec, ...] = Field(min_length=5, max_length=20)
+    content_slots: tuple[WebContentSlot, ...] = Field(min_length=1, max_length=20)
+    acceptance_checks: tuple[WebAcceptanceCheck, ...] = Field(min_length=1, max_length=20)
+    runtime_dependencies: tuple[str, ...] = WEB_RUNTIME_DEPENDENCIES
+    development_dependencies: tuple[str, ...] = WEB_DEVELOPMENT_DEPENDENCIES
+    output_paths: tuple[str, ...] = WEB_OUTPUT_PATHS
+    network_policy: Literal["none"] = "none"
+    data_policy: Literal["local_fixture_only"] = "local_fixture_only"
+    source_refs: tuple[SourceReference, ...] = Field(min_length=1)
+    dependencies: tuple[DependencyRef, ...] = Field(min_length=2)
+    confirmation: HumanConfirmation | None = None
+
+    @model_validator(mode="after")
+    def validate_generation_contract(self) -> "WebProductGenerationContract":
+        _require_dependencies(
+            self.dependencies, ("product_thesis", "outcome_contract")
+        )
+        if self.template_id != WEB_TEMPLATE_ID:
+            raise ValueError("unsupported Web realization template")
+        if self.template_version != WEB_TEMPLATE_VERSION:
+            raise ValueError("unsupported Web realization template version")
+        if self.runtime_dependencies != WEB_RUNTIME_DEPENDENCIES:
+            raise ValueError("Web runtime dependencies are fixed for the first slice")
+        if self.development_dependencies != WEB_DEVELOPMENT_DEPENDENCIES:
+            raise ValueError(
+                "Web development dependencies are fixed for the first slice"
+            )
+        if self.output_paths != WEB_OUTPUT_PATHS:
+            raise ValueError("Web output layout is fixed for the first slice")
+        screen_ids = tuple(item.screen_id for item in self.screens)
+        task_ids = tuple(item.task_id for item in self.tasks)
+        state_ids = tuple(item.state_id for item in self.states)
+        slot_ids = tuple(item.slot_id for item in self.content_slots)
+        check_ids = tuple(item.check_id for item in self.acceptance_checks)
+        for label, values in (
+            ("screen", screen_ids),
+            ("task", task_ids),
+            ("state", state_ids),
+            ("content slot", slot_ids),
+            ("acceptance check", check_ids),
+        ):
+            duplicates = _duplicates(values)
+            if duplicates:
+                raise ValueError(f"duplicate Web {label} IDs: {sorted(duplicates)}")
+        screen_set = set(screen_ids)
+        task_set = set(task_ids)
+        state_set = set(state_ids)
+        for task in self.tasks:
+            if task.screen_id not in screen_set:
+                raise ValueError(f"task {task.task_id} references an unknown screen")
+        for screen in self.screens:
+            if not set(screen.task_ids) <= task_set:
+                raise ValueError(f"screen {screen.screen_id} references an unknown task")
+            if not set(screen.state_ids) <= state_set:
+                raise ValueError(f"screen {screen.screen_id} references an unknown state")
+        for check in self.acceptance_checks:
+            if check.task_id not in task_set:
+                raise ValueError(
+                    f"acceptance check {check.check_id} references an unknown task"
+                )
+        required_states = {"ready", "loading", "empty", "error", "success"}
+        missing_states = required_states - {item.kind for item in self.states}
+        if missing_states:
+            raise ValueError(
+                "Web contract must define ready/loading/empty/error/success states; "
+                + ", ".join(sorted(missing_states))
+            )
+        if self.status == "confirmed" and self.confirmation is None:
+            raise ValueError("confirmed Web generation contract requires human confirmation")
+        if self.status == "proposed" and self.confirmation is not None:
+            raise ValueError("proposed Web generation contract cannot carry confirmation")
+        thesis_dep = next(
+            (item for item in self.dependencies if item.object_type == "product_thesis"),
+            None,
+        )
+        if thesis_dep is None:
+            raise ValueError("Web generation contract requires a product thesis dependency")
+        if self.product_thesis_revision_id != (
+            f"{thesis_dep.object_id}.r{thesis_dep.revision}"
+        ):
+            raise ValueError("Web generation contract thesis dependency does not match its revision")
+        return self
+
+
 class RevisionImpact(FrozenModel):
-    dependent_type: Literal["problem_model", "outcome_contract", "product_thesis"]
+    dependent_type: Literal[
+        "problem_model",
+        "outcome_contract",
+        "product_thesis",
+        "web_generation_contract",
+    ]
     dependent_id: Identifier
     dependent_revision_id: Identifier
     impact: Literal["review_required", "stale"]
@@ -480,4 +665,219 @@ class ProductProjectView(FrozenModel):
     problem_model: ProblemModel | None = None
     outcome_contract: OutcomeContract | None = None
     product_theses: tuple[ProductThesis, ...] = ()
+    web_generation_contract: WebProductGenerationContract | None = None
     recorded_impacts: tuple[RevisionImpact, ...] = ()
+
+
+class ProductProposalJob(FrozenModel):
+    """Persisted, revision-pinned work that may only create a proposal."""
+
+    job_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    kind: Literal[
+        "product_intent",
+        "problem_model",
+        "outcome_contract",
+        "product_theses",
+        "web_generation_contract",
+    ]
+    status: Literal[
+        "queued", "running", "succeeded", "failed", "stale_input", "cancelled"
+    ] = "queued"
+    provider: Literal["deterministic_fake"] = "deterministic_fake"
+    provider_version: Identifier = "b2-v1"
+    input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1)
+    result_object_id: Identifier
+    result_object_ids: tuple[Identifier, ...] = ()
+    result_expected_revision: int | None = Field(default=None, ge=1)
+    raw_input: str | None = None
+    fingerprint: Identifier
+    attempt: int = Field(default=0, ge=0)
+    result_revision_id: str | None = None
+    result_revision_ids: tuple[str, ...] = ()
+    error_code: str | None = None
+    error_summary: str | None = None
+
+    @model_validator(mode="after")
+    def validate_job_state(self) -> "ProductProposalJob":
+        expected_types = {
+            "product_intent": {"product_project"},
+            "problem_model": {"product_intent"},
+            "outcome_contract": {"product_intent", "problem_model"},
+            "product_theses": {"problem_model", "outcome_contract"},
+            "web_generation_contract": {"product_thesis", "outcome_contract"},
+        }[self.kind]
+        actual_types = {item.object_type for item in self.input_dependencies}
+        if actual_types != expected_types:
+            raise ValueError(
+                f"{self.kind} job requires dependencies: "
+                + ", ".join(sorted(expected_types))
+            )
+        if self.kind == "product_intent" and not self.raw_input:
+            raise ValueError("product intent job requires the original raw input")
+        if self.kind != "product_intent" and self.raw_input is not None:
+            raise ValueError("only product intent jobs may retain raw input")
+        if self.kind == "product_theses":
+            if not 2 <= len(self.result_object_ids) <= 3:
+                raise ValueError(
+                    "product thesis job requires two or three result object IDs"
+                )
+            if len(set(self.result_object_ids)) != len(self.result_object_ids):
+                raise ValueError("product thesis job result object IDs must be unique")
+            if self.result_object_id != self.result_object_ids[0]:
+                raise ValueError(
+                    "product thesis job primary result must be its first result object"
+                )
+            if self.status == "succeeded" and (
+                len(self.result_revision_ids) != len(self.result_object_ids)
+                or self.result_revision_id != self.result_revision_ids[0]
+            ):
+                raise ValueError(
+                    "succeeded product thesis job requires every result revision"
+                )
+        elif self.result_object_ids or self.result_revision_ids:
+            raise ValueError("single-result proposal jobs cannot carry result lists")
+        elif self.status == "succeeded" and not self.result_revision_id:
+            raise ValueError("succeeded proposal job requires a result revision")
+        if self.status == "failed" and (not self.error_code or not self.error_summary):
+            raise ValueError("failed proposal job requires a safe error code and summary")
+        if self.status != "failed" and (self.error_code or self.error_summary):
+            raise ValueError("only failed proposal jobs may carry an error")
+        return self
+
+
+# B3 keeps source generation separate from proposal jobs.  A proposal creates
+# a revision; a generation job materializes a confirmed realization contract in
+# an isolated workspace.  The latter must therefore carry its own budget,
+# sandbox declaration, checkpoint and artifact manifest.
+GENERATION_JOB_PROVIDER = "deterministic_template"
+GENERATION_JOB_VERSION = "b3-v1"
+GENERATION_WORKSPACE_RELATIVE_ROOT = "workspaces"
+GENERATION_DEFAULT_MAX_ATTEMPTS = 1
+GENERATION_DEFAULT_MAX_FILES = 64
+GENERATION_DEFAULT_MAX_BYTES = 1024 * 1024
+GENERATION_DEFAULT_MAX_DURATION_SECONDS = 60
+GENERATION_DEFAULT_MAX_COST_UNITS = 1
+
+
+class GenerationBudget(FrozenModel):
+    """Small, explicit limits for one local source-generation job."""
+
+    max_attempts: int = Field(default=GENERATION_DEFAULT_MAX_ATTEMPTS, ge=1, le=3)
+    max_files: int = Field(default=GENERATION_DEFAULT_MAX_FILES, ge=1, le=GENERATION_DEFAULT_MAX_FILES)
+    max_bytes: int = Field(default=GENERATION_DEFAULT_MAX_BYTES, ge=1, le=GENERATION_DEFAULT_MAX_BYTES)
+    max_duration_seconds: int = Field(
+        default=GENERATION_DEFAULT_MAX_DURATION_SECONDS,
+        ge=1,
+        le=GENERATION_DEFAULT_MAX_DURATION_SECONDS,
+    )
+    max_cost_units: int = Field(
+        default=GENERATION_DEFAULT_MAX_COST_UNITS,
+        ge=1,
+        le=GENERATION_DEFAULT_MAX_COST_UNITS,
+    )
+
+
+class GenerationSandboxPolicy(FrozenModel):
+    """The B3 sandbox declaration; it is not an execution grant."""
+
+    workspace_scope: Literal["project_job"] = "project_job"
+    network_policy: Literal["none"] = "none"
+    secret_policy: Literal["none"] = "none"
+    execution_policy: Literal["not_executed"] = "not_executed"
+    symlink_policy: Literal["deny"] = "deny"
+
+
+class GeneratedFile(FrozenModel):
+    path: Identifier
+    byte_count: int = Field(ge=0)
+    sha256: Identifier
+
+    @model_validator(mode="after")
+    def path_is_relative(self) -> "GeneratedFile":
+        if self.path.startswith(("/", "\\")) or ".." in self.path.replace("\\", "/").split("/"):
+            raise ValueError("generated file path must stay inside the workspace")
+        return self
+
+
+class GenerationManifest(FrozenModel):
+    template_id: Literal["react_typescript_vite_spa"] = WEB_TEMPLATE_ID
+    template_version: Identifier = WEB_TEMPLATE_VERSION
+    files: tuple[GeneratedFile, ...] = Field(min_length=1)
+    total_bytes: int = Field(ge=0)
+    manifest_version: Literal["b3-v1"] = "b3-v1"
+
+    @model_validator(mode="after")
+    def totals_match(self) -> "GenerationManifest":
+        paths = tuple(item.path for item in self.files)
+        if len(set(paths)) != len(paths):
+            raise ValueError("generation manifest file paths must be unique")
+        if self.total_bytes != sum(item.byte_count for item in self.files):
+            raise ValueError("generation manifest byte total does not match files")
+        return self
+
+
+class ProductGenerationJob(FrozenModel):
+    """Persistent, revision-pinned materialization of a Web contract."""
+
+    job_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    kind: Literal["web_product"] = "web_product"
+    status: Literal[
+        "queued",
+        "running",
+        "paused",
+        "succeeded",
+        "failed",
+        "stale_input",
+        "budget_exhausted",
+        "cancelled",
+    ] = "queued"
+    provider: Literal["deterministic_template"] = GENERATION_JOB_PROVIDER
+    provider_version: Identifier = GENERATION_JOB_VERSION
+    input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
+    web_generation_contract_revision_id: Identifier
+    workspace_id: Identifier
+    workspace_relative_path: Identifier
+    budget: GenerationBudget = Field(default_factory=GenerationBudget)
+    sandbox: GenerationSandboxPolicy = Field(default_factory=GenerationSandboxPolicy)
+    fingerprint: Identifier
+    attempt: int = Field(default=0, ge=0)
+    checkpoint_step: Literal["prepare", "generate", "validate"] | None = None
+    consumed_files: int = Field(default=0, ge=0)
+    consumed_bytes: int = Field(default=0, ge=0)
+    consumed_duration_seconds: float = Field(default=0, ge=0)
+    consumed_cost_units: int = Field(default=0, ge=0)
+    manifest: GenerationManifest | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
+
+    @model_validator(mode="after")
+    def validate_generation_job(self) -> "ProductGenerationJob":
+        if {item.object_type for item in self.input_dependencies} != {"web_generation_contract"}:
+            raise ValueError("Web generation job requires one Web generation contract dependency")
+        dependency = self.input_dependencies[0]
+        if self.web_generation_contract_revision_id != f"{dependency.object_id}.r{dependency.revision}":
+            raise ValueError("generation job contract dependency does not match its revision")
+        if self.workspace_relative_path.startswith(("/", "\\")) or ".." in self.workspace_relative_path.replace("\\", "/").split("/"):
+            raise ValueError("generation workspace path must be relative and contained")
+        if self.status == "succeeded" and self.manifest is None:
+            raise ValueError("succeeded generation job requires an artifact manifest")
+        if self.status in {"failed", "budget_exhausted"} and (
+            not self.error_code or not self.error_summary
+        ):
+            raise ValueError(
+                "failed or budget-exhausted generation job requires a safe error code and summary"
+            )
+        if self.status not in {"failed", "budget_exhausted"} and (self.error_code or self.error_summary):
+            raise ValueError("only failed or budget-exhausted generation jobs may carry an error")
+        if self.manifest is not None:
+            if self.manifest.template_id != WEB_TEMPLATE_ID or self.manifest.template_version != WEB_TEMPLATE_VERSION:
+                raise ValueError("generation manifest template does not match the B3 template")
+            if len(self.manifest.files) > self.budget.max_files or self.manifest.total_bytes > self.budget.max_bytes:
+                raise ValueError("generation manifest exceeds the job budget")
+        return self

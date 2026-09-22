@@ -20,10 +20,21 @@ from psyteardown.product.models import (
     ProductIntent,
     ProductProject,
     ProductProjectView,
+    ProductProposalJob,
+    ProductGenerationJob,
+    GenerationBudget,
+    GenerationManifest,
+    GenerationSandboxPolicy,
     ProductThesis,
     RevisionImpact,
     SourceReference,
     ThesisDisposition,
+    WebProductGenerationContract,
+    WebAcceptanceCheck,
+    WebContentSlot,
+    WebScreenSpec,
+    WebStateSpec,
+    WebTaskSpec,
 )
 
 
@@ -91,6 +102,94 @@ class TransitionProductThesisRequest(TransportModel):
     actor_type: Literal["human", "system"]
     reason: str = Field(min_length=1)
     authorization_ref: str | None = None
+
+
+class WebProductGenerationContractProposalRequest(TransportModel):
+    product_thesis_revision_id: str
+    outcome_contract_revision_id: str
+    app_title: str
+    screens: list[WebScreenSpec]
+    tasks: list[WebTaskSpec]
+    states: list[WebStateSpec]
+    content_slots: list[WebContentSlot]
+    acceptance_checks: list[WebAcceptanceCheck]
+    source_refs: list[SourceReference]
+
+
+class SubmitWebProductGenerationContractRequest(TransportModel):
+    proposal: WebProductGenerationContractProposalRequest
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    web_generation_contract_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class WebProductGenerationContractResponse(TransportModel):
+    web_generation_contract_id: str
+    project_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    product_thesis_revision_id: str
+    outcome_contract_revision_id: str
+    status: Literal["proposed", "confirmed"]
+    template_id: Literal["react_typescript_vite_spa"]
+    template_version: str
+    app_title: str
+    screens: list[WebScreenSpec]
+    tasks: list[WebTaskSpec]
+    states: list[WebStateSpec]
+    content_slots: list[WebContentSlot]
+    acceptance_checks: list[WebAcceptanceCheck]
+    runtime_dependencies: list[str]
+    development_dependencies: list[str]
+    output_paths: list[str]
+    network_policy: Literal["none"]
+    data_policy: Literal["local_fixture_only"]
+    source_refs: list[SourceReference]
+    dependencies: list[dict[str, Any]]
+    confirmation: HumanConfirmation | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(
+        cls, value: WebProductGenerationContract
+    ) -> "WebProductGenerationContractResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class CreateProposalJobRequest(TransportModel):
+    kind: Literal[
+        "product_intent",
+        "problem_model",
+        "outcome_contract",
+        "product_theses",
+        "web_generation_contract",
+    ]
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    raw_input: str | None = Field(default=None, min_length=1)
+
+
+class ProposalJobActionRequest(TransportModel):
+    actor: str = Field(min_length=1)
+
+
+class GenerationBudgetRequest(TransportModel):
+    max_attempts: int = Field(default=1, ge=1, le=3)
+    max_files: int = Field(default=64, ge=1, le=64)
+    max_bytes: int = Field(default=1024 * 1024, ge=1, le=1024 * 1024)
+    max_duration_seconds: int = Field(default=60, ge=1, le=60)
+    max_cost_units: int = Field(default=1, ge=1, le=1)
+
+
+class CreateGenerationJobRequest(TransportModel):
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    budget: GenerationBudgetRequest | None = None
+
+
+class GenerationJobActionRequest(TransportModel):
+    actor: str = Field(min_length=1)
 
 
 class RevisionMetaResponse(TransportModel):
@@ -176,7 +275,9 @@ class ProductThesisResponse(ProductThesisProposal):
 
 
 class RevisionImpactResponse(TransportModel):
-    dependent_type: Literal["problem_model", "outcome_contract", "product_thesis"]
+    dependent_type: Literal[
+        "problem_model", "outcome_contract", "product_thesis", "web_generation_contract"
+    ]
     dependent_id: str
     dependent_revision_id: str
     impact: Literal["review_required", "stale"]
@@ -188,12 +289,84 @@ class RevisionImpactResponse(TransportModel):
         return cls.model_validate(value.model_dump(mode="python"))
 
 
+class ProductProposalJobResponse(TransportModel):
+    job_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    project_id: str
+    kind: Literal[
+        "product_intent",
+        "problem_model",
+        "outcome_contract",
+        "product_theses",
+        "web_generation_contract",
+    ]
+    status: Literal[
+        "queued", "running", "succeeded", "failed", "stale_input", "cancelled"
+    ]
+    provider: Literal["deterministic_fake"]
+    provider_version: str
+    input_dependencies: list[dict[str, Any]]
+    result_object_id: str
+    result_object_ids: list[str]
+    result_expected_revision: int | None
+    raw_input: str | None
+    fingerprint: str
+    attempt: int
+    result_revision_id: str | None
+    result_revision_ids: list[str]
+    error_code: str | None
+    error_summary: str | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(
+        cls, value: ProductProposalJob
+    ) -> "ProductProposalJobResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class ProductGenerationJobResponse(TransportModel):
+    job_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    project_id: str
+    kind: Literal["web_product"]
+    status: Literal[
+        "queued", "running", "paused", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"
+    ]
+    provider: Literal["deterministic_template"]
+    provider_version: str
+    input_dependencies: list[dict[str, Any]]
+    web_generation_contract_revision_id: str
+    workspace_id: str
+    workspace_relative_path: str
+    budget: GenerationBudget
+    sandbox: GenerationSandboxPolicy
+    fingerprint: str
+    attempt: int
+    checkpoint_step: Literal["prepare", "generate", "validate"] | None
+    consumed_files: int
+    consumed_bytes: int
+    consumed_duration_seconds: float
+    consumed_cost_units: int
+    manifest: GenerationManifest | None
+    error_code: str | None
+    error_summary: str | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductGenerationJob) -> "ProductGenerationJobResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
 class ProductProjectViewResponse(TransportModel):
     project: ProductProjectResponse
     product_intent: ProductIntentResponse | None
     problem_model: ProblemModelResponse | None
     outcome_contract: OutcomeContractResponse | None
     product_theses: list[ProductThesisResponse]
+    web_generation_contract: WebProductGenerationContractResponse | None
     recorded_impacts: list[RevisionImpactResponse]
 
     @classmethod
@@ -219,6 +392,13 @@ class ProductProjectViewResponse(TransportModel):
                 ProductThesisResponse.from_domain(item)
                 for item in value.product_theses
             ],
+            web_generation_contract=(
+                WebProductGenerationContractResponse.from_domain(
+                    value.web_generation_contract
+                )
+                if value.web_generation_contract
+                else None
+            ),
             recorded_impacts=[
                 RevisionImpactResponse.from_domain(item)
                 for item in value.recorded_impacts

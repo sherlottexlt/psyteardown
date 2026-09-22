@@ -16,11 +16,18 @@ from psyteardown.product.models import (
     ProductThesis,
     RevisionImpact,
     ThesisDisposition,
+    WebProductGenerationContract,
 )
 
 
 SnapshotT = TypeVar(
-    "SnapshotT", ProductProject, ProductIntent, ProblemModel, OutcomeContract, ProductThesis
+    "SnapshotT",
+    ProductProject,
+    ProductIntent,
+    ProblemModel,
+    OutcomeContract,
+    ProductThesis,
+    WebProductGenerationContract,
 )
 ConfirmableT = TypeVar("ConfirmableT", ProductIntent, ProblemModel, OutcomeContract)
 ThesisStatus = Literal["exploring", "selected", "paused", "rejected"]
@@ -330,7 +337,9 @@ def transition_product_thesis(
 
 def assess_revision_impacts(
     changed_dependency: DependencyRef,
-    dependents: Iterable[ProblemModel | OutcomeContract | ProductThesis],
+    dependents: Iterable[
+        ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
+    ],
 ) -> tuple[RevisionImpact, ...]:
     """Return direct impacts for snapshots pinned to the changed revision.
 
@@ -351,9 +360,13 @@ def assess_revision_impacts(
             dependent_type = "outcome_contract"
             dependent_id = dependent.outcome_contract_id
             impact = "stale"
-        else:
+        elif isinstance(dependent, ProductThesis):
             dependent_type = "product_thesis"
             dependent_id = dependent.thesis_id
+            impact = "stale"
+        else:
+            dependent_type = "web_generation_contract"
+            dependent_id = dependent.web_generation_contract_id
             impact = "stale"
         impacts.append(
             RevisionImpact(

@@ -24,6 +24,8 @@ from psyteardown.product.commands import (
     SubmitProductIntentProposal,
     SubmitProductThesisProposal,
     TransitionProductThesis,
+    ConfirmWebProductGenerationContract,
+    SubmitWebProductGenerationContractProposal,
 )
 from psyteardown.product.models import (
     OutcomeContract,
@@ -33,6 +35,7 @@ from psyteardown.product.models import (
     ProductProjectView,
     ProductThesis,
     RevisionImpact,
+    WebProductGenerationContract,
 )
 from psyteardown.product.repositories import (
     InMemoryProductRepository,
@@ -489,8 +492,10 @@ class ProductApplicationService:
                 project_id=command.project_id,
                 **changes,
             )
+            impacts: tuple[RevisionImpact, ...] = ()
         else:
             assert isinstance(current, ProductThesis)
+            impacts = self._direct_impacts("product_thesis", current)
             proposed = revise_product_thesis(
                 current,
                 changes,
@@ -510,6 +515,7 @@ class ProductApplicationService:
             event_type="product_thesis_proposed",
             actor=command.actor,
             reason=command.reason,
+            impacts=impacts,
         )
 
     def transition_product_thesis(
@@ -521,6 +527,7 @@ class ProductApplicationService:
         )
         assert isinstance(current, ProductThesis)
         self._check_expected(current, command.expected_revision)
+        impacts = self._direct_impacts("product_thesis", current)
         updated = transition_product_thesis(
             current,
             command.to_status,
@@ -542,6 +549,148 @@ class ProductApplicationService:
             event_type="product_thesis_disposition_changed",
             actor=command.actor,
             reason=command.reason,
+            impacts=impacts,
+        )
+
+    def submit_web_generation_contract(
+        self, command: SubmitWebProductGenerationContractProposal
+    ) -> WebProductGenerationContract:
+        self._require_active_project(command.project_id)
+        thesis = self._require_revision(
+            "product_thesis",
+            command.proposal.product_thesis_revision_id,
+            command.project_id,
+            confirmed=False,
+        )
+        outcome = self._require_revision(
+            "outcome_contract",
+            command.proposal.outcome_contract_revision_id,
+            command.project_id,
+            confirmed=True,
+        )
+        assert isinstance(thesis, ProductThesis)
+        assert isinstance(outcome, OutcomeContract)
+        if thesis.status not in {"exploring", "selected"}:
+            raise DomainStateError(
+                "Web generation requires an exploring or selected product thesis"
+            )
+        if thesis.outcome_contract_revision_id != outcome.revision_id:
+            raise DomainStateError(
+                "Web generation inputs do not share the same outcome contract revision"
+            )
+        current, contract_id = self._proposal_target(
+            "web_generation_contract",
+            command.project_id,
+            command.web_generation_contract_id,
+            command.expected_revision,
+            singleton=True,
+            id_prefix="web-contract",
+        )
+        now = self._now()
+        changes = command.proposal.model_dump(mode="python")
+        changes["product_thesis_revision_id"] = thesis.revision_id
+        changes["outcome_contract_revision_id"] = outcome.revision_id
+        changes["dependencies"] = (
+            DependencyRef(
+                object_type="product_thesis",
+                object_id=thesis.thesis_id,
+                revision=thesis.meta.revision,
+            ),
+            DependencyRef(
+                object_type="outcome_contract",
+                object_id=outcome.outcome_contract_id,
+                revision=outcome.meta.revision,
+            ),
+        )
+        if current is None:
+            proposed = WebProductGenerationContract(
+                web_generation_contract_id=contract_id,
+                revision_id=self._revision_id(contract_id, 1),
+                meta=RevisionMeta(
+                    revision=1,
+                    created_at=now,
+                    created_by=command.actor,
+                    reason=command.reason,
+                ),
+                project_id=command.project_id,
+                **changes,
+            )
+            impacts: tuple[RevisionImpact, ...] = ()
+        else:
+            assert isinstance(current, WebProductGenerationContract)
+            impacts = self._direct_impacts("web_generation_contract", current)
+            proposed = current.__class__.model_validate(
+                {
+                    **current.model_dump(mode="python"),
+                    **changes,
+                    "revision_id": self._revision_id(
+                        contract_id, current.meta.revision + 1
+                    ),
+                    "meta": RevisionMeta(
+                        revision=current.meta.revision + 1,
+                        parent_revision_id=current.revision_id,
+                        created_at=now,
+                        created_by=command.actor,
+                        reason=command.reason,
+                    ),
+                    "status": "proposed",
+                    "confirmation": None,
+                }
+            )
+        return self._persist(
+            "web_generation_contract",
+            contract_id,
+            proposed,
+            project_id=command.project_id,
+            expected_revision=command.expected_revision,
+            event_type="web_generation_contract_proposed",
+            actor=command.actor,
+            reason=command.reason,
+            impacts=impacts,
+        )
+
+    def confirm_web_generation_contract(
+        self, command: ConfirmWebProductGenerationContract
+    ) -> WebProductGenerationContract:
+        self._require_active_project(command.project_id)
+        current = self._require_current(
+            "web_generation_contract",
+            command.web_generation_contract_id,
+            command.project_id,
+        )
+        assert isinstance(current, WebProductGenerationContract)
+        self._check_expected(current, command.expected_revision)
+        now = self._now()
+        confirmed = current.model_validate(
+            {
+                **current.model_dump(mode="python"),
+                "revision_id": self._revision_id(
+                    current.web_generation_contract_id, current.meta.revision + 1
+                ),
+                "meta": RevisionMeta(
+                    revision=current.meta.revision + 1,
+                    parent_revision_id=current.revision_id,
+                    created_at=now,
+                    created_by=command.actor,
+                    reason=command.reason,
+                ),
+                "status": "confirmed",
+                "confirmation": {
+                    "confirmed_by": command.actor,
+                    "confirmed_at": now,
+                    "rationale": command.reason,
+                },
+            }
+        )
+        return self._persist(
+            "web_generation_contract",
+            current.web_generation_contract_id,
+            confirmed,
+            project_id=command.project_id,
+            expected_revision=command.expected_revision,
+            event_type="web_generation_contract_confirmed",
+            actor=command.actor,
+            reason=command.reason,
         )
 
     def get_project_view(self, project_id: str) -> ProductProjectView:
@@ -553,6 +702,9 @@ class ProductApplicationService:
             outcome_contract=self._single_current("outcome_contract", project_id),
             product_theses=tuple(
                 self.repository.list_current("product_thesis", project_id=project_id)
+            ),
+            web_generation_contract=self._single_current(
+                "web_generation_contract", project_id
             ),
             recorded_impacts=tuple(
                 self.repository.list_impacts(project_id=project_id)
@@ -725,18 +877,31 @@ class ProductApplicationService:
     def _direct_impacts(
         self, object_type: str, current: ProductSnapshot
     ) -> tuple[RevisionImpact, ...]:
-        if object_type == "product_project" or object_type == "product_thesis":
+        if object_type == "product_project":
             return ()
         changed = DependencyRef(
             object_type=object_type,
             object_id=self._stable_id(current),
             revision=current.meta.revision,
         )
-        dependents: list[ProblemModel | OutcomeContract | ProductThesis] = []
+        if object_type == "product_thesis":
+            changed = DependencyRef(
+                object_type=object_type,
+                object_id=self._stable_id(current),
+                revision=current.meta.revision,
+            )
+            web_contracts = self.repository.list_current(
+                "web_generation_contract", project_id=current.project_id
+            )
+            return assess_revision_impacts(changed, web_contracts)
+        dependents: list[
+            ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
+        ] = []
         for dependent_type in (
             "problem_model",
             "outcome_contract",
             "product_thesis",
+            "web_generation_contract",
         ):
             dependents.extend(
                 self.repository.list_current(
@@ -772,6 +937,8 @@ class ProductApplicationService:
             return value.problem_model_id
         if isinstance(value, OutcomeContract):
             return value.outcome_contract_id
+        if isinstance(value, WebProductGenerationContract):
+            return value.web_generation_contract_id
         return value.thesis_id
 
     @staticmethod
