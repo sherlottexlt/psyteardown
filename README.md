@@ -118,9 +118,24 @@ AI 默认负责：
 
 - 已有一套可追溯的产品拆解、体验假设、设计反馈、证据和工程验证内核；
 - Product Intent、Problem Model、Outcome Contract、Product Thesis 及项目持久化已经有代码原型和自动化测试；
-- 这些原型仍需通过第一条真实用户闭环校准，不能视为最终领域架构；
-- Product Studio Web 工作空间、产品生成沙箱和完整交付闭环尚未完成；
-- 当前任何仿真、渲染和自动测试都不会被当作真实用户或现实世界结果。
+- A6 已用“自主管理知识工作者保护桌面专注时段”的首条数字产品切片校准 A1/A2 的最小字段、人工确认范围和聚合边界；这不是最终通用领域架构，也不是现实结果证据；
+- Product Studio Web 工作空间已支持 Product Contract、Product Thesis 比较和 B2 Web 生成契约；产品生成沙箱和完整交付闭环尚未完成；
+- 当前任何仿真、渲染和自动测试都不会被当作真实用户或现实世界结果；真实任务观察仍属于后续 Phase C。
+
+## 本地启动 Product Studio
+
+后端 API 与 Web 工作空间分别启动：
+
+```powershell
+psyteardown-studio-api
+cd studio
+npm install
+npm run dev
+```
+
+浏览器打开 `http://127.0.0.1:5173`。当前 Web 壳支持：从一句不完整的话创建项目并生成初始产品意图提案；依次生成问题模型与结果契约提案；逐个纠正并具名确认，形成带 revision、来源与未知项的 Product Contract；生成和比较三条 Product Thesis；由人授权探索/选择；为 exploring/selected thesis 生成并确认 B2 WebProductGenerationContract。提案由持久化 Job 承载，创建立即返回 `job_id`，执行是独立命令，上游变化会标记 stale 而不是提交过期结果，关闭重开后 Job 与已确认状态都能恢复。
+
+当前提案来自**无网络、无研究能力的确定性 fake provider**，它只转述已确认的用户输入；它的产物是待人工纠正的提案，不是外部事实、证据或用户结果。真实模型 provider、后台常驻 worker、隔离构建和真实产品预览仍会明确显示为未接入，不会用演示数据伪装完成。
 
 ## 完整产品规格
 
