@@ -12,7 +12,10 @@ import hashlib
 import json
 import os
 import re
+import signal
+import socket
 import subprocess
+import tempfile
 import time
 import urllib.request
 from collections import defaultdict
@@ -134,10 +137,15 @@ class SubprocessExecutionCommandRunner:
         env: Mapping[str, str],
     ) -> tuple[CommandResult, CommandResult]:
         started = time.monotonic()
+        if _loopback_port_open(_PREVIEW_PORT):
+            # Validating whatever already listens there would verify another
+            # workspace (or an orphan from an earlier run), not this one.
+            raise ExecutionCommandError("preview_port_busy", "The loopback preview port is already in use.")
         try:
             process = subprocess.Popen(
-                list(preview_argv), cwd=str(cwd), env=dict(env), stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, shell=False,
+                list(preview_argv), cwd=str(cwd), env=dict(env), stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, shell=False,
+                **_process_group_options(),
             )
         except OSError as exc:
             raise ExecutionCommandError("runtime_unavailable", "The local preview command could not be started.") from exc
@@ -148,7 +156,7 @@ class SubprocessExecutionCommandRunner:
                 if process.poll() is not None:
                     break
                 try:
-                    with urllib.request.urlopen("http://127.0.0.1:4173", timeout=0.5) as response:
+                    with urllib.request.urlopen(_PREVIEW_URL, timeout=0.5) as response:
                         healthy = 200 <= response.status < 500
                         if healthy:
                             break
@@ -156,17 +164,11 @@ class SubprocessExecutionCommandRunner:
                     time.sleep(0.1)
             if not healthy:
                 raise ExecutionCommandError("preview_unavailable", "The local preview did not become ready.")
-            browser = self._run(browser_argv, cwd=cwd, timeout=max(1, timeout - (time.monotonic() - started)), env={**env, "BASE_URL": "http://127.0.0.1:4173"})
+            browser = self._run(browser_argv, cwd=cwd, timeout=max(1, timeout - (time.monotonic() - started)), env={**env, "BASE_URL": _PREVIEW_URL})
             preview = CommandResult(exit_code=0, output_bytes=0, duration_seconds=time.monotonic() - started, summary="Local preview served on loopback.")
             return preview, browser
         finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=3)
+            _stop_process_tree(process)
 
     def _run(self, argv: Sequence[str], *, cwd: Path, timeout: float, env: Mapping[str, str]) -> CommandResult:
         started = time.monotonic()
@@ -193,6 +195,48 @@ class SubprocessExecutionCommandRunner:
             duration_seconds=time.monotonic() - started,
             summary="Command completed successfully.",
         )
+
+
+_PREVIEW_PORT = 4173
+_PREVIEW_URL = f"http://127.0.0.1:{_PREVIEW_PORT}"
+
+
+def _loopback_port_open(port: int) -> bool:
+    with socket.socket() as probe:
+        probe.settimeout(0.3)
+        return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _process_group_options() -> dict[str, object]:
+    if os.name == "nt":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
+def _stop_process_tree(process: subprocess.Popen) -> None:
+    """Stop the preview and every descendant (npm.cmd -> node vite)."""
+
+    if os.name == "nt":
+        # Always run: taskkill /T also reaps children whose wrapper already exited.
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        )
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        if os.name != "nt":
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.kill()
+        process.wait(timeout=3)
 
 
 _SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
@@ -361,63 +405,7 @@ class ProductExecutionJobService:
         return candidate
 
     def _validate_workspace(self, workspace: Path, generation: ProductGenerationJob) -> None:
-        if not workspace.is_dir() or workspace.is_symlink():
-            raise DomainStateError("generated workspace is unavailable")
-        manifest_path = workspace / "generation-manifest.json"
-        if not manifest_path.is_file() or manifest_path.is_symlink():
-            raise DomainStateError("generated workspace manifest is unavailable")
-        try:
-            manifest = generation.manifest
-            payload = GenerationManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
-            if manifest is None or payload != manifest:
-                raise ValueError
-            if any(path.is_symlink() for path in workspace.rglob("*")):
-                raise ValueError
-            declared = {item.path for item in manifest.files}
-            ignored_execution_roots = {"node_modules", "dist", "test-results", "playwright-report"}
-            actual = {
-                str(path.relative_to(workspace)).replace("\\", "/")
-                for path in workspace.rglob("*")
-                if path.is_file()
-                and path.name != "generation-manifest.json"
-                and path.name != "package-lock.json"
-                and not (path.relative_to(workspace).parts and path.relative_to(workspace).parts[0] in ignored_execution_roots)
-            }
-            if actual != declared:
-                raise ValueError
-            for item in manifest.files:
-                target = (workspace / item.path).resolve(strict=False)
-                source = workspace / item.path
-                if source.is_symlink() or os.path.commonpath((str(workspace.resolve()), str(target))) != str(workspace.resolve()) or not target.is_file() or target.is_symlink():
-                    raise ValueError
-                raw = target.read_bytes()
-                if len(raw) != item.byte_count or hashlib.sha256(raw).hexdigest() != item.sha256:
-                    raise ValueError
-            package = json.loads((workspace / "package.json").read_text(encoding="utf-8"))
-            scripts = package.get("scripts", {})
-            if scripts.get("build") != "tsc -b && vite build" or scripts.get("preview") != "vite preview":
-                raise ValueError
-            if package.get("private") is not True:
-                raise ValueError
-            expected_dependencies = {
-                "react": "19.1.1",
-                "react-dom": "19.1.1",
-            }
-            expected_dev_dependencies = {
-                "@axe-core/playwright": "4.13.0",
-                "@playwright/test": "1.55.1",
-                "@testing-library/react": "16.3.0",
-                "@types/react": "19.1.16",
-                "@types/react-dom": "19.1.9",
-                "@vitejs/plugin-react": "5.0.4",
-                "typescript": "5.9.3",
-                "vite": "7.1.9",
-                "vitest": "5.0.1",
-            }
-            if package.get("dependencies") != expected_dependencies or package.get("devDependencies") != expected_dev_dependencies:
-                raise ValueError
-        except Exception as exc:
-            raise DomainStateError("generated workspace failed integrity validation") from exc
+        validate_generated_workspace(workspace, generation)
 
     def _step_transition(self, current: ProductExecutionJob, name: str, result: CommandResult, actor: str) -> ProductExecutionJob:
         if current.consumed_output_bytes + result.output_bytes > current.budget.max_output_bytes:
@@ -462,6 +450,83 @@ class ProductExecutionJobService:
         return value
 
 
+_EXECUTION_OUTPUT_ROOTS = frozenset({"node_modules", "dist", "test-results", "playwright-report"})
+# Root files written by generation bookkeeping or by execution tooling.
+_EXECUTION_ROOT_FILES = frozenset({"generation-manifest.json", "package-lock.json", "tsconfig.tsbuildinfo"})
+
+
+def validate_generated_workspace(workspace: Path, generation: ProductGenerationJob) -> None:
+    """Check a generation workspace against its manifest and fixed package policy.
+
+    Shared by B4 execution, B5 repair and B6 delivery so every consumer applies
+    the same integrity rules before trusting workspace bytes.
+    """
+    if not workspace.is_dir() or workspace.is_symlink():
+        raise DomainStateError("generated workspace is unavailable")
+    manifest_path = workspace / "generation-manifest.json"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise DomainStateError("generated workspace manifest is unavailable")
+    try:
+        manifest = generation.manifest
+        payload = GenerationManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+        if manifest is None or payload != manifest:
+            raise ValueError
+        declared = {item.path for item in manifest.files}
+        # Execution outputs are owned by npm/tsc/vite/Playwright, never packaged
+        # as source, and may legitimately contain symlinks (node_modules/.bin).
+        # B6 re-checks dist/ and test-results/ itself before packaging them.
+        actual: set[str] = set()
+        for directory, subdirectories, files in os.walk(workspace):
+            base = Path(directory)
+            if base == workspace:
+                subdirectories[:] = [name for name in subdirectories if name not in _EXECUTION_OUTPUT_ROOTS]
+            for name in subdirectories:
+                if (base / name).is_symlink():
+                    raise ValueError
+            for name in files:
+                path = base / name
+                if path.is_symlink():
+                    raise ValueError
+                relative = path.relative_to(workspace).as_posix()
+                if relative not in _EXECUTION_ROOT_FILES:
+                    actual.add(relative)
+        if actual != declared:
+            raise ValueError
+        for item in manifest.files:
+            target = (workspace / item.path).resolve(strict=False)
+            source = workspace / item.path
+            if source.is_symlink() or os.path.commonpath((str(workspace.resolve()), str(target))) != str(workspace.resolve()) or not target.is_file() or target.is_symlink():
+                raise ValueError
+            raw = target.read_bytes()
+            if len(raw) != item.byte_count or hashlib.sha256(raw).hexdigest() != item.sha256:
+                raise ValueError
+        package = json.loads((workspace / "package.json").read_text(encoding="utf-8"))
+        scripts = package.get("scripts", {})
+        if scripts.get("build") != "tsc -b && vite build" or scripts.get("preview") != "vite preview":
+            raise ValueError
+        if package.get("private") is not True:
+            raise ValueError
+        expected_dependencies = {
+            "react": "19.1.1",
+            "react-dom": "19.1.1",
+        }
+        expected_dev_dependencies = {
+            "@axe-core/playwright": "4.13.0",
+            "@playwright/test": "1.55.1",
+            "@testing-library/react": "16.3.0",
+            "@types/react": "19.1.16",
+            "@types/react-dom": "19.1.9",
+            "@vitejs/plugin-react": "5.0.4",
+            "typescript": "5.9.3",
+            "vite": "7.1.9",
+            "vitest": "5.0.1",
+        }
+        if package.get("dependencies") != expected_dependencies or package.get("devDependencies") != expected_dev_dependencies:
+            raise ValueError
+    except Exception as exc:
+        raise DomainStateError("generated workspace failed integrity validation") from exc
+
+
 def _initial_steps() -> tuple[ExecutionStep, ...]:
     return tuple(ExecutionStep(name=name) for name in ("install", "build", "run", "browser"))
 
@@ -469,19 +534,34 @@ def _initial_steps() -> tuple[ExecutionStep, ...]:
 def _safe_environment() -> dict[str, str]:
     # PATH is needed to locate node/npm on the host; all token/config/home
     # variables are intentionally dropped before entering the workspace.
-    allowed = {"PATH", "SystemRoot", "ComSpec", "TEMP", "TMP", "USERPROFILE"}
-    environment = {key: value for key, value in os.environ.items() if key in allowed}
+    # Windows reports keys upper-cased, so match case-insensitively; Node
+    # cannot initialise its CSPRNG without SYSTEMROOT.
+    allowed = {"PATH", "SYSTEMROOT", "COMSPEC", "TEMP", "TMP", "USERPROFILE"}
+    environment = {key: value for key, value in os.environ.items() if key.upper() in allowed}
     environment.update({
         "CI": "1",
         "NPM_CONFIG_IGNORE_SCRIPTS": "true",
         "NPM_CONFIG_AUDIT": "false",
         "NPM_CONFIG_FUND": "false",
         "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-        "NPM_CONFIG_USERCONFIG": "NUL" if os.name == "nt" else "/dev/null",
-        "NPM_CONFIG_GLOBALCONFIG": "NUL" if os.name == "nt" else "/dev/null",
+        **_empty_npm_configs(),
         "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/",
     })
     return environment
+
+
+def _empty_npm_configs() -> dict[str, str]:
+    # npm rejects one path loaded as both user and global config, so each gets
+    # its own empty file.  They live outside every workspace so the manifest
+    # integrity check never sees them.
+    directory = Path(tempfile.gettempdir()) / "psyteardown-npm-config"
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = {"NPM_CONFIG_USERCONFIG": directory / "userconfig", "NPM_CONFIG_GLOBALCONFIG": directory / "globalconfig"}
+    for path in paths.values():
+        if path.is_symlink() or not path.is_file() or path.stat().st_size:
+            path.unlink(missing_ok=True)
+            path.write_text("", encoding="utf-8")
+    return {key: str(path.resolve()) for key, path in paths.items()}
 
 
 def _npm() -> str:

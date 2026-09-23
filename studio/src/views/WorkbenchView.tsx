@@ -11,9 +11,12 @@ export function WorkbenchView({
   generationJob,
   executionJob,
   repairJob,
+  deliveryBundle,
+  deliveryArchiveUrl,
   onGenerateProduct,
   onExecuteProduct,
   onRepairProduct,
+  onExportProduct,
 }: {
   view: ProductProjectView;
   busy: boolean;
@@ -23,10 +26,16 @@ export function WorkbenchView({
   generationJob?: import("../api/types").ProductGenerationJob | null;
   executionJob?: import("../api/types").ProductExecutionJob | null;
   repairJob?: import("../api/types").ProductRepairJob | null;
+  deliveryBundle?: import("../api/types").ProductDeliveryBundle | null;
+  deliveryArchiveUrl?: (bundleId: string) => string;
   onGenerateProduct: () => void;
   onExecuteProduct: () => void;
   onRepairProduct: () => void;
+  onExportProduct?: () => void;
 }) {
+  const bundleMatchesExecution = Boolean(
+    deliveryBundle && executionJob && deliveryBundle.execution_job_revision_id === executionJob.revision_id,
+  );
   if (!view.product_theses.length) {
     return (
       <EmptyState
@@ -130,6 +139,26 @@ export function WorkbenchView({
                 </dl>
               ) : null}
             </>
+          ) : null}
+          {executionJob?.status === "succeeded" && onExportProduct ? (
+            <div className="panel__actions">
+              <button className="button button--quiet" disabled={busy} onClick={onExportProduct}>
+                {busy ? "正在打包…" : bundleMatchesExecution ? "重新获取交付包" : "导出交付包"}
+              </button>
+              {bundleMatchesExecution && deliveryBundle ? <Badge tone="good">{deliveryBundle.files.length} files · {Math.ceil(deliveryBundle.archive_bytes / 1024)} KiB</Badge> : null}
+            </div>
+          ) : null}
+          {bundleMatchesExecution && deliveryBundle ? (
+            <section aria-label="交付包">
+              <dl className="definition-grid definition-grid--three">
+                <div><dt>包 sha256</dt><dd><code>{deliveryBundle.archive_sha256.slice(0, 16)}…</code></dd></div>
+                <div><dt>来源</dt><dd>{deliveryBundle.materialization_kind === "repair" ? "B5 修复 lineage" : "B3 模板生成"} · {deliveryBundle.execution_job_revision_id}</dd></div>
+                <div><dt>结果证据</dt><dd>{deliveryBundle.outcome_evidence_level}</dd></div>
+              </dl>
+              {deliveryArchiveUrl ? <a className="button button--primary" href={deliveryArchiveUrl(deliveryBundle.bundle_id)} download>下载交付包 (.zip)</a> : null}
+              <p className="unknown-copy">交付包只证明本机覆盖范围内的软件验证。未验证声明：</p>
+              <ul className="unknown-copy">{deliveryBundle.unverified_claims.map((claim) => <li key={claim}>{claim}</li>)}</ul>
+            </section>
           ) : null}
         </section>
       ) : null}

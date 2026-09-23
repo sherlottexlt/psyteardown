@@ -126,3 +126,113 @@ def test_generation_template_contains_b4_validation_hooks(tmp_path):
     assert "Show error" in files["src/App.tsx"]
     assert "AxeBuilder" in files["tests/generated-contract.spec.ts"]
     assert "screenshot" in files["tests/generated-contract.spec.ts"]
+
+
+def test_safe_environment_keeps_windows_runtime_variables_case_insensitively(monkeypatch):
+    # Windows exposes os.environ keys upper-cased (SYSTEMROOT); without it Node
+    # cannot initialise its CSPRNG and every real execution step crashes.
+    from psyteardown.product.execution import _safe_environment
+
+    monkeypatch.setenv("SYSTEMROOT", r"C:\Windows")
+    monkeypatch.setenv("COMSPEC", r"C:\Windows\system32\cmd.exe")
+    monkeypatch.setenv("OPENAI_API_KEY", "secret")
+    env = {key.upper(): value for key, value in _safe_environment().items()}
+    assert env["SYSTEMROOT"] == r"C:\Windows"
+    assert env["COMSPEC"] == r"C:\Windows\system32\cmd.exe"
+    assert "OPENAI_API_KEY" not in env
+
+
+def test_safe_environment_uses_distinct_empty_npm_configs_outside_workspace(tmp_path):
+    # npm refuses to load one path as both user and global config, which made
+    # the previous shared NUL / /dev/null setting fail every real install.
+    from pathlib import Path
+
+    from psyteardown.product.execution import _safe_environment
+
+    env = _safe_environment()
+    user, global_ = Path(env["NPM_CONFIG_USERCONFIG"]), Path(env["NPM_CONFIG_GLOBALCONFIG"])
+    assert user.is_absolute() and global_.is_absolute()
+    assert user.resolve() != global_.resolve()
+    assert user.read_text(encoding="utf-8") == "" and global_.read_text(encoding="utf-8") == ""
+
+
+def _port_open(port: int) -> bool:
+    import socket
+
+    with socket.socket() as probe:
+        probe.settimeout(0.3)
+        return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def test_preview_process_tree_is_stopped_after_browser_step(tmp_path):
+    # Mirrors npm.cmd -> node vite: killing only the wrapper orphaned the
+    # server, and the next execution then validated a stale workspace.
+    import subprocess
+    import sys
+    import time
+
+    from psyteardown.product.execution import SubprocessExecutionCommandRunner
+
+    if _port_open(4173):
+        pytest.skip("preview port 4173 is already in use on this host")
+    wrapper = (
+        "import subprocess, sys; "
+        "subprocess.Popen([sys.executable, '-m', 'http.server', '4173', '--bind', '127.0.0.1'], "
+        "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).wait()"
+    )
+    runner = SubprocessExecutionCommandRunner()
+    preview, browser = runner.run_preview_and_browser(
+        preview_argv=[sys.executable, "-c", wrapper],
+        browser_argv=[sys.executable, "-c", "pass"],
+        cwd=tmp_path,
+        timeout=30,
+        env=dict(__import__("os").environ),
+    )
+    assert preview.exit_code == 0 and browser.exit_code == 0
+    deadline = time.monotonic() + 5
+    while _port_open(4173) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert not _port_open(4173), "preview server outlived its execution step"
+
+
+def test_preview_refuses_to_validate_an_already_bound_port(tmp_path):
+    import socket
+    import sys
+
+    from psyteardown.product.execution import ExecutionCommandError, SubprocessExecutionCommandRunner
+
+    if _port_open(4173):
+        pytest.skip("preview port 4173 is already in use on this host")
+    with socket.socket() as squatter:
+        squatter.bind(("127.0.0.1", 4173))
+        squatter.listen()
+        with pytest.raises(ExecutionCommandError) as error:
+            SubprocessExecutionCommandRunner().run_preview_and_browser(
+                preview_argv=[sys.executable, "-c", "pass"],
+                browser_argv=[sys.executable, "-c", "pass"],
+                cwd=tmp_path,
+                timeout=10,
+                env=dict(__import__("os").environ),
+            )
+    assert error.value.code == "preview_port_busy"
+
+
+def test_workspace_validation_tolerates_real_build_byproducts(tmp_path):
+    # A real `tsc -b && vite build` writes tsconfig.tsbuildinfo, and npm links
+    # node_modules/.bin on POSIX; neither is generated source, so later
+    # consumers (retry, B5 repair, B6 export) must still accept the workspace.
+    from psyteardown.product.execution import validate_generated_workspace
+
+    service, project, generated = build_execution_service(tmp_path)
+    workspace = tmp_path / "workspaces" / generated.workspace_relative_path
+    (workspace / "tsconfig.tsbuildinfo").write_text("{}", encoding="utf-8")
+    (workspace / "node_modules" / ".bin").mkdir(parents=True)
+    try:
+        (workspace / "node_modules" / ".bin" / "vite").symlink_to(workspace / "package.json")
+    except OSError:
+        pass
+    validate_generated_workspace(workspace, generated)
+
+    (workspace / "src" / "extra.ts").write_text("export {};\n", encoding="utf-8")
+    with pytest.raises(Exception, match="integrity"):
+        validate_generated_workspace(workspace, generated)

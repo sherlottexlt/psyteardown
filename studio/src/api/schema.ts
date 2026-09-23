@@ -55,6 +55,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/delivery-bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Delivery Bundles */
+        get: operations["list_delivery_bundles_api_v1_projects__project_id__delivery_bundles_get"];
+        put?: never;
+        /** Create Delivery Bundle */
+        post: operations["create_delivery_bundle_api_v1_projects__project_id__delivery_bundles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Delivery Bundle */
+        get: operations["get_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Delivery Bundle */
+        get: operations["download_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__archive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/execution-jobs": {
         parameters: {
             query?: never;
@@ -673,6 +725,15 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** CreateDeliveryBundleRequest */
+        CreateDeliveryBundleRequest: {
+            /** Actor */
+            actor: string;
+            /** Execution Job Id */
+            execution_job_id: string;
+            /** Reason */
+            reason: string;
+        };
         /** CreateExecutionJobRequest */
         CreateExecutionJobRequest: {
             /** Actor */
@@ -731,6 +792,93 @@ export interface components {
             execution_job_id: string;
             /** Reason */
             reason: string;
+        };
+        /** DeliveryBundleFile */
+        DeliveryBundleFile: {
+            /** Byte Count */
+            byte_count: number;
+            /** Path */
+            path: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "source" | "build" | "verification" | "notes";
+            /** Sha256 */
+            sha256: string;
+        };
+        /** DeliveryBundleResponse */
+        DeliveryBundleResponse: {
+            /** Archive Bytes */
+            archive_bytes: number;
+            /** Archive Sha256 */
+            archive_sha256: string;
+            /** Bundle Id */
+            bundle_id: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Contract Is Current */
+            contract_is_current: boolean;
+            /** Execution Job Id */
+            execution_job_id: string;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Files */
+            files: components["schemas"]["DeliveryBundleFile"][];
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Format Version
+             * @constant
+             */
+            format_version: "b6-v1";
+            /** Generation Job Id */
+            generation_job_id: string;
+            /** Generation Job Revision Id */
+            generation_job_revision_id: string;
+            /** Input Dependencies */
+            input_dependencies: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "web_product_delivery";
+            /**
+             * Materialization Kind
+             * @enum {string}
+             */
+            materialization_kind: "template" | "repair";
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /**
+             * Outcome Evidence Level
+             * @constant
+             */
+            outcome_evidence_level: "none";
+            /** Parent Generation Job Id */
+            parent_generation_job_id: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Repair Job Id */
+            repair_job_id: string | null;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Template Id
+             * @constant
+             */
+            template_id: "react_typescript_vite_spa";
+            /** Template Version */
+            template_version: string;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Unverified Claims */
+            unverified_claims: string[];
+            /** Verification Steps */
+            verification_steps: components["schemas"]["ExecutionStep"][];
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
         };
         /** DeliveryEstimate */
         DeliveryEstimate: {
@@ -2276,6 +2424,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductProjectViewResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_delivery_bundles_api_v1_projects__project_id__delivery_bundles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryBundleResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_delivery_bundle_api_v1_projects__project_id__delivery_bundles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeliveryBundleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryBundleResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryBundleResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    download_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__archive_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integrity-checked delivery archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
                 };
             };
             /** @description Resource not found */

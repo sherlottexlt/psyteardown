@@ -496,3 +496,28 @@ export function retryRepairJob(input: {
 export function listRepairJobs(projectId: string): Promise<import("./types").ProductRepairJob[]> {
   return request(`/api/v1/projects/${encodeURIComponent(projectId)}/repair-jobs`);
 }
+
+export function createDeliveryBundle(input: {
+  projectId: string;
+  executionJobId: string;
+}): Promise<import("./types").ProductDeliveryBundle> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/delivery-bundles`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        execution_job_id: input.executionJobId,
+        actor: "local-user",
+        reason: "Export verified B6 delivery bundle in Product Studio",
+      }),
+    },
+  );
+}
+
+export function listDeliveryBundles(projectId: string): Promise<import("./types").ProductDeliveryBundle[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/delivery-bundles`);
+}
+
+export function deliveryBundleArchiveUrl(projectId: string, bundleId: string): string {
+  return `${apiBase}/api/v1/projects/${encodeURIComponent(projectId)}/delivery-bundles/${encodeURIComponent(bundleId)}/archive`;
+}

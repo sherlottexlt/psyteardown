@@ -71,6 +71,7 @@ export type ProductProposalJob = Schemas["ProductProposalJobResponse"];
 export type ProductGenerationJob = Schemas["ProductGenerationJobResponse"];
 export type ProductExecutionJob = Schemas["ExecutionJobResponse"];
 export type ProductRepairJob = Schemas["RepairJobResponse"];
+export type ProductDeliveryBundle = Schemas["DeliveryBundleResponse"];
 export type ProposalJobKind = Schemas["CreateProposalJobRequest"]["kind"];
 export type SubmitProblemModelRequest = Schemas["SubmitProblemModelRequest"];
 export type SubmitOutcomeContractRequest = Schemas["SubmitOutcomeContractRequest"];

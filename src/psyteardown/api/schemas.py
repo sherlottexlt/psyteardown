@@ -24,6 +24,8 @@ from psyteardown.product.models import (
     ProductGenerationJob,
     ProductExecutionJob,
     ProductRepairJob,
+    ProductDeliveryBundle,
+    DeliveryBundleFile,
     GenerationBudget,
     GenerationManifest,
     GenerationSandboxPolicy,
@@ -466,6 +468,46 @@ class RepairJobResponse(TransportModel):
 
     @classmethod
     def from_domain(cls, value: ProductRepairJob) -> "RepairJobResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class CreateDeliveryBundleRequest(TransportModel):
+    execution_job_id: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class DeliveryBundleResponse(TransportModel):
+    bundle_id: str
+    revision_id: str
+    project_id: str
+    kind: Literal["web_product_delivery"]
+    format_version: Literal["b6-v1"]
+    meta: RevisionMetaResponse
+    input_dependencies: list[dict[str, Any]]
+    execution_job_id: str
+    execution_job_revision_id: str
+    generation_job_id: str
+    generation_job_revision_id: str
+    web_generation_contract_revision_id: str
+    contract_is_current: bool
+    materialization_kind: Literal["template", "repair"]
+    parent_generation_job_id: str | None
+    repair_job_id: str | None
+    template_id: Literal["react_typescript_vite_spa"]
+    template_version: str
+    verification_steps: list[ExecutionStep]
+    files: list[DeliveryBundleFile]
+    total_bytes: int
+    archive_sha256: str
+    archive_bytes: int
+    unverified_claims: list[str]
+    outcome_evidence_level: Literal["none"]
+    fingerprint: str
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductDeliveryBundle) -> "DeliveryBundleResponse":
         return cls.model_validate(_with_content_hash(value))
 
 

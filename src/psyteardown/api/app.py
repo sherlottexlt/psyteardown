@@ -20,6 +20,7 @@ from psyteardown.api.proposal_jobs import router as proposal_jobs_router
 from psyteardown.api.generation_jobs import router as generation_jobs_router
 from psyteardown.api.execution_jobs import router as execution_jobs_router
 from psyteardown.api.repair_jobs import router as repair_jobs_router
+from psyteardown.api.delivery_bundles import router as delivery_bundles_router
 from psyteardown.api.schemas import HealthResponse
 from psyteardown.product import (
     ProductApplicationService,
@@ -30,6 +31,8 @@ from psyteardown.product import (
     InMemoryProductExecutionJobRepository,
     ProductRepairJobService,
     InMemoryProductRepairJobRepository,
+    ProductDeliveryBundleService,
+    InMemoryProductDeliveryBundleRepository,
     ProductProposalJobService,
     SQLiteProductRepository,
 )
@@ -54,6 +57,7 @@ def create_app(
     generation_job_service: ProductGenerationJobService | None = None,
     execution_job_service: ProductExecutionJobService | None = None,
     repair_job_service: ProductRepairJobService | None = None,
+    delivery_bundle_service: ProductDeliveryBundleService | None = None,
     allowed_hosts: Sequence[str] = tuple(DEFAULT_ALLOWED_HOSTS),
     allowed_origins: Sequence[str] = DEFAULT_ALLOWED_ORIGINS,
 ) -> FastAPI:
@@ -111,6 +115,21 @@ def create_app(
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
+            workspace_root = getattr(
+                app.state.product_generation_job_service,
+                "workspace_root",
+                Path("output/product-studio/workspaces"),
+            )
+            app.state.product_delivery_bundle_service = delivery_bundle_service or ProductDeliveryBundleService(
+                service,
+                InMemoryProductDeliveryBundleRepository(),
+                generation_repository or InMemoryProductGenerationJobRepository(),
+                execution_repository or InMemoryProductExecutionJobRepository(generation_repository),
+                workspace_root=workspace_root,
+                export_root=Path(workspace_root).parent / "exports",
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
         else:
             repository = SQLiteProductRepository(resolved_path)
             kwargs = {}
@@ -148,6 +167,15 @@ def create_app(
                 workspace_root=resolved_path.parent / "workspaces",
                 **kwargs,
             )
+            app.state.product_delivery_bundle_service = ProductDeliveryBundleService(
+                app.state.product_service,
+                repository,
+                repository,
+                repository,
+                workspace_root=resolved_path.parent / "workspaces",
+                export_root=resolved_path.parent / "exports",
+                **kwargs,
+            )
         try:
             yield
         finally:
@@ -156,6 +184,7 @@ def create_app(
             app.state.product_generation_job_service = None
             app.state.product_execution_job_service = None
             app.state.product_repair_job_service = None
+            app.state.product_delivery_bundle_service = None
             if owns_repository and repository is not None:
                 repository.close()
 
@@ -168,7 +197,8 @@ def create_app(
             "explicit run command performs only the bounded local step. "
             "Generated source is never executed by the generation job; a separate, "
             "explicit B4 execution job provides bounded build, preview and browser validation. "
-            "A B5 repair job may apply only deterministic, allowlisted patches in a new lineage."
+            "A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. "
+            "A B6 delivery bundle is an immutable, content-addressed export of one verified execution."
         ),
         lifespan=lifespan,
     )
@@ -217,6 +247,7 @@ def create_app(
     application.include_router(generation_jobs_router, prefix="/api/v1")
     application.include_router(execution_jobs_router, prefix="/api/v1")
     application.include_router(repair_jobs_router, prefix="/api/v1")
+    application.include_router(delivery_bundles_router, prefix="/api/v1")
     return application
 
 

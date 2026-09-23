@@ -13,6 +13,9 @@ import {
   listRepairJobs,
   runRepairJob,
   retryRepairJob,
+  createDeliveryBundle,
+  listDeliveryBundles,
+  deliveryBundleArchiveUrl,
   confirmRevision,
   createProposalJob,
   getProject,
@@ -81,6 +84,11 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   const repairJobsQuery = useQuery({
     queryKey: ["repair-jobs", projectId],
     queryFn: () => listRepairJobs(projectId),
+    retry: false,
+  });
+  const deliveryBundlesQuery = useQuery({
+    queryKey: ["delivery-bundles", projectId],
+    queryFn: () => listDeliveryBundles(projectId),
     retry: false,
   });
 
@@ -262,6 +270,22 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
+  async function handleExportProduct() {
+    const executionJob = executionJobsQuery.data?.at(-1);
+    if (!executionJob || executionJob.status !== "succeeded") {
+      setActionError("只有成功完成 B4 验证的执行才能导出交付包。");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      await createDeliveryBundle({ projectId, executionJobId: executionJob.job_id });
+      await deliveryBundlesQuery.refetch();
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
   if (query.isLoading) {
     return <main className="loading-screen"><div className="loading-mark"><span /><span /><span /></div><p>正在读取产品模型…</p></main>;
   }
@@ -298,7 +322,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
         <div className="studio-content">
           {area === "command" ? <CommandView view={view} /> : null}
           {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
-          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));

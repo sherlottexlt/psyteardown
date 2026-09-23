@@ -1131,3 +1131,94 @@ class ProductExecutionJob(FrozenModel):
             if path is not None and (path.startswith(("/", "\\")) or ".." in path.replace("\\", "/").split("/")):
                 raise ValueError(f"{label} path must stay inside the workspace")
         return self
+
+
+# B6 delivery bundles package only a verified execution.  They are immutable
+# single-revision records: a changed workspace needs a new execution and a new
+# bundle, never an edited one.
+DELIVERY_BUNDLE_FORMAT_VERSION = "b6-v1"
+DELIVERY_MAX_FILES = 256
+DELIVERY_MAX_BYTES = 8 * 1024 * 1024
+DELIVERY_BASE_UNVERIFIED_CLAIMS = (
+    "No real-user, task or outcome evidence exists for this product; outcome evidence level is none.",
+    "Content and structure come from a deterministic template and fake provider, not research or a real model.",
+    "Execution ran as a local allowlisted subprocess without OS/container isolation.",
+    "Browser checks covered headless Chromium desktop only; no cross-browser, mobile or manual accessibility review.",
+    "Screenshots are review artifacts, not an approved visual regression baseline.",
+    "package-lock.json and node_modules are excluded; dependency versions are pinned in package.json only.",
+)
+
+
+class DeliveryBundleFile(FrozenModel):
+    path: Identifier
+    role: Literal["source", "build", "verification", "notes"]
+    byte_count: int = Field(ge=0)
+    sha256: Identifier
+
+    @model_validator(mode="after")
+    def path_is_contained(self) -> "DeliveryBundleFile":
+        parts = self.path.split("/")
+        if "\\" in self.path or self.path.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+            raise ValueError("delivery bundle path must be a normalized relative path")
+        return self
+
+
+class ProductDeliveryBundle(FrozenModel):
+    """Immutable, content-addressed export of one verified execution."""
+
+    bundle_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    kind: Literal["web_product_delivery"] = "web_product_delivery"
+    format_version: Literal["b6-v1"] = DELIVERY_BUNDLE_FORMAT_VERSION
+    input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
+    execution_job_id: Identifier
+    execution_job_revision_id: Identifier
+    generation_job_id: Identifier
+    generation_job_revision_id: Identifier
+    web_generation_contract_revision_id: Identifier
+    contract_is_current: bool
+    materialization_kind: Literal["template", "repair"]
+    parent_generation_job_id: Identifier | None = None
+    repair_job_id: Identifier | None = None
+    template_id: Literal["react_typescript_vite_spa"] = WEB_TEMPLATE_ID
+    template_version: Identifier = WEB_TEMPLATE_VERSION
+    verification_steps: tuple[ExecutionStep, ...] = Field(min_length=4, max_length=4)
+    files: tuple[DeliveryBundleFile, ...] = Field(min_length=1, max_length=DELIVERY_MAX_FILES)
+    total_bytes: int = Field(ge=0, le=DELIVERY_MAX_BYTES)
+    archive_sha256: Identifier
+    archive_bytes: int = Field(ge=1)
+    unverified_claims: tuple[Identifier, ...] = Field(min_length=1)
+    outcome_evidence_level: Literal["none"] = "none"
+    fingerprint: Identifier
+
+    @model_validator(mode="after")
+    def validate_delivery_bundle(self) -> "ProductDeliveryBundle":
+        if self.meta.revision != 1 or self.revision_id != f"{self.bundle_id}.r1":
+            raise ValueError("delivery bundles are immutable single-revision records")
+        dependency = self.input_dependencies[0]
+        if dependency.object_type != "product_execution_job" or dependency.object_id != self.execution_job_id:
+            raise ValueError("delivery bundle requires its execution dependency")
+        if self.execution_job_revision_id != f"{dependency.object_id}.r{dependency.revision}":
+            raise ValueError("delivery bundle dependency does not match its revision")
+        if not self.generation_job_revision_id.startswith(f"{self.generation_job_id}.r"):
+            raise ValueError("delivery bundle generation lineage does not match its job")
+        if tuple(step.name for step in self.verification_steps) != ("install", "build", "run", "browser") or any(
+            step.status != "succeeded" for step in self.verification_steps
+        ):
+            raise ValueError("delivery bundle requires four succeeded execution steps")
+        if self.materialization_kind == "repair":
+            if not self.parent_generation_job_id or not self.repair_job_id:
+                raise ValueError("repaired delivery bundle requires repair lineage")
+        elif self.parent_generation_job_id or self.repair_job_id:
+            raise ValueError("template delivery bundle cannot carry repair lineage")
+        paths = tuple(item.path for item in self.files)
+        if len(set(paths)) != len(paths):
+            raise ValueError("delivery bundle file paths must be unique")
+        if self.total_bytes != sum(item.byte_count for item in self.files):
+            raise ValueError("delivery bundle byte total does not match files")
+        roles = {item.role for item in self.files}
+        if not {"source", "build", "notes"} <= roles:
+            raise ValueError("delivery bundle requires source, build and notes files")
+        return self

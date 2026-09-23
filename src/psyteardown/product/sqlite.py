@@ -11,7 +11,7 @@ from psyteardown.product.jobs import _validate_job_revision
 from psyteardown.product.generation import _validate_generation_job_revision
 from psyteardown.product.execution import _validate_execution_job_revision
 from psyteardown.product.repair import _validate_repair_job_revision
-from psyteardown.product.models import ProductExecutionJob, ProductGenerationJob, ProductProposalJob, ProductRepairJob, RevisionImpact
+from psyteardown.product.models import ProductDeliveryBundle, ProductExecutionJob, ProductGenerationJob, ProductProposalJob, ProductRepairJob, RevisionImpact
 from psyteardown.product.repositories import (
     ProductRepositoryError,
     ProductSnapshot,
@@ -181,6 +181,18 @@ CREATE TABLE IF NOT EXISTS product_repair_job_current (
     FOREIGN KEY (job_id, revision)
       REFERENCES product_repair_job_revisions (job_id, revision)
 );
+CREATE TABLE IF NOT EXISTS product_delivery_bundles (
+    bundle_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    execution_job_revision_id TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    archive_sha256 TEXT NOT NULL,
+    bundle_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (project_id, fingerprint)
+);
+CREATE INDEX IF NOT EXISTS idx_product_delivery_bundles_project
+    ON product_delivery_bundles (project_id, created_at, bundle_id);
 """
 
 
@@ -597,6 +609,55 @@ class SQLiteProductRepository:
             self._conn.rollback()
             raise
         return job
+
+    def get_delivery_bundle(self, bundle_id: str) -> ProductDeliveryBundle | None:
+        row = self._conn.execute(
+            "SELECT bundle_json FROM product_delivery_bundles WHERE bundle_id=?",
+            (bundle_id,),
+        ).fetchone()
+        return ProductDeliveryBundle.model_validate_json(row[0]) if row else None
+
+    def list_delivery_bundles(
+        self, *, project_id: str | None = None
+    ) -> list[ProductDeliveryBundle]:
+        query = "SELECT bundle_json FROM product_delivery_bundles"
+        params: tuple[object, ...] = ()
+        if project_id is not None:
+            query += " WHERE project_id=?"
+            params = (project_id,)
+        query += " ORDER BY created_at, bundle_id"
+        rows = self._conn.execute(query, params).fetchall()
+        return [ProductDeliveryBundle.model_validate_json(row[0]) for row in rows]
+
+    def save_delivery_bundle(self, bundle: ProductDeliveryBundle) -> ProductDeliveryBundle:
+        # Insert-only: the primary key and (project, fingerprint) uniqueness
+        # make an overwrite or a duplicate export fail atomically.
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            self._conn.execute(
+                "INSERT INTO product_delivery_bundles "
+                "(bundle_id,project_id,execution_job_revision_id,fingerprint,archive_sha256,bundle_json,created_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (
+                    bundle.bundle_id,
+                    bundle.project_id,
+                    bundle.execution_job_revision_id,
+                    bundle.fingerprint,
+                    bundle.archive_sha256,
+                    bundle.model_dump_json(),
+                    bundle.meta.created_at.isoformat(),
+                ),
+            )
+            self._conn.commit()
+        except sqlite3.IntegrityError as exc:
+            self._conn.rollback()
+            raise ProductRepositoryError(
+                "delivery bundles are immutable and cannot be overwritten"
+            ) from exc
+        except Exception:
+            self._conn.rollback()
+            raise
+        return bundle
 
     def save_command(
         self,

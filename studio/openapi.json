@@ -186,6 +186,33 @@
         "title": "ConfirmRevisionRequest",
         "type": "object"
       },
+      "CreateDeliveryBundleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "execution_job_id": {
+            "minLength": 1,
+            "title": "Execution Job Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "execution_job_id",
+          "actor",
+          "reason"
+        ],
+        "title": "CreateDeliveryBundleRequest",
+        "type": "object"
+      },
       "CreateExecutionJobRequest": {
         "additionalProperties": false,
         "properties": {
@@ -378,6 +405,222 @@
           "reason"
         ],
         "title": "CreateRepairJobRequest",
+        "type": "object"
+      },
+      "DeliveryBundleFile": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_count": {
+            "minimum": 0.0,
+            "title": "Byte Count",
+            "type": "integer"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "source",
+              "build",
+              "verification",
+              "notes"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sha256": {
+            "minLength": 1,
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "role",
+          "byte_count",
+          "sha256"
+        ],
+        "title": "DeliveryBundleFile",
+        "type": "object"
+      },
+      "DeliveryBundleResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_bytes": {
+            "title": "Archive Bytes",
+            "type": "integer"
+          },
+          "archive_sha256": {
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "contract_is_current": {
+            "title": "Contract Is Current",
+            "type": "boolean"
+          },
+          "execution_job_id": {
+            "title": "Execution Job Id",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryBundleFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "format_version": {
+            "const": "b6-v1",
+            "title": "Format Version",
+            "type": "string"
+          },
+          "generation_job_id": {
+            "title": "Generation Job Id",
+            "type": "string"
+          },
+          "generation_job_revision_id": {
+            "title": "Generation Job Revision Id",
+            "type": "string"
+          },
+          "input_dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Input Dependencies",
+            "type": "array"
+          },
+          "kind": {
+            "const": "web_product_delivery",
+            "title": "Kind",
+            "type": "string"
+          },
+          "materialization_kind": {
+            "enum": [
+              "template",
+              "repair"
+            ],
+            "title": "Materialization Kind",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "outcome_evidence_level": {
+            "const": "none",
+            "title": "Outcome Evidence Level",
+            "type": "string"
+          },
+          "parent_generation_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Generation Job Id"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "repair_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repair Job Id"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "template_id": {
+            "const": "react_typescript_vite_spa",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "template_version": {
+            "title": "Template Version",
+            "type": "string"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "unverified_claims": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unverified Claims",
+            "type": "array"
+          },
+          "verification_steps": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionStep"
+            },
+            "title": "Verification Steps",
+            "type": "array"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bundle_id",
+          "revision_id",
+          "project_id",
+          "kind",
+          "format_version",
+          "meta",
+          "input_dependencies",
+          "execution_job_id",
+          "execution_job_revision_id",
+          "generation_job_id",
+          "generation_job_revision_id",
+          "web_generation_contract_revision_id",
+          "contract_is_current",
+          "materialization_kind",
+          "parent_generation_job_id",
+          "repair_job_id",
+          "template_id",
+          "template_version",
+          "verification_steps",
+          "files",
+          "total_bytes",
+          "archive_sha256",
+          "archive_bytes",
+          "unverified_claims",
+          "outcome_evidence_level",
+          "fingerprint",
+          "content_hash"
+        ],
+        "title": "DeliveryBundleResponse",
         "type": "object"
       },
       "DeliveryEstimate": {
@@ -4297,7 +4540,7 @@
     }
   },
   "info": {
-    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is never executed by the generation job; a separate, explicit B4 execution job provides bounded build, preview and browser validation. A B5 repair job may apply only deterministic, allowlisted patches in a new lineage.",
+    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is never executed by the generation job; a separate, explicit B4 execution job provides bounded build, preview and browser validation. A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. A B6 delivery bundle is an immutable, content-addressed export of one verified execution.",
     "title": "psyteardown Product Studio API",
     "version": "0.1.0"
   },
@@ -4444,6 +4687,280 @@
         "summary": "Get Project",
         "tags": [
           "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/delivery-bundles": {
+      "get": {
+        "operationId": "list_delivery_bundles_api_v1_projects__project_id__delivery_bundles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryBundleResponse"
+                  },
+                  "title": "Response List Delivery Bundles Api V1 Projects  Project Id  Delivery Bundles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Delivery Bundles",
+        "tags": [
+          "product-delivery-bundles"
+        ]
+      },
+      "post": {
+        "operationId": "create_delivery_bundle_api_v1_projects__project_id__delivery_bundles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeliveryBundleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryBundleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Delivery Bundle",
+        "tags": [
+          "product-delivery-bundles"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}": {
+      "get": {
+        "operationId": "get_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryBundleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Delivery Bundle",
+        "tags": [
+          "product-delivery-bundles"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/archive": {
+      "get": {
+        "operationId": "download_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__archive_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {}
+            },
+            "description": "Integrity-checked delivery archive"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Download Delivery Bundle",
+        "tags": [
+          "product-delivery-bundles"
         ]
       }
     },
