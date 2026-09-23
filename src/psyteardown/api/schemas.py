@@ -22,9 +22,16 @@ from psyteardown.product.models import (
     ProductProjectView,
     ProductProposalJob,
     ProductGenerationJob,
+    ProductExecutionJob,
+    ProductRepairJob,
     GenerationBudget,
     GenerationManifest,
     GenerationSandboxPolicy,
+    ExecutionBudget,
+    ExecutionSandboxPolicy,
+    ExecutionStep,
+    RepairBudget,
+    RepairAttempt,
     ProductThesis,
     RevisionImpact,
     SourceReference,
@@ -192,12 +199,63 @@ class GenerationJobActionRequest(TransportModel):
     actor: str = Field(min_length=1)
 
 
+class ExecutionBudgetRequest(TransportModel):
+    max_attempts: int = Field(default=1, ge=1, le=3)
+    max_duration_seconds: int = Field(default=180, ge=1, le=180)
+    max_output_bytes: int = Field(default=256 * 1024, ge=1024, le=256 * 1024)
+    max_cost_units: int = Field(default=4, ge=1, le=4)
+
+
+class CreateExecutionJobRequest(TransportModel):
+    generation_job_id: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    budget: ExecutionBudgetRequest | None = None
+
+
+class ExecutionJobActionRequest(TransportModel):
+    actor: str = Field(min_length=1)
+
+
 class RevisionMetaResponse(TransportModel):
     revision: int
     parent_revision_id: str | None
     created_at: datetime
     created_by: str
     reason: str
+
+
+class ExecutionJobResponse(TransportModel):
+    job_id: str
+    revision_id: str
+    project_id: str
+    kind: Literal["web_product_execution"]
+    status: Literal["queued", "running", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"]
+    provider: str
+    provider_version: str
+    meta: RevisionMetaResponse
+    input_dependencies: list[dict[str, Any]]
+    generation_job_id: str
+    generation_job_revision_id: str
+    workspace_relative_path: str
+    budget: ExecutionBudget
+    sandbox: ExecutionSandboxPolicy
+    fingerprint: str
+    attempt: int
+    checkpoint_step: str | None
+    steps: list[ExecutionStep]
+    consumed_duration_seconds: float
+    consumed_output_bytes: int
+    consumed_cost_units: int
+    build_artifact_relative_path: str | None
+    browser_report_relative_path: str | None
+    error_code: str | None
+    error_summary: str | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductExecutionJob) -> "ExecutionJobResponse":
+        return cls.model_validate(_with_content_hash(value))
 
 
 class ProductProjectResponse(TransportModel):
@@ -335,7 +393,7 @@ class ProductGenerationJobResponse(TransportModel):
     status: Literal[
         "queued", "running", "paused", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"
     ]
-    provider: Literal["deterministic_template"]
+    provider: Literal["deterministic_template", "deterministic_repair"]
     provider_version: str
     input_dependencies: list[dict[str, Any]]
     web_generation_contract_revision_id: str
@@ -344,6 +402,9 @@ class ProductGenerationJobResponse(TransportModel):
     budget: GenerationBudget
     sandbox: GenerationSandboxPolicy
     fingerprint: str
+    materialization_kind: Literal["template", "repair"]
+    parent_generation_job_id: str | None
+    repair_job_id: str | None
     attempt: int
     checkpoint_step: Literal["prepare", "generate", "validate"] | None
     consumed_files: int
@@ -357,6 +418,54 @@ class ProductGenerationJobResponse(TransportModel):
 
     @classmethod
     def from_domain(cls, value: ProductGenerationJob) -> "ProductGenerationJobResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class RepairBudgetRequest(TransportModel):
+    max_attempts: int = Field(default=2, ge=1, le=3)
+    max_patches: int = Field(default=2, ge=1, le=2)
+    max_patch_bytes: int = Field(default=16 * 1024, ge=1, le=16 * 1024)
+    max_cost_units: int = Field(default=2, ge=1, le=2)
+
+
+class CreateRepairJobRequest(TransportModel):
+    execution_job_id: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    budget: RepairBudgetRequest | None = None
+
+
+class RepairJobActionRequest(TransportModel):
+    actor: str = Field(min_length=1)
+
+
+class RepairJobResponse(TransportModel):
+    job_id: str
+    revision_id: str
+    project_id: str
+    kind: Literal["web_product_repair"]
+    status: Literal["queued", "running", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"]
+    provider: Literal["deterministic_repair"]
+    provider_version: str
+    meta: RevisionMetaResponse
+    input_dependencies: list[dict[str, Any]]
+    execution_job_id: str
+    execution_job_revision_id: str
+    generation_job_id: str
+    generation_job_revision_id: str
+    budget: RepairBudget
+    fingerprint: str
+    attempt: int
+    attempts: list[RepairAttempt]
+    consumed_cost_units: int
+    latest_generation_job_id: str | None
+    latest_execution_job_id: str | None
+    error_code: str | None
+    error_summary: str | None
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: ProductRepairJob) -> "RepairJobResponse":
         return cls.model_validate(_with_content_hash(value))
 
 

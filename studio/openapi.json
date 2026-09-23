@@ -186,6 +186,43 @@
         "title": "ConfirmRevisionRequest",
         "type": "object"
       },
+      "CreateExecutionJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionBudgetRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generation_job_id": {
+            "minLength": 1,
+            "title": "Generation Job Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generation_job_id",
+          "actor",
+          "reason"
+        ],
+        "title": "CreateExecutionJobRequest",
+        "type": "object"
+      },
       "CreateGenerationJobRequest": {
         "additionalProperties": false,
         "properties": {
@@ -306,6 +343,43 @@
         "title": "CreateProposalJobRequest",
         "type": "object"
       },
+      "CreateRepairJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepairBudgetRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution_job_id": {
+            "minLength": 1,
+            "title": "Execution Job Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "execution_job_id",
+          "actor",
+          "reason"
+        ],
+        "title": "CreateRepairJobRequest",
+        "type": "object"
+      },
       "DeliveryEstimate": {
         "additionalProperties": false,
         "properties": {
@@ -343,6 +417,408 @@
         ],
         "title": "DeliveryMaturity",
         "type": "string"
+      },
+      "ExecutionBudget": {
+        "additionalProperties": false,
+        "description": "Boundaries for one install/build/run/browser execution attempt.",
+        "properties": {
+          "max_attempts": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_duration_seconds": {
+            "default": 180,
+            "maximum": 180.0,
+            "minimum": 1.0,
+            "title": "Max Duration Seconds",
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "default": 262144,
+            "maximum": 262144.0,
+            "minimum": 1024.0,
+            "title": "Max Output Bytes",
+            "type": "integer"
+          }
+        },
+        "title": "ExecutionBudget",
+        "type": "object"
+      },
+      "ExecutionBudgetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "max_attempts": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_duration_seconds": {
+            "default": 180,
+            "maximum": 180.0,
+            "minimum": 1.0,
+            "title": "Max Duration Seconds",
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "default": 262144,
+            "maximum": 262144.0,
+            "minimum": 1024.0,
+            "title": "Max Output Bytes",
+            "type": "integer"
+          }
+        },
+        "title": "ExecutionBudgetRequest",
+        "type": "object"
+      },
+      "ExecutionJobActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "ExecutionJobActionRequest",
+        "type": "object"
+      },
+      "ExecutionJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "browser_report_relative_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Browser Report Relative Path"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/ExecutionBudget"
+          },
+          "build_artifact_relative_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Artifact Relative Path"
+          },
+          "checkpoint_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Step"
+          },
+          "consumed_cost_units": {
+            "title": "Consumed Cost Units",
+            "type": "integer"
+          },
+          "consumed_duration_seconds": {
+            "title": "Consumed Duration Seconds",
+            "type": "number"
+          },
+          "consumed_output_bytes": {
+            "title": "Consumed Output Bytes",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "generation_job_id": {
+            "title": "Generation Job Id",
+            "type": "string"
+          },
+          "generation_job_revision_id": {
+            "title": "Generation Job Revision Id",
+            "type": "string"
+          },
+          "input_dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Input Dependencies",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "web_product_execution",
+            "title": "Kind",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_version": {
+            "title": "Provider Version",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/ExecutionSandboxPolicy"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "stale_input",
+              "budget_exhausted",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "workspace_relative_path": {
+            "title": "Workspace Relative Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "revision_id",
+          "project_id",
+          "kind",
+          "status",
+          "provider",
+          "provider_version",
+          "meta",
+          "input_dependencies",
+          "generation_job_id",
+          "generation_job_revision_id",
+          "workspace_relative_path",
+          "budget",
+          "sandbox",
+          "fingerprint",
+          "attempt",
+          "checkpoint_step",
+          "steps",
+          "consumed_duration_seconds",
+          "consumed_output_bytes",
+          "consumed_cost_units",
+          "build_artifact_relative_path",
+          "browser_report_relative_path",
+          "error_code",
+          "error_summary",
+          "content_hash"
+        ],
+        "title": "ExecutionJobResponse",
+        "type": "object"
+      },
+      "ExecutionSandboxPolicy": {
+        "additionalProperties": false,
+        "description": "Explicit B4 execution grant; never implied by source generation.",
+        "properties": {
+          "browser_policy": {
+            "const": "chromium_headless",
+            "default": "chromium_headless",
+            "title": "Browser Policy",
+            "type": "string"
+          },
+          "command_policy": {
+            "const": "allowlisted_npm_scripts",
+            "default": "allowlisted_npm_scripts",
+            "title": "Command Policy",
+            "type": "string"
+          },
+          "dependency_policy": {
+            "const": "fixed_npm_template",
+            "default": "fixed_npm_template",
+            "title": "Dependency Policy",
+            "type": "string"
+          },
+          "install_network_policy": {
+            "const": "registry_only",
+            "default": "registry_only",
+            "title": "Install Network Policy",
+            "type": "string"
+          },
+          "runtime_network_policy": {
+            "const": "none",
+            "default": "none",
+            "title": "Runtime Network Policy",
+            "type": "string"
+          },
+          "secret_policy": {
+            "const": "none",
+            "default": "none",
+            "title": "Secret Policy",
+            "type": "string"
+          },
+          "workspace_scope": {
+            "const": "generation_job",
+            "default": "generation_job",
+            "title": "Workspace Scope",
+            "type": "string"
+          }
+        },
+        "title": "ExecutionSandboxPolicy",
+        "type": "object"
+      },
+      "ExecutionStep": {
+        "additionalProperties": false,
+        "description": "Safe summary of one execution phase; raw logs are never persisted.",
+        "properties": {
+          "duration_seconds": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "name": {
+            "enum": [
+              "install",
+              "build",
+              "run",
+              "browser"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "output_bytes": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Output Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ExecutionStep",
+        "type": "object"
       },
       "FalsifiablePrediction": {
         "additionalProperties": false,
@@ -1250,21 +1726,54 @@
               }
             ]
           },
+          "materialization_kind": {
+            "enum": [
+              "template",
+              "repair"
+            ],
+            "title": "Materialization Kind",
+            "type": "string"
+          },
           "meta": {
             "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "parent_generation_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Generation Job Id"
           },
           "project_id": {
             "title": "Project Id",
             "type": "string"
           },
           "provider": {
-            "const": "deterministic_template",
+            "enum": [
+              "deterministic_template",
+              "deterministic_repair"
+            ],
             "title": "Provider",
             "type": "string"
           },
           "provider_version": {
             "title": "Provider Version",
             "type": "string"
+          },
+          "repair_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repair Job Id"
           },
           "revision_id": {
             "title": "Revision Id",
@@ -1316,6 +1825,9 @@
           "budget",
           "sandbox",
           "fingerprint",
+          "materialization_kind",
+          "parent_generation_job_id",
+          "repair_job_id",
           "attempt",
           "checkpoint_step",
           "consumed_files",
@@ -2135,6 +2647,420 @@
           "actor"
         ],
         "title": "ProposalJobActionRequest",
+        "type": "object"
+      },
+      "RepairAttempt": {
+        "additionalProperties": false,
+        "description": "Persisted safe summary of one repair proposal/application/verification.",
+        "properties": {
+          "attempt": {
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "cost_units": {
+            "default": 1,
+            "minimum": 0.0,
+            "title": "Cost Units",
+            "type": "integer"
+          },
+          "diagnosis": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Diagnosis",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "execution_job_revision_id": {
+            "minLength": 1,
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "failure_code": {
+            "minLength": 1,
+            "title": "Failure Code",
+            "type": "string"
+          },
+          "failure_step": {
+            "enum": [
+              "install",
+              "build",
+              "run",
+              "browser"
+            ],
+            "title": "Failure Step",
+            "type": "string"
+          },
+          "output_execution_job_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Execution Job Id"
+          },
+          "output_generation_job_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Generation Job Id"
+          },
+          "patches": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RepairPatch"
+            },
+            "title": "Patches",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "planned",
+              "applied",
+              "verified",
+              "failed",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "execution_job_revision_id",
+          "failure_step",
+          "failure_code",
+          "diagnosis",
+          "status"
+        ],
+        "title": "RepairAttempt",
+        "type": "object"
+      },
+      "RepairBudget": {
+        "additionalProperties": false,
+        "description": "Limits for one deterministic repair lineage.",
+        "properties": {
+          "max_attempts": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_patch_bytes": {
+            "default": 16384,
+            "maximum": 16384.0,
+            "minimum": 1.0,
+            "title": "Max Patch Bytes",
+            "type": "integer"
+          },
+          "max_patches": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Patches",
+            "type": "integer"
+          }
+        },
+        "title": "RepairBudget",
+        "type": "object"
+      },
+      "RepairBudgetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "max_attempts": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "max_cost_units": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Cost Units",
+            "type": "integer"
+          },
+          "max_patch_bytes": {
+            "default": 16384,
+            "maximum": 16384.0,
+            "minimum": 1.0,
+            "title": "Max Patch Bytes",
+            "type": "integer"
+          },
+          "max_patches": {
+            "default": 2,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Patches",
+            "type": "integer"
+          }
+        },
+        "title": "RepairBudgetRequest",
+        "type": "object"
+      },
+      "RepairJobActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "RepairJobActionRequest",
+        "type": "object"
+      },
+      "RepairJobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/RepairAttempt"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/RepairBudget"
+          },
+          "consumed_cost_units": {
+            "title": "Consumed Cost Units",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Summary"
+          },
+          "execution_job_id": {
+            "title": "Execution Job Id",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "generation_job_id": {
+            "title": "Generation Job Id",
+            "type": "string"
+          },
+          "generation_job_revision_id": {
+            "title": "Generation Job Revision Id",
+            "type": "string"
+          },
+          "input_dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Input Dependencies",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "web_product_repair",
+            "title": "Kind",
+            "type": "string"
+          },
+          "latest_execution_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Execution Job Id"
+          },
+          "latest_generation_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Generation Job Id"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "deterministic_repair",
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_version": {
+            "title": "Provider Version",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "stale_input",
+              "budget_exhausted",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "revision_id",
+          "project_id",
+          "kind",
+          "status",
+          "provider",
+          "provider_version",
+          "meta",
+          "input_dependencies",
+          "execution_job_id",
+          "execution_job_revision_id",
+          "generation_job_id",
+          "generation_job_revision_id",
+          "budget",
+          "fingerprint",
+          "attempt",
+          "attempts",
+          "consumed_cost_units",
+          "latest_generation_job_id",
+          "latest_execution_job_id",
+          "error_code",
+          "error_summary",
+          "content_hash"
+        ],
+        "title": "RepairJobResponse",
+        "type": "object"
+      },
+      "RepairPatch": {
+        "additionalProperties": false,
+        "description": "A single exact text replacement against a pinned generated file.",
+        "properties": {
+          "expected_sha256": {
+            "minLength": 1,
+            "title": "Expected Sha256",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "replace": {
+            "default": "",
+            "maxLength": 16384,
+            "title": "Replace",
+            "type": "string"
+          },
+          "search": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Search",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "expected_sha256",
+          "search",
+          "rationale"
+        ],
+        "title": "RepairPatch",
         "type": "object"
       },
       "ResourceBoundary": {
@@ -3371,7 +4297,7 @@
     }
   },
   "info": {
-    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is not installed, executed, or exposed as a preview.",
+    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is never executed by the generation job; a separate, explicit B4 execution job provides bounded build, preview and browser validation. A B5 repair job may apply only deterministic, allowlisted patches in a new lineage.",
     "title": "psyteardown Product Studio API",
     "version": "0.1.0"
   },
@@ -3518,6 +4444,456 @@
         "summary": "Get Project",
         "tags": [
           "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/execution-jobs": {
+      "get": {
+        "operationId": "list_execution_jobs_api_v1_projects__project_id__execution_jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExecutionJobResponse"
+                  },
+                  "title": "Response List Execution Jobs Api V1 Projects  Project Id  Execution Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Execution Jobs",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_execution_job_api_v1_projects__project_id__execution_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExecutionJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Execution Job",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_execution_job_api_v1_projects__project_id__execution_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Execution Job",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/cancellations": {
+      "post": {
+        "operationId": "cancel_execution_job_api_v1_projects__project_id__execution_jobs__job_id__cancellations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Cancel Execution Job",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/retries": {
+      "post": {
+        "operationId": "retry_execution_job_api_v1_projects__project_id__execution_jobs__job_id__retries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Retry Execution Job",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/runs": {
+      "post": {
+        "operationId": "run_execution_job_api_v1_projects__project_id__execution_jobs__job_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Run Execution Job",
+        "tags": [
+          "product-execution-jobs"
         ]
       }
     },
@@ -5111,6 +6487,456 @@
         "summary": "Run Proposal Job",
         "tags": [
           "product-proposal-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/repair-jobs": {
+      "get": {
+        "operationId": "list_repair_jobs_api_v1_projects__project_id__repair_jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RepairJobResponse"
+                  },
+                  "title": "Response List Repair Jobs Api V1 Projects  Project Id  Repair Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Repair Jobs",
+        "tags": [
+          "product-repair-jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_repair_job_api_v1_projects__project_id__repair_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRepairJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Repair Job",
+        "tags": [
+          "product-repair-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}": {
+      "get": {
+        "operationId": "get_repair_job_api_v1_projects__project_id__repair_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Repair Job",
+        "tags": [
+          "product-repair-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/cancellations": {
+      "post": {
+        "operationId": "cancel_repair_job_api_v1_projects__project_id__repair_jobs__job_id__cancellations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepairJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Cancel Repair Job",
+        "tags": [
+          "product-repair-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/retries": {
+      "post": {
+        "operationId": "retry_repair_job_api_v1_projects__project_id__repair_jobs__job_id__retries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepairJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Retry Repair Job",
+        "tags": [
+          "product-repair-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/runs": {
+      "post": {
+        "operationId": "run_repair_job_api_v1_projects__project_id__repair_jobs__job_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepairJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Run Repair Job",
+        "tags": [
+          "product-repair-jobs"
         ]
       }
     },

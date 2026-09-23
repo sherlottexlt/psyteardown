@@ -6,6 +6,8 @@ from psyteardown.product import (
     ProductApplicationService,
     ProductGenerationJobService,
     ProductProposalJobService,
+    ProductExecutionJobService,
+    ProductRepairJobService,
 )
 
 
@@ -29,4 +31,22 @@ async def get_product_generation_job_service(
     service = getattr(request.app.state, "product_generation_job_service", None)
     if service is None:
         raise RuntimeError("Product Studio generation service is not initialized")
+    return service
+
+
+async def get_product_execution_job_service(
+    request: Request,
+) -> ProductExecutionJobService:
+    service = getattr(request.app.state, "product_execution_job_service", None)
+    if service is None:
+        raise RuntimeError("Product Studio execution service is not initialized")
+    return service
+
+
+async def get_product_repair_job_service(
+    request: Request,
+) -> ProductRepairJobService:
+    service = getattr(request.app.state, "product_repair_job_service", None)
+    if service is None:
+        raise RuntimeError("Product Studio repair service is not initialized")
     return service

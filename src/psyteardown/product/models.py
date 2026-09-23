@@ -470,8 +470,11 @@ WEB_TEMPLATE_ID = "react_typescript_vite_spa"
 WEB_TEMPLATE_VERSION = "b2-v1"
 WEB_RUNTIME_DEPENDENCIES = ("react", "react-dom")
 WEB_DEVELOPMENT_DEPENDENCIES = (
+    "@axe-core/playwright",
     "@vitejs/plugin-react",
     "@playwright/test",
+    "@types/react",
+    "@types/react-dom",
     "@testing-library/react",
     "typescript",
     "vite",
@@ -761,6 +764,27 @@ GENERATION_DEFAULT_MAX_BYTES = 1024 * 1024
 GENERATION_DEFAULT_MAX_DURATION_SECONDS = 60
 GENERATION_DEFAULT_MAX_COST_UNITS = 1
 
+# B4 execution is deliberately a different budget and policy from B3 source
+# generation.  A generation job may only write files; an execution job is the
+# explicit capability that may install the fixed template dependencies and run
+# its build/preview/browser checks.
+EXECUTION_JOB_PROVIDER = "local_execution_sandbox"
+EXECUTION_JOB_VERSION = "b4-v1"
+EXECUTION_DEFAULT_MAX_ATTEMPTS = 1
+EXECUTION_DEFAULT_MAX_DURATION_SECONDS = 180
+EXECUTION_DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024
+EXECUTION_DEFAULT_MAX_COST_UNITS = 4
+
+# B5 keeps automatic repair deliberately narrower than source generation. A
+# repair planner may only propose bounded, reviewable text patches; applying a
+# patch always creates a new generation lineage and a new B4 execution job.
+REPAIR_JOB_PROVIDER = "deterministic_repair"
+REPAIR_JOB_VERSION = "b5-v1"
+REPAIR_DEFAULT_MAX_ATTEMPTS = 2
+REPAIR_DEFAULT_MAX_PATCHES = 2
+REPAIR_DEFAULT_MAX_PATCH_BYTES = 16 * 1024
+REPAIR_DEFAULT_MAX_COST_UNITS = 2
+
 
 class GenerationBudget(FrozenModel):
     """Small, explicit limits for one local source-generation job."""
@@ -837,7 +861,7 @@ class ProductGenerationJob(FrozenModel):
         "budget_exhausted",
         "cancelled",
     ] = "queued"
-    provider: Literal["deterministic_template"] = GENERATION_JOB_PROVIDER
+    provider: Literal["deterministic_template", "deterministic_repair"] = GENERATION_JOB_PROVIDER
     provider_version: Identifier = GENERATION_JOB_VERSION
     input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
     web_generation_contract_revision_id: Identifier
@@ -846,6 +870,9 @@ class ProductGenerationJob(FrozenModel):
     budget: GenerationBudget = Field(default_factory=GenerationBudget)
     sandbox: GenerationSandboxPolicy = Field(default_factory=GenerationSandboxPolicy)
     fingerprint: Identifier
+    materialization_kind: Literal["template", "repair"] = "template"
+    parent_generation_job_id: Identifier | None = None
+    repair_job_id: Identifier | None = None
     attempt: int = Field(default=0, ge=0)
     checkpoint_step: Literal["prepare", "generate", "validate"] | None = None
     consumed_files: int = Field(default=0, ge=0)
@@ -865,6 +892,11 @@ class ProductGenerationJob(FrozenModel):
             raise ValueError("generation job contract dependency does not match its revision")
         if self.workspace_relative_path.startswith(("/", "\\")) or ".." in self.workspace_relative_path.replace("\\", "/").split("/"):
             raise ValueError("generation workspace path must be relative and contained")
+        if self.materialization_kind == "repair":
+            if self.provider != "deterministic_repair" or self.provider_version != REPAIR_JOB_VERSION or not self.parent_generation_job_id or not self.repair_job_id:
+                raise ValueError("repair generation requires repair provider and lineage")
+        elif self.provider != "deterministic_template" or self.parent_generation_job_id or self.repair_job_id:
+            raise ValueError("template generation cannot carry repair lineage")
         if self.status == "succeeded" and self.manifest is None:
             raise ValueError("succeeded generation job requires an artifact manifest")
         if self.status in {"failed", "budget_exhausted"} and (
@@ -880,4 +912,222 @@ class ProductGenerationJob(FrozenModel):
                 raise ValueError("generation manifest template does not match the B3 template")
             if len(self.manifest.files) > self.budget.max_files or self.manifest.total_bytes > self.budget.max_bytes:
                 raise ValueError("generation manifest exceeds the job budget")
+        return self
+
+
+class ExecutionBudget(FrozenModel):
+    """Boundaries for one install/build/run/browser execution attempt."""
+
+    max_attempts: int = Field(default=EXECUTION_DEFAULT_MAX_ATTEMPTS, ge=1, le=3)
+    max_duration_seconds: int = Field(
+        default=EXECUTION_DEFAULT_MAX_DURATION_SECONDS,
+        ge=1,
+        le=EXECUTION_DEFAULT_MAX_DURATION_SECONDS,
+    )
+    max_output_bytes: int = Field(
+        default=EXECUTION_DEFAULT_MAX_OUTPUT_BYTES,
+        ge=1024,
+        le=EXECUTION_DEFAULT_MAX_OUTPUT_BYTES,
+    )
+    max_cost_units: int = Field(
+        default=EXECUTION_DEFAULT_MAX_COST_UNITS,
+        ge=1,
+        le=EXECUTION_DEFAULT_MAX_COST_UNITS,
+    )
+
+
+class RepairBudget(FrozenModel):
+    """Limits for one deterministic repair lineage."""
+
+    max_attempts: int = Field(default=REPAIR_DEFAULT_MAX_ATTEMPTS, ge=1, le=3)
+    max_patches: int = Field(default=REPAIR_DEFAULT_MAX_PATCHES, ge=1, le=REPAIR_DEFAULT_MAX_PATCHES)
+    max_patch_bytes: int = Field(
+        default=REPAIR_DEFAULT_MAX_PATCH_BYTES,
+        ge=1,
+        le=REPAIR_DEFAULT_MAX_PATCH_BYTES,
+    )
+    max_cost_units: int = Field(
+        default=REPAIR_DEFAULT_MAX_COST_UNITS,
+        ge=1,
+        le=REPAIR_DEFAULT_MAX_COST_UNITS,
+    )
+
+
+class RepairPatch(FrozenModel):
+    """A single exact text replacement against a pinned generated file."""
+
+    path: Identifier
+    expected_sha256: Identifier
+    search: str = Field(min_length=1, max_length=4096)
+    replace: str = Field(default="", max_length=16 * 1024)
+    rationale: Identifier = Field(max_length=240)
+
+
+class RepairAttempt(FrozenModel):
+    """Persisted safe summary of one repair proposal/application/verification."""
+
+    attempt: int = Field(ge=1)
+    execution_job_revision_id: Identifier
+    failure_step: Literal["install", "build", "run", "browser"]
+    failure_code: Identifier
+    diagnosis: Identifier = Field(max_length=240)
+    patches: tuple[RepairPatch, ...] = ()
+    status: Literal["planned", "applied", "verified", "failed", "unsupported"]
+    cost_units: int = Field(default=1, ge=0)
+    output_generation_job_id: Identifier | None = None
+    output_execution_job_id: Identifier | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
+
+
+class ProductRepairJob(FrozenModel):
+    """Revisioned B5 repair orchestration, separate from execution state."""
+
+    job_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    kind: Literal["web_product_repair"] = "web_product_repair"
+    status: Literal[
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "stale_input",
+        "budget_exhausted",
+        "cancelled",
+    ] = "queued"
+    provider: Literal["deterministic_repair"] = REPAIR_JOB_PROVIDER
+    provider_version: Identifier = REPAIR_JOB_VERSION
+    input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
+    execution_job_id: Identifier
+    execution_job_revision_id: Identifier
+    generation_job_id: Identifier
+    generation_job_revision_id: Identifier
+    budget: RepairBudget = Field(default_factory=RepairBudget)
+    fingerprint: Identifier
+    attempt: int = Field(default=0, ge=0)
+    attempts: tuple[RepairAttempt, ...] = ()
+    consumed_cost_units: int = Field(default=0, ge=0)
+    latest_generation_job_id: Identifier | None = None
+    latest_execution_job_id: Identifier | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
+
+    @model_validator(mode="after")
+    def validate_repair_job(self) -> "ProductRepairJob":
+        dependency = self.input_dependencies[0]
+        if dependency.object_type != "product_execution_job" or dependency.object_id != self.execution_job_id:
+            raise ValueError("repair job requires its execution dependency")
+        if self.execution_job_revision_id != f"{dependency.object_id}.r{dependency.revision}":
+            raise ValueError("repair job dependency does not match its revision")
+        if not self.generation_job_revision_id.startswith(f"{self.generation_job_id}.r"):
+            raise ValueError("repair job generation lineage does not match its job")
+        if self.consumed_cost_units > self.budget.max_cost_units:
+            raise ValueError("repair job cost exceeds budget")
+        if self.attempt > self.budget.max_attempts or len(self.attempts) > self.budget.max_attempts:
+            raise ValueError("repair job attempts exceed budget")
+        attempt_numbers = tuple(item.attempt for item in self.attempts)
+        if len(set(attempt_numbers)) != len(attempt_numbers):
+            raise ValueError("repair attempts must be unique")
+        if any(len(item.patches) > self.budget.max_patches for item in self.attempts):
+            raise ValueError("repair attempt contains too many patches")
+        if any(sum(len(p.search.encode()) + len(p.replace.encode()) for p in item.patches) > self.budget.max_patch_bytes for item in self.attempts):
+            raise ValueError("repair attempt patch bytes exceed budget")
+        if self.status == "succeeded":
+            if not self.latest_generation_job_id or not self.latest_execution_job_id or not any(item.status == "verified" for item in self.attempts):
+                raise ValueError("succeeded repair job requires a verified output")
+        if self.status in {"failed", "budget_exhausted", "stale_input"} and not self.error_code:
+            raise ValueError("unsuccessful repair job requires an error code")
+        if self.status not in {"failed", "budget_exhausted", "stale_input"} and (self.error_code or self.error_summary):
+            raise ValueError("only unsuccessful repair jobs may carry an error")
+        return self
+
+
+class ExecutionSandboxPolicy(FrozenModel):
+    """Explicit B4 execution grant; never implied by source generation."""
+
+    workspace_scope: Literal["generation_job"] = "generation_job"
+    dependency_policy: Literal["fixed_npm_template"] = "fixed_npm_template"
+    install_network_policy: Literal["registry_only"] = "registry_only"
+    runtime_network_policy: Literal["none"] = "none"
+    secret_policy: Literal["none"] = "none"
+    command_policy: Literal["allowlisted_npm_scripts"] = "allowlisted_npm_scripts"
+    browser_policy: Literal["chromium_headless"] = "chromium_headless"
+
+
+class ExecutionStep(FrozenModel):
+    """Safe summary of one execution phase; raw logs are never persisted."""
+
+    name: Literal["install", "build", "run", "browser"]
+    status: Literal["pending", "running", "succeeded", "failed", "skipped"] = "pending"
+    exit_code: int | None = None
+    duration_seconds: float = Field(default=0, ge=0)
+    output_bytes: int = Field(default=0, ge=0)
+    summary: str | None = None
+    error_code: str | None = None
+
+
+class ProductExecutionJob(FrozenModel):
+    """Revisioned, separately authorized execution of a generated workspace."""
+
+    job_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    kind: Literal["web_product_execution"] = "web_product_execution"
+    status: Literal[
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "stale_input",
+        "budget_exhausted",
+        "cancelled",
+    ] = "queued"
+    provider: Literal["local_execution_sandbox"] = EXECUTION_JOB_PROVIDER
+    provider_version: Identifier = EXECUTION_JOB_VERSION
+    input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
+    generation_job_id: Identifier
+    generation_job_revision_id: Identifier
+    workspace_relative_path: Identifier
+    budget: ExecutionBudget = Field(default_factory=ExecutionBudget)
+    sandbox: ExecutionSandboxPolicy = Field(default_factory=ExecutionSandboxPolicy)
+    fingerprint: Identifier
+    attempt: int = Field(default=0, ge=0)
+    checkpoint_step: Literal["install", "build", "run", "browser"] | None = None
+    steps: tuple[ExecutionStep, ...] = ()
+    consumed_duration_seconds: float = Field(default=0, ge=0)
+    consumed_output_bytes: int = Field(default=0, ge=0)
+    consumed_cost_units: int = Field(default=0, ge=0)
+    build_artifact_relative_path: str | None = None
+    browser_report_relative_path: str | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
+
+    @model_validator(mode="after")
+    def validate_execution_job(self) -> "ProductExecutionJob":
+        if {item.object_type for item in self.input_dependencies} != {"product_generation_job"}:
+            raise ValueError("execution job requires one product generation job dependency")
+        dependency = self.input_dependencies[0]
+        if dependency.object_id != self.generation_job_id:
+            raise ValueError("execution job dependency does not match generation job")
+        if self.generation_job_revision_id != f"{dependency.object_id}.r{dependency.revision}":
+            raise ValueError("execution job dependency does not match its revision")
+        if self.workspace_relative_path.startswith(("/", "\\")) or ".." in self.workspace_relative_path.replace("\\", "/").split("/"):
+            raise ValueError("execution workspace path must be relative and contained")
+        names = tuple(step.name for step in self.steps)
+        if len(set(names)) != len(names):
+            raise ValueError("execution steps must be unique")
+        if self.status == "succeeded" and {step.name for step in self.steps} != {"install", "build", "run", "browser"}:
+            raise ValueError("succeeded execution job requires all execution steps")
+        if self.status in {"failed", "budget_exhausted", "stale_input"} and self.error_code is None:
+            raise ValueError("unsuccessful execution job requires an error code")
+        if self.status not in {"failed", "budget_exhausted", "stale_input"} and (self.error_code or self.error_summary):
+            raise ValueError("only unsuccessful execution jobs may carry an error")
+        if self.consumed_output_bytes > self.budget.max_output_bytes:
+            raise ValueError("execution output exceeds budget")
+        for label, path in (("build artifact", self.build_artifact_relative_path), ("browser report", self.browser_report_relative_path)):
+            if path is not None and (path.startswith(("/", "\\")) or ".." in path.replace("\\", "/").split("/")):
+                raise ValueError(f"{label} path must stay inside the workspace")
         return self

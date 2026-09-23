@@ -9,7 +9,11 @@ export function WorkbenchView({
   onGenerateWeb,
   onConfirmWeb,
   generationJob,
+  executionJob,
+  repairJob,
   onGenerateProduct,
+  onExecuteProduct,
+  onRepairProduct,
 }: {
   view: ProductProjectView;
   busy: boolean;
@@ -17,7 +21,11 @@ export function WorkbenchView({
   onGenerateWeb: () => void;
   onConfirmWeb: () => void;
   generationJob?: import("../api/types").ProductGenerationJob | null;
+  executionJob?: import("../api/types").ProductExecutionJob | null;
+  repairJob?: import("../api/types").ProductRepairJob | null;
   onGenerateProduct: () => void;
+  onExecuteProduct: () => void;
+  onRepairProduct: () => void;
 }) {
   if (!view.product_theses.length) {
     return (
@@ -93,6 +101,36 @@ export function WorkbenchView({
             </div>
           ) : null}
           {generationJob ? <p className="unknown-copy">B3 本地边界：{generationJob.sandbox.network_policy} network · {generationJob.sandbox.execution_policy} · budget {generationJob.consumed_bytes}/{generationJob.budget.max_bytes} bytes。源码尚未执行或预览。</p> : null}
+          {generationJob?.status === "succeeded" ? (
+            <div className="panel__actions">
+              <button className="button button--quiet" disabled={busy} onClick={onExecuteProduct}>
+                {busy ? "正在执行 sandbox…" : "构建并验证 workspace"}
+              </button>
+              {executionJob ? <Badge tone={executionJob.status === "succeeded" ? "good" : "warn"}>{executionJob.status} · {executionJob.checkpoint_step ?? "queued"}</Badge> : null}
+            </div>
+          ) : null}
+          {executionJob ? <p className="unknown-copy">B4 执行边界：依赖安装、构建、loopback 预览与 Chromium/axe 检查；无 Secret，运行时无外网。执行日志仅保留安全摘要。</p> : null}
+          {executionJob && ["failed", "budget_exhausted"].includes(executionJob.status) ? (
+            <div className="panel__actions">
+              <button className="button button--quiet" disabled={busy} onClick={onRepairProduct}>
+                {busy ? "正在准备修复…" : "定位并尝试受限修复"}
+              </button>
+              {repairJob ? <Badge tone={repairJob.status === "succeeded" ? "good" : "warn"}>{repairJob.status} · {repairJob.attempts.length} attempts</Badge> : null}
+            </div>
+          ) : null}
+          {repairJob ? (
+            <>
+              <p className="unknown-copy">B5 只允许确定性白名单补丁；原始 workspace 保持不变。每次诊断、补丁、验证 Job 与成本都会保留。</p>
+              {repairJob.attempts.at(-1) ? (
+                <dl className="definition-grid definition-grid--three">
+                  <div><dt>最近诊断</dt><dd>{repairJob.attempts.at(-1)?.diagnosis}</dd></div>
+                  <div><dt>尝试成本</dt><dd>{repairJob.attempts.at(-1)?.cost_units} / {repairJob.budget.max_cost_units} units</dd></div>
+                  <div><dt>补丁 / 验证</dt><dd>{repairJob.attempts.at(-1)?.patches.length} patches · {repairJob.attempts.at(-1)?.output_execution_job_id ?? "not started"}</dd></div>
+                  {repairJob.error_code ? <div><dt>安全错误</dt><dd>{repairJob.error_code}</dd></div> : null}
+                </dl>
+              ) : null}
+            </>
+          ) : null}
         </section>
       ) : null}
     </div>

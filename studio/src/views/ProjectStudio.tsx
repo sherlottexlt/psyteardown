@@ -4,8 +4,15 @@ import {
   ApiClientError,
   confirmWebGenerationContract,
   createGenerationJob,
+  createExecutionJob,
   listGenerationJobs,
+  listExecutionJobs,
   runGenerationJob,
+  runExecutionJob,
+  createRepairJob,
+  listRepairJobs,
+  runRepairJob,
+  retryRepairJob,
   confirmRevision,
   createProposalJob,
   getProject,
@@ -66,6 +73,16 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     queryFn: () => listGenerationJobs(projectId),
     retry: false,
   });
+  const executionJobsQuery = useQuery({
+    queryKey: ["execution-jobs", projectId],
+    queryFn: () => listExecutionJobs(projectId),
+    retry: false,
+  });
+  const repairJobsQuery = useQuery({
+    queryKey: ["repair-jobs", projectId],
+    queryFn: () => listRepairJobs(projectId),
+    retry: false,
+  });
 
   async function refreshAfter(action: () => Promise<unknown>) {
     setBusy(true);
@@ -74,6 +91,8 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
       await action();
       await query.refetch();
       await generationJobsQuery.refetch();
+      await executionJobsQuery.refetch();
+      await repairJobsQuery.refetch();
     } catch (error) {
       setActionError(formatApiError(error));
     } finally {
@@ -200,6 +219,49 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
+  async function handleExecuteProduct() {
+    const generationJob = generationJobsQuery.data?.at(-1);
+    if (!generationJob || generationJob.status !== "succeeded") {
+      setActionError("请先完成成功的 Web workspace 生成。");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createExecutionJob({ projectId, generationJobId: generationJob.job_id });
+      await executionJobsQuery.refetch();
+      const completed = await runExecutionJob({ projectId, jobId: queued.job_id });
+      await executionJobsQuery.refetch();
+      if (completed.status !== "succeeded") setActionError(completed.error_summary ?? "执行 sandbox 未完成。");
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
+  async function handleRepairProduct() {
+    const executionJob = executionJobsQuery.data?.at(-1);
+    if (!executionJob || !["failed", "budget_exhausted"].includes(executionJob.status)) {
+      setActionError("请先完成一个失败的 B4 执行 Job。");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createRepairJob({ projectId, executionJobId: executionJob.job_id });
+      await repairJobsQuery.refetch();
+      const ready = ["failed", "stale_input"].includes(queued.status)
+        ? await retryRepairJob({ projectId, jobId: queued.job_id })
+        : queued;
+      const completed = ready.status === "queued"
+        ? await runRepairJob({ projectId, jobId: ready.job_id })
+        : ready;
+      await Promise.all([repairJobsQuery.refetch(), generationJobsQuery.refetch(), executionJobsQuery.refetch()]);
+      if (completed.status !== "succeeded") setActionError(completed.error_summary ?? "受限修复未完成。");
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
   if (query.isLoading) {
     return <main className="loading-screen"><div className="loading-mark"><span /><span /><span /></div><p>正在读取产品模型…</p></main>;
   }
@@ -236,7 +298,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
         <div className="studio-content">
           {area === "command" ? <CommandView view={view} /> : null}
           {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
-          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} onGenerateProduct={() => void handleGenerateProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));

@@ -55,6 +55,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/execution-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Execution Jobs */
+        get: operations["list_execution_jobs_api_v1_projects__project_id__execution_jobs_get"];
+        put?: never;
+        /** Create Execution Job */
+        post: operations["create_execution_job_api_v1_projects__project_id__execution_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Execution Job */
+        get: operations["get_execution_job_api_v1_projects__project_id__execution_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Execution Job */
+        post: operations["cancel_execution_job_api_v1_projects__project_id__execution_jobs__job_id__cancellations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/retries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Execution Job */
+        post: operations["retry_execution_job_api_v1_projects__project_id__execution_jobs__job_id__retries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Execution Job */
+        post: operations["run_execution_job_api_v1_projects__project_id__execution_jobs__job_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/generation-jobs": {
         parameters: {
             query?: never;
@@ -380,6 +466,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/repair-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Repair Jobs */
+        get: operations["list_repair_jobs_api_v1_projects__project_id__repair_jobs_get"];
+        put?: never;
+        /** Create Repair Job */
+        post: operations["create_repair_job_api_v1_projects__project_id__repair_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Repair Job */
+        get: operations["get_repair_job_api_v1_projects__project_id__repair_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Repair Job */
+        post: operations["cancel_repair_job_api_v1_projects__project_id__repair_jobs__job_id__cancellations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/retries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Repair Job */
+        post: operations["retry_repair_job_api_v1_projects__project_id__repair_jobs__job_id__retries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/repair-jobs/{job_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Repair Job */
+        post: operations["run_repair_job_api_v1_projects__project_id__repair_jobs__job_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/status": {
         parameters: {
             query?: never;
@@ -501,6 +673,16 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** CreateExecutionJobRequest */
+        CreateExecutionJobRequest: {
+            /** Actor */
+            actor: string;
+            budget?: components["schemas"]["ExecutionBudgetRequest"] | null;
+            /** Generation Job Id */
+            generation_job_id: string;
+            /** Reason */
+            reason: string;
+        };
         /** CreateGenerationJobRequest */
         CreateGenerationJobRequest: {
             /** Actor */
@@ -540,6 +722,16 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** CreateRepairJobRequest */
+        CreateRepairJobRequest: {
+            /** Actor */
+            actor: string;
+            budget?: components["schemas"]["RepairBudgetRequest"] | null;
+            /** Execution Job Id */
+            execution_job_id: string;
+            /** Reason */
+            reason: string;
+        };
         /** DeliveryEstimate */
         DeliveryEstimate: {
             /** Initial Delivery Cost */
@@ -554,6 +746,201 @@ export interface components {
          * @enum {string}
          */
         DeliveryMaturity: "concept" | "runnable_prototype" | "field_trial" | "operational_candidate" | "released_product";
+        /**
+         * ExecutionBudget
+         * @description Boundaries for one install/build/run/browser execution attempt.
+         */
+        ExecutionBudget: {
+            /**
+             * Max Attempts
+             * @default 1
+             */
+            max_attempts: number;
+            /**
+             * Max Cost Units
+             * @default 4
+             */
+            max_cost_units: number;
+            /**
+             * Max Duration Seconds
+             * @default 180
+             */
+            max_duration_seconds: number;
+            /**
+             * Max Output Bytes
+             * @default 262144
+             */
+            max_output_bytes: number;
+        };
+        /** ExecutionBudgetRequest */
+        ExecutionBudgetRequest: {
+            /**
+             * Max Attempts
+             * @default 1
+             */
+            max_attempts: number;
+            /**
+             * Max Cost Units
+             * @default 4
+             */
+            max_cost_units: number;
+            /**
+             * Max Duration Seconds
+             * @default 180
+             */
+            max_duration_seconds: number;
+            /**
+             * Max Output Bytes
+             * @default 262144
+             */
+            max_output_bytes: number;
+        };
+        /** ExecutionJobActionRequest */
+        ExecutionJobActionRequest: {
+            /** Actor */
+            actor: string;
+        };
+        /** ExecutionJobResponse */
+        ExecutionJobResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Browser Report Relative Path */
+            browser_report_relative_path: string | null;
+            budget: components["schemas"]["ExecutionBudget"];
+            /** Build Artifact Relative Path */
+            build_artifact_relative_path: string | null;
+            /** Checkpoint Step */
+            checkpoint_step: string | null;
+            /** Consumed Cost Units */
+            consumed_cost_units: number;
+            /** Consumed Duration Seconds */
+            consumed_duration_seconds: number;
+            /** Consumed Output Bytes */
+            consumed_output_bytes: number;
+            /** Content Hash */
+            content_hash: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Generation Job Id */
+            generation_job_id: string;
+            /** Generation Job Revision Id */
+            generation_job_revision_id: string;
+            /** Input Dependencies */
+            input_dependencies: {
+                [key: string]: unknown;
+            }[];
+            /** Job Id */
+            job_id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "web_product_execution";
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Project Id */
+            project_id: string;
+            /** Provider */
+            provider: string;
+            /** Provider Version */
+            provider_version: string;
+            /** Revision Id */
+            revision_id: string;
+            sandbox: components["schemas"]["ExecutionSandboxPolicy"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "stale_input" | "budget_exhausted" | "cancelled";
+            /** Steps */
+            steps: components["schemas"]["ExecutionStep"][];
+            /** Workspace Relative Path */
+            workspace_relative_path: string;
+        };
+        /**
+         * ExecutionSandboxPolicy
+         * @description Explicit B4 execution grant; never implied by source generation.
+         */
+        ExecutionSandboxPolicy: {
+            /**
+             * Browser Policy
+             * @default chromium_headless
+             * @constant
+             */
+            browser_policy: "chromium_headless";
+            /**
+             * Command Policy
+             * @default allowlisted_npm_scripts
+             * @constant
+             */
+            command_policy: "allowlisted_npm_scripts";
+            /**
+             * Dependency Policy
+             * @default fixed_npm_template
+             * @constant
+             */
+            dependency_policy: "fixed_npm_template";
+            /**
+             * Install Network Policy
+             * @default registry_only
+             * @constant
+             */
+            install_network_policy: "registry_only";
+            /**
+             * Runtime Network Policy
+             * @default none
+             * @constant
+             */
+            runtime_network_policy: "none";
+            /**
+             * Secret Policy
+             * @default none
+             * @constant
+             */
+            secret_policy: "none";
+            /**
+             * Workspace Scope
+             * @default generation_job
+             * @constant
+             */
+            workspace_scope: "generation_job";
+        };
+        /**
+         * ExecutionStep
+         * @description Safe summary of one execution phase; raw logs are never persisted.
+         */
+        ExecutionStep: {
+            /**
+             * Duration Seconds
+             * @default 0
+             */
+            duration_seconds: number;
+            /** Error Code */
+            error_code?: string | null;
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "install" | "build" | "run" | "browser";
+            /**
+             * Output Bytes
+             * @default 0
+             */
+            output_bytes: number;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed" | "skipped";
+            /** Summary */
+            summary?: string | null;
+        };
         /** FalsifiablePrediction */
         FalsifiablePrediction: {
             /** Cheapest Test */
@@ -941,16 +1328,25 @@ export interface components {
              */
             kind: "web_product";
             manifest: components["schemas"]["GenerationManifest"] | null;
+            /**
+             * Materialization Kind
+             * @enum {string}
+             */
+            materialization_kind: "template" | "repair";
             meta: components["schemas"]["RevisionMetaResponse"];
+            /** Parent Generation Job Id */
+            parent_generation_job_id: string | null;
             /** Project Id */
             project_id: string;
             /**
              * Provider
-             * @constant
+             * @enum {string}
              */
-            provider: "deterministic_template";
+            provider: "deterministic_template" | "deterministic_repair";
             /** Provider Version */
             provider_version: string;
+            /** Repair Job Id */
+            repair_job_id: string | null;
             /** Revision Id */
             revision_id: string;
             sandbox: components["schemas"]["GenerationSandboxPolicy"];
@@ -1195,6 +1591,179 @@ export interface components {
         ProposalJobActionRequest: {
             /** Actor */
             actor: string;
+        };
+        /**
+         * RepairAttempt
+         * @description Persisted safe summary of one repair proposal/application/verification.
+         */
+        RepairAttempt: {
+            /** Attempt */
+            attempt: number;
+            /**
+             * Cost Units
+             * @default 1
+             */
+            cost_units: number;
+            /** Diagnosis */
+            diagnosis: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Summary */
+            error_summary?: string | null;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Failure Code */
+            failure_code: string;
+            /**
+             * Failure Step
+             * @enum {string}
+             */
+            failure_step: "install" | "build" | "run" | "browser";
+            /** Output Execution Job Id */
+            output_execution_job_id?: string | null;
+            /** Output Generation Job Id */
+            output_generation_job_id?: string | null;
+            /**
+             * Patches
+             * @default []
+             */
+            patches: components["schemas"]["RepairPatch"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "planned" | "applied" | "verified" | "failed" | "unsupported";
+        };
+        /**
+         * RepairBudget
+         * @description Limits for one deterministic repair lineage.
+         */
+        RepairBudget: {
+            /**
+             * Max Attempts
+             * @default 2
+             */
+            max_attempts: number;
+            /**
+             * Max Cost Units
+             * @default 2
+             */
+            max_cost_units: number;
+            /**
+             * Max Patch Bytes
+             * @default 16384
+             */
+            max_patch_bytes: number;
+            /**
+             * Max Patches
+             * @default 2
+             */
+            max_patches: number;
+        };
+        /** RepairBudgetRequest */
+        RepairBudgetRequest: {
+            /**
+             * Max Attempts
+             * @default 2
+             */
+            max_attempts: number;
+            /**
+             * Max Cost Units
+             * @default 2
+             */
+            max_cost_units: number;
+            /**
+             * Max Patch Bytes
+             * @default 16384
+             */
+            max_patch_bytes: number;
+            /**
+             * Max Patches
+             * @default 2
+             */
+            max_patches: number;
+        };
+        /** RepairJobActionRequest */
+        RepairJobActionRequest: {
+            /** Actor */
+            actor: string;
+        };
+        /** RepairJobResponse */
+        RepairJobResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Attempts */
+            attempts: components["schemas"]["RepairAttempt"][];
+            budget: components["schemas"]["RepairBudget"];
+            /** Consumed Cost Units */
+            consumed_cost_units: number;
+            /** Content Hash */
+            content_hash: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /** Execution Job Id */
+            execution_job_id: string;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Generation Job Id */
+            generation_job_id: string;
+            /** Generation Job Revision Id */
+            generation_job_revision_id: string;
+            /** Input Dependencies */
+            input_dependencies: {
+                [key: string]: unknown;
+            }[];
+            /** Job Id */
+            job_id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "web_product_repair";
+            /** Latest Execution Job Id */
+            latest_execution_job_id: string | null;
+            /** Latest Generation Job Id */
+            latest_generation_job_id: string | null;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Project Id */
+            project_id: string;
+            /**
+             * Provider
+             * @constant
+             */
+            provider: "deterministic_repair";
+            /** Provider Version */
+            provider_version: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "stale_input" | "budget_exhausted" | "cancelled";
+        };
+        /**
+         * RepairPatch
+         * @description A single exact text replacement against a pinned generated file.
+         */
+        RepairPatch: {
+            /** Expected Sha256 */
+            expected_sha256: string;
+            /** Path */
+            path: string;
+            /** Rationale */
+            rationale: string;
+            /**
+             * Replace
+             * @default
+             */
+            replace: string;
+            /** Search */
+            search: string;
         };
         /** ResourceBoundary */
         ResourceBoundary: {
@@ -1707,6 +2276,320 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductProjectViewResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_execution_jobs_api_v1_projects__project_id__execution_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_execution_job_api_v1_projects__project_id__execution_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExecutionJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_execution_job_api_v1_projects__project_id__execution_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_execution_job_api_v1_projects__project_id__execution_jobs__job_id__cancellations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutionJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    retry_execution_job_api_v1_projects__project_id__execution_jobs__job_id__retries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutionJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    run_execution_job_api_v1_projects__project_id__execution_jobs__job_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutionJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
                 };
             };
             /** @description Resource not found */
@@ -2817,6 +3700,320 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductProposalJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_repair_jobs_api_v1_projects__project_id__repair_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_repair_job_api_v1_projects__project_id__repair_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRepairJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_repair_job_api_v1_projects__project_id__repair_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_repair_job_api_v1_projects__project_id__repair_jobs__job_id__cancellations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    retry_repair_job_api_v1_projects__project_id__repair_jobs__job_id__retries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    run_repair_job_api_v1_projects__project_id__repair_jobs__job_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairJobResponse"];
                 };
             };
             /** @description Resource not found */

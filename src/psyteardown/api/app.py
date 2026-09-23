@@ -18,12 +18,18 @@ from psyteardown.api.errors import error_response, register_error_handlers
 from psyteardown.api.projects import router as projects_router
 from psyteardown.api.proposal_jobs import router as proposal_jobs_router
 from psyteardown.api.generation_jobs import router as generation_jobs_router
+from psyteardown.api.execution_jobs import router as execution_jobs_router
+from psyteardown.api.repair_jobs import router as repair_jobs_router
 from psyteardown.api.schemas import HealthResponse
 from psyteardown.product import (
     ProductApplicationService,
     InMemoryProductJobRepository,
     ProductGenerationJobService,
     InMemoryProductGenerationJobRepository,
+    ProductExecutionJobService,
+    InMemoryProductExecutionJobRepository,
+    ProductRepairJobService,
+    InMemoryProductRepairJobRepository,
     ProductProposalJobService,
     SQLiteProductRepository,
 )
@@ -46,6 +52,8 @@ def create_app(
     id_factory: Callable[[str], str] | None = None,
     job_service: ProductProposalJobService | None = None,
     generation_job_service: ProductGenerationJobService | None = None,
+    execution_job_service: ProductExecutionJobService | None = None,
+    repair_job_service: ProductRepairJobService | None = None,
     allowed_hosts: Sequence[str] = tuple(DEFAULT_ALLOWED_HOSTS),
     allowed_origins: Sequence[str] = DEFAULT_ALLOWED_ORIGINS,
 ) -> FastAPI:
@@ -75,6 +83,34 @@ def create_app(
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
+            generation_repository = getattr(app.state.product_generation_job_service, "job_repository", None)
+            app.state.product_execution_job_service = execution_job_service or ProductExecutionJobService(
+                service,
+                InMemoryProductExecutionJobRepository(generation_repository),
+                generation_repository or InMemoryProductGenerationJobRepository(),
+                workspace_root=getattr(
+                    app.state.product_generation_job_service,
+                    "workspace_root",
+                    Path("output/product-studio/workspaces"),
+                ),
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
+            execution_repository = getattr(app.state.product_execution_job_service, "job_repository", None)
+            app.state.product_repair_job_service = repair_job_service or ProductRepairJobService(
+                service,
+                InMemoryProductRepairJobRepository(),
+                generation_repository or InMemoryProductGenerationJobRepository(),
+                execution_repository or InMemoryProductExecutionJobRepository(generation_repository),
+                app.state.product_execution_job_service,
+                workspace_root=getattr(
+                    app.state.product_generation_job_service,
+                    "workspace_root",
+                    Path("output/product-studio/workspaces"),
+                ),
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
         else:
             repository = SQLiteProductRepository(resolved_path)
             kwargs = {}
@@ -96,12 +132,30 @@ def create_app(
                 workspace_root=resolved_path.parent / "workspaces",
                 **kwargs,
             )
+            app.state.product_execution_job_service = ProductExecutionJobService(
+                app.state.product_service,
+                repository,
+                repository,
+                workspace_root=resolved_path.parent / "workspaces",
+                **kwargs,
+            )
+            app.state.product_repair_job_service = ProductRepairJobService(
+                app.state.product_service,
+                repository,
+                repository,
+                repository,
+                app.state.product_execution_job_service,
+                workspace_root=resolved_path.parent / "workspaces",
+                **kwargs,
+            )
         try:
             yield
         finally:
             app.state.product_service = None
             app.state.product_job_service = None
             app.state.product_generation_job_service = None
+            app.state.product_execution_job_service = None
+            app.state.product_repair_job_service = None
             if owns_repository and repository is not None:
                 repository.close()
 
@@ -112,7 +166,9 @@ def create_app(
             "Local-first command and projection API for Product Studio. "
             "Proposal and generation work is created as a persisted job; an "
             "explicit run command performs only the bounded local step. "
-            "Generated source is not installed, executed, or exposed as a preview."
+            "Generated source is never executed by the generation job; a separate, "
+            "explicit B4 execution job provides bounded build, preview and browser validation. "
+            "A B5 repair job may apply only deterministic, allowlisted patches in a new lineage."
         ),
         lifespan=lifespan,
     )
@@ -159,6 +215,8 @@ def create_app(
     application.include_router(projects_router, prefix="/api/v1")
     application.include_router(proposal_jobs_router, prefix="/api/v1")
     application.include_router(generation_jobs_router, prefix="/api/v1")
+    application.include_router(execution_jobs_router, prefix="/api/v1")
+    application.include_router(repair_jobs_router, prefix="/api/v1")
     return application
 
 

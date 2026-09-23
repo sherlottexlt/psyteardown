@@ -420,11 +420,12 @@ class ProductGenerationJobService:
             f"const contract = {serialized} as const;\n\n"
             f"const appTitle = {escaped_title} as const;\n\n"
             "export default function App() {\n"
-            "  const [state, setState] = useState<'ready' | 'success' | 'stopped'>('ready');\n"
+            "  const [state, setState] = useState<'ready' | 'success' | 'stopped' | 'error'>('ready');\n"
             "  return <main aria-labelledby=\"app-title\"><h1 id=\"app-title\">{appTitle}</h1>"
             "<p>{contract.content_slots[1]?.fallback_text ?? 'Choose a focus task and duration.'}</p>"
-            "<p role=\"status\">{state === 'success' ? 'Local action confirmed.' : state === 'stopped' ? 'Session stopped.' : 'Ready.'}</p>"
+            "<p role=\"status\">{state === 'success' ? 'Local action confirmed.' : state === 'stopped' ? 'Session stopped.' : state === 'error' ? 'Something went wrong.' : 'Ready.'}</p>"
             "<button onClick={() => setState('success')}>Continue</button>"
+            "<button onClick={() => setState('error')}>Show error</button>"
             "<button onClick={() => setState('stopped')}>Stop</button></main>;\n"
             "}\n"
         )
@@ -433,10 +434,13 @@ class ProductGenerationJobService:
             {
                 "private": True,
                 "type": "module",
-                "scripts": {"build": "tsc -b && vite build", "test:e2e": "playwright test"},
+                "scripts": {"build": "tsc -b && vite build", "preview": "vite preview", "test:e2e": "playwright test"},
                 "dependencies": {"react": "19.1.1", "react-dom": "19.1.1"},
                 "devDependencies": {
                     "@playwright/test": "1.55.1",
+                    "@axe-core/playwright": "4.13.0",
+                    "@types/react": "19.1.16",
+                    "@types/react-dom": "19.1.9",
                     "@vitejs/plugin-react": "5.0.4",
                     "@testing-library/react": "16.3.0",
                     "typescript": "5.9.3",
@@ -472,11 +476,27 @@ class ProductGenerationJobService:
             indent=2,
         ) + "\n"
         vite_config = "import {defineConfig} from 'vite';\nimport react from '@vitejs/plugin-react';\nexport default defineConfig({plugins: [react()]});\n"
+        playwright_config = (
+            "import {defineConfig} from '@playwright/test';\n"
+            "export default defineConfig({use: {baseURL: process.env.BASE_URL ?? 'http://127.0.0.1:4173'}, "
+            "testDir: './tests', reporter: 'list'});\n"
+        )
         test = (
+            "import AxeBuilder from '@axe-core/playwright';\n"
             "import {expect, test} from '@playwright/test';\n"
-            "test('generated contract exposes a stop action', async ({page}) => {\n"
+            "test('generated contract covers startup, key task, stop/error states and accessibility', async ({page}) => {\n"
             "  await page.goto('/');\n"
-            "  await expect(page.getByRole('button', {name: 'Stop'})).toBeVisible();\n"
+            "  await expect(page.getByRole('heading')).toBeVisible();\n"
+            "  await expect(page.getByRole('button', {name: 'Continue'})).toBeVisible();\n"
+            "  await page.getByRole('button', {name: 'Continue'}).click();\n"
+            "  await expect(page.getByRole('status')).toContainText('Local action confirmed.');\n"
+            "  await page.getByRole('button', {name: 'Show error'}).click();\n"
+            "  await expect(page.getByRole('status')).toContainText('Something went wrong.');\n"
+            "  await page.getByRole('button', {name: 'Stop'}).click();\n"
+            "  await expect(page.getByRole('status')).toContainText('Session stopped.');\n"
+            "  const results = await new AxeBuilder({page}).withTags(['wcag2a', 'wcag2aa']).analyze();\n"
+            "  expect(results.violations.filter((item) => item.impact === 'critical' || item.impact === 'serious')).toEqual([]);\n"
+            "  await page.screenshot({path: 'test-results/generated-product.png', fullPage: true});\n"
             "});\n"
         )
         return {
@@ -484,6 +504,7 @@ class ProductGenerationJobService:
             "index.html": index_html,
             "tsconfig.json": tsconfig,
             "vite.config.ts": vite_config,
+            "playwright.config.ts": playwright_config,
             "src/main.tsx": 'import {StrictMode} from "react";\nimport {createRoot} from "react-dom/client";\nimport App from "./App";\nimport "./styles.css";\n\ncreateRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);\n',
             "src/App.tsx": app,
             "src/styles.css": "body { font-family: system-ui, sans-serif; margin: 2rem; } button { margin-right: .5rem; }\n",

@@ -415,3 +415,84 @@ export function listGenerationJobs(projectId: string): Promise<ProductGeneration
     `/api/v1/projects/${encodeURIComponent(projectId)}/generation-jobs`,
   );
 }
+
+export function createExecutionJob(input: {
+  projectId: string;
+  generationJobId: string;
+}): Promise<import("./types").ProductExecutionJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/execution-jobs`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        generation_job_id: input.generationJobId,
+        actor: "local-user",
+        reason: "Run bounded B4 validation in Product Studio",
+      }),
+    },
+  );
+}
+
+export function runExecutionJob(input: {
+  projectId: string;
+  jobId: string;
+}): Promise<import("./types").ProductExecutionJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/execution-jobs/${encodeURIComponent(input.jobId)}/runs`,
+    {
+      method: "POST",
+      body: JSON.stringify({ actor: "local-worker" }),
+    },
+  );
+}
+
+export function listExecutionJobs(projectId: string): Promise<import("./types").ProductExecutionJob[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/execution-jobs`);
+}
+
+export function createRepairJob(input: {
+  projectId: string;
+  executionJobId: string;
+}): Promise<import("./types").ProductRepairJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/repair-jobs`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        execution_job_id: input.executionJobId,
+        actor: "local-user",
+        reason: "Repair bounded B4 validation failure in Product Studio",
+      }),
+    },
+  );
+}
+
+export function runRepairJob(input: {
+  projectId: string;
+  jobId: string;
+}): Promise<import("./types").ProductRepairJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/repair-jobs/${encodeURIComponent(input.jobId)}/runs`,
+    {
+      method: "POST",
+      body: JSON.stringify({ actor: "local-worker" }),
+    },
+  );
+}
+
+export function retryRepairJob(input: {
+  projectId: string;
+  jobId: string;
+}): Promise<import("./types").ProductRepairJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/repair-jobs/${encodeURIComponent(input.jobId)}/retries`,
+    {
+      method: "POST",
+      body: JSON.stringify({ actor: "local-user" }),
+    },
+  );
+}
+
+export function listRepairJobs(projectId: string): Promise<import("./types").ProductRepairJob[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/repair-jobs`);
+}
