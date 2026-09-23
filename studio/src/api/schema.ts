@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/preview-feedback-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Preview Feedback Policy */
+        get: operations["get_preview_feedback_policy_api_v1_preview_feedback_policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects": {
         parameters: {
             query?: never;
@@ -99,6 +116,40 @@ export interface paths {
         };
         /** Download Delivery Bundle */
         get: operations["download_delivery_bundle_api_v1_projects__project_id__delivery_bundles__bundle_id__archive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Preview Feedback */
+        post: operations["submit_preview_feedback_api_v1_projects__project_id__delivery_bundles__bundle_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/preview/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bundle Preview File */
+        get: operations["get_bundle_preview_file_api_v1_projects__project_id__delivery_bundles__bundle_id__preview__path__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -341,6 +392,40 @@ export interface paths {
         put?: never;
         /** Confirm Outcome Contract Revision */
         post: operations["confirm_outcome_contract_revision_api_v1_projects__project_id__outcome_contract__outcome_contract_id__confirmations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/preview-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Preview Feedback */
+        get: operations["list_preview_feedback_api_v1_projects__project_id__preview_feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/preview-feedback/{feedback_id}/withdrawal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw Preview Feedback */
+        post: operations["withdraw_preview_feedback_api_v1_projects__project_id__preview_feedback__feedback_id__withdrawal_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1361,6 +1446,89 @@ export interface components {
             /** Target Segments */
             target_segments?: string[];
         };
+        /** PreviewFeedbackAnchor */
+        PreviewFeedbackAnchor: {
+            /** Screen Id */
+            screen_id: string;
+            /** State Id */
+            state_id?: string | null;
+            /** Task Id */
+            task_id?: string | null;
+        };
+        /** PreviewFeedbackPolicyResponse */
+        PreviewFeedbackPolicyResponse: {
+            /** Captured */
+            captured: string[];
+            /**
+             * Consent Version
+             * @constant
+             */
+            consent_version: "b7-explicit-v1";
+            /**
+             * Evidence Level
+             * @constant
+             */
+            evidence_level: "user_report";
+            /** Max Text Length */
+            max_text_length: number;
+            /** Not Captured */
+            not_captured: string[];
+            /** Statement */
+            statement: string;
+        };
+        /** PreviewFeedbackResponse */
+        PreviewFeedbackResponse: {
+            anchor: components["schemas"]["PreviewFeedbackAnchor"];
+            /**
+             * Automatic Capture
+             * @constant
+             */
+            automatic_capture: "none";
+            /** Category */
+            category: ("bug" | "confusing" | "missing" | "works") | null;
+            /** Consent */
+            consent: {
+                [key: string]: unknown;
+            };
+            /** Content Hash */
+            content_hash: string;
+            /** Delivery Bundle Id */
+            delivery_bundle_id: string;
+            /** Delivery Bundle Revision Id */
+            delivery_bundle_revision_id: string;
+            /**
+             * Evidence Level
+             * @constant
+             */
+            evidence_level: "user_report";
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Feedback Id */
+            feedback_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Project Id */
+            project_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "submitted" | "withdrawn";
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Submitted By */
+            submitted_by: string;
+            /** Text */
+            text: string | null;
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
+            /** Withdrawn At */
+            withdrawn_at: string | null;
+        };
         /** ProblemAssumption */
         ProblemAssumption: {
             /** Assumption Id */
@@ -2022,6 +2190,28 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** SubmitPreviewFeedbackRequest */
+        SubmitPreviewFeedbackRequest: {
+            /** Actor */
+            actor: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "bug" | "confusing" | "missing" | "works";
+            /** Consent Granted */
+            consent_granted: boolean;
+            /** Consent Version */
+            consent_version: string;
+            /** Screen Id */
+            screen_id: string;
+            /** State Id */
+            state_id?: string | null;
+            /** Task Id */
+            task_id?: string | null;
+            /** Text */
+            text: string;
+        };
         /** SubmitProblemModelRequest */
         SubmitProblemModelRequest: {
             /** Actor */
@@ -2326,6 +2516,13 @@ export interface components {
             /** User Decision Limit */
             user_decision_limit: string;
         };
+        /** WithdrawPreviewFeedbackRequest */
+        WithdrawPreviewFeedbackRequest: {
+            /** Actor */
+            actor: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -2351,6 +2548,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    get_preview_feedback_policy_api_v1_preview_feedback_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewFeedbackPolicyResponse"];
                 };
             };
         };
@@ -2627,6 +2844,109 @@ export interface operations {
                 content: {
                     "application/zip": unknown;
                 };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    submit_preview_feedback_api_v1_projects__project_id__delivery_bundles__bundle_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPreviewFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewFeedbackResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_bundle_preview_file_api_v1_projects__project_id__delivery_bundles__bundle_id__preview__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                bundle_id: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integrity-checked delivered build file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Resource not found */
             404: {
@@ -3469,6 +3789,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutcomeContractResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_preview_feedback_api_v1_projects__project_id__preview_feedback_get: {
+        parameters: {
+            query?: {
+                bundle_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewFeedbackResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    withdraw_preview_feedback_api_v1_projects__project_id__preview_feedback__feedback_id__withdrawal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                feedback_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawPreviewFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewFeedbackResponse"];
                 };
             };
             /** @description Resource not found */

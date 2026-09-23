@@ -51,6 +51,14 @@ from psyteardown.product.models import (
     DELIVERY_BUNDLE_FORMAT_VERSION,
     DELIVERY_MAX_BYTES,
     DELIVERY_MAX_FILES,
+    PREVIEW_FEEDBACK_CAPTURED,
+    PREVIEW_FEEDBACK_CONSENT_STATEMENT,
+    PREVIEW_FEEDBACK_CONSENT_VERSION,
+    PREVIEW_FEEDBACK_MAX_TEXT,
+    PREVIEW_FEEDBACK_NOT_CAPTURED,
+    PreviewFeedback,
+    PreviewFeedbackAnchor,
+    PreviewFeedbackConsent,
     EXECUTION_DEFAULT_MAX_ATTEMPTS,
     EXECUTION_DEFAULT_MAX_DURATION_SECONDS,
     EXECUTION_DEFAULT_MAX_OUTPUT_BYTES,
@@ -148,6 +156,11 @@ from psyteardown.product.delivery import (
     InMemoryProductDeliveryBundleRepository,
     ProductDeliveryBundleRepository,
     ProductDeliveryBundleService,
+)
+from psyteardown.product.feedback import (
+    InMemoryPreviewFeedbackRepository,
+    PreviewFeedbackRepository,
+    ProductPreviewFeedbackService,
 )
 
 __all__ = [
@@ -280,4 +293,15 @@ __all__ = [
     "InMemoryProductDeliveryBundleRepository",
     "ProductDeliveryBundleRepository",
     "ProductDeliveryBundleService",
+    "PREVIEW_FEEDBACK_CAPTURED",
+    "PREVIEW_FEEDBACK_CONSENT_STATEMENT",
+    "PREVIEW_FEEDBACK_CONSENT_VERSION",
+    "PREVIEW_FEEDBACK_MAX_TEXT",
+    "PREVIEW_FEEDBACK_NOT_CAPTURED",
+    "PreviewFeedback",
+    "PreviewFeedbackAnchor",
+    "PreviewFeedbackConsent",
+    "InMemoryPreviewFeedbackRepository",
+    "PreviewFeedbackRepository",
+    "ProductPreviewFeedbackService",
 ]

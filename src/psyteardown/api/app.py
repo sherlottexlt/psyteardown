@@ -21,6 +21,7 @@ from psyteardown.api.generation_jobs import router as generation_jobs_router
 from psyteardown.api.execution_jobs import router as execution_jobs_router
 from psyteardown.api.repair_jobs import router as repair_jobs_router
 from psyteardown.api.delivery_bundles import router as delivery_bundles_router
+from psyteardown.api.preview_feedback import router as preview_feedback_router
 from psyteardown.api.schemas import HealthResponse
 from psyteardown.product import (
     ProductApplicationService,
@@ -33,6 +34,8 @@ from psyteardown.product import (
     InMemoryProductRepairJobRepository,
     ProductDeliveryBundleService,
     InMemoryProductDeliveryBundleRepository,
+    ProductPreviewFeedbackService,
+    InMemoryPreviewFeedbackRepository,
     ProductProposalJobService,
     SQLiteProductRepository,
 )
@@ -130,6 +133,13 @@ def create_app(
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
+            app.state.product_preview_feedback_service = ProductPreviewFeedbackService(
+                service,
+                InMemoryPreviewFeedbackRepository(),
+                app.state.product_delivery_bundle_service,
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
         else:
             repository = SQLiteProductRepository(resolved_path)
             kwargs = {}
@@ -176,6 +186,12 @@ def create_app(
                 export_root=resolved_path.parent / "exports",
                 **kwargs,
             )
+            app.state.product_preview_feedback_service = ProductPreviewFeedbackService(
+                app.state.product_service,
+                repository,
+                app.state.product_delivery_bundle_service,
+                **kwargs,
+            )
         try:
             yield
         finally:
@@ -185,6 +201,7 @@ def create_app(
             app.state.product_execution_job_service = None
             app.state.product_repair_job_service = None
             app.state.product_delivery_bundle_service = None
+            app.state.product_preview_feedback_service = None
             if owns_repository and repository is not None:
                 repository.close()
 
@@ -198,7 +215,8 @@ def create_app(
             "Generated source is never executed by the generation job; a separate, "
             "explicit B4 execution job provides bounded build, preview and browser validation. "
             "A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. "
-            "A B6 delivery bundle is an immutable, content-addressed export of one verified execution."
+            "A B6 delivery bundle is an immutable, content-addressed export of one verified execution. "
+            "B7 previews a delivered build and records only explicit, consented, withdrawable feedback."
         ),
         lifespan=lifespan,
     )
@@ -248,6 +266,7 @@ def create_app(
     application.include_router(execution_jobs_router, prefix="/api/v1")
     application.include_router(repair_jobs_router, prefix="/api/v1")
     application.include_router(delivery_bundles_router, prefix="/api/v1")
+    application.include_router(preview_feedback_router, prefix="/api/v1")
     return application
 
 

@@ -26,6 +26,9 @@ from psyteardown.product.models import (
     ProductRepairJob,
     ProductDeliveryBundle,
     DeliveryBundleFile,
+    PreviewFeedback,
+    PreviewFeedbackAnchor,
+    PREVIEW_FEEDBACK_MAX_TEXT,
     GenerationBudget,
     GenerationManifest,
     GenerationSandboxPolicy,
@@ -508,6 +511,57 @@ class DeliveryBundleResponse(TransportModel):
 
     @classmethod
     def from_domain(cls, value: ProductDeliveryBundle) -> "DeliveryBundleResponse":
+        return cls.model_validate(_with_content_hash(value))
+
+
+class PreviewFeedbackPolicyResponse(TransportModel):
+    consent_version: Literal["b7-explicit-v1"]
+    statement: str
+    captured: list[str]
+    not_captured: list[str]
+    max_text_length: int
+    evidence_level: Literal["user_report"]
+
+
+class SubmitPreviewFeedbackRequest(TransportModel):
+    screen_id: str = Field(min_length=1)
+    task_id: str | None = Field(default=None, min_length=1)
+    state_id: str | None = Field(default=None, min_length=1)
+    category: Literal["bug", "confusing", "missing", "works"]
+    text: str = Field(min_length=1, max_length=PREVIEW_FEEDBACK_MAX_TEXT)
+    actor: str = Field(min_length=1)
+    consent_version: str = Field(min_length=1)
+    consent_granted: bool
+
+
+class WithdrawPreviewFeedbackRequest(TransportModel):
+    actor: str = Field(min_length=1)
+    expected_revision: int = Field(ge=1)
+
+
+class PreviewFeedbackResponse(TransportModel):
+    feedback_id: str
+    revision_id: str
+    project_id: str
+    meta: RevisionMetaResponse
+    delivery_bundle_id: str
+    delivery_bundle_revision_id: str
+    execution_job_revision_id: str
+    web_generation_contract_revision_id: str
+    anchor: PreviewFeedbackAnchor
+    status: Literal["submitted", "withdrawn"]
+    category: Literal["bug", "confusing", "missing", "works"] | None
+    text: str | None
+    submitted_by: str
+    submitted_at: datetime
+    consent: dict[str, Any]
+    withdrawn_at: datetime | None
+    evidence_level: Literal["user_report"]
+    automatic_capture: Literal["none"]
+    content_hash: str
+
+    @classmethod
+    def from_domain(cls, value: PreviewFeedback) -> "PreviewFeedbackResponse":
         return cls.model_validate(_with_content_hash(value))
 
 

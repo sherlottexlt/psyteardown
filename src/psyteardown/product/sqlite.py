@@ -11,7 +11,7 @@ from psyteardown.product.jobs import _validate_job_revision
 from psyteardown.product.generation import _validate_generation_job_revision
 from psyteardown.product.execution import _validate_execution_job_revision
 from psyteardown.product.repair import _validate_repair_job_revision
-from psyteardown.product.models import ProductDeliveryBundle, ProductExecutionJob, ProductGenerationJob, ProductProposalJob, ProductRepairJob, RevisionImpact
+from psyteardown.product.models import PreviewFeedback, ProductDeliveryBundle, ProductExecutionJob, ProductGenerationJob, ProductProposalJob, ProductRepairJob, RevisionImpact
 from psyteardown.product.repositories import (
     ProductRepositoryError,
     ProductSnapshot,
@@ -193,6 +193,18 @@ CREATE TABLE IF NOT EXISTS product_delivery_bundles (
 );
 CREATE INDEX IF NOT EXISTS idx_product_delivery_bundles_project
     ON product_delivery_bundles (project_id, created_at, bundle_id);
+-- One row per feedback: withdrawal overwrites the row with a tombstone so the
+-- erased text is not kept as an older revision (PS-O007).
+CREATE TABLE IF NOT EXISTS product_preview_feedback (
+    feedback_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    bundle_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    feedback_json TEXT NOT NULL,
+    submitted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_product_preview_feedback_project
+    ON product_preview_feedback (project_id, bundle_id, submitted_at, feedback_id);
 """
 
 
@@ -204,6 +216,8 @@ class SQLiteProductRepository:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.execute("PRAGMA foreign_keys = ON")
+        # Withdrawn preview feedback must not survive in freed pages.
+        self._conn.execute("PRAGMA secure_delete = ON")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
@@ -658,6 +672,81 @@ class SQLiteProductRepository:
             self._conn.rollback()
             raise
         return bundle
+
+    def get_preview_feedback(self, feedback_id: str) -> PreviewFeedback | None:
+        row = self._conn.execute(
+            "SELECT feedback_json FROM product_preview_feedback WHERE feedback_id=?",
+            (feedback_id,),
+        ).fetchone()
+        return PreviewFeedback.model_validate_json(row[0]) if row else None
+
+    def list_preview_feedback(
+        self, *, project_id: str | None = None, bundle_id: str | None = None
+    ) -> list[PreviewFeedback]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if project_id is not None:
+            clauses.append("project_id=?")
+            params.append(project_id)
+        if bundle_id is not None:
+            clauses.append("bundle_id=?")
+            params.append(bundle_id)
+        query = "SELECT feedback_json FROM product_preview_feedback"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY submitted_at, feedback_id"
+        rows = self._conn.execute(query, tuple(params)).fetchall()
+        return [PreviewFeedback.model_validate_json(row[0]) for row in rows]
+
+    def save_preview_feedback(
+        self, feedback: PreviewFeedback, *, expected_revision: int | None
+    ) -> PreviewFeedback:
+        try:
+            self._conn.execute("BEGIN IMMEDIATE")
+            if expected_revision is None:
+                if feedback.meta.revision != 1:
+                    raise ProductRepositoryError("first preview feedback revision must be revision 1")
+                self._conn.execute(
+                    "INSERT INTO product_preview_feedback "
+                    "(feedback_id,project_id,bundle_id,revision,feedback_json,submitted_at) VALUES (?,?,?,?,?,?)",
+                    (
+                        feedback.feedback_id,
+                        feedback.project_id,
+                        feedback.delivery_bundle_id,
+                        feedback.meta.revision,
+                        feedback.model_dump_json(),
+                        feedback.submitted_at.isoformat(),
+                    ),
+                )
+            else:
+                row = self._conn.execute(
+                    "SELECT feedback_json FROM product_preview_feedback WHERE feedback_id=?",
+                    (feedback.feedback_id,),
+                ).fetchone()
+                current = PreviewFeedback.model_validate_json(row[0]) if row else None
+                if current is None or current.meta.revision != expected_revision:
+                    raise ProductRepositoryError(
+                        f"revision conflict: expected {expected_revision}, "
+                        f"current {current.meta.revision if current else None}"
+                    )
+                if (
+                    feedback.meta.revision != current.meta.revision + 1
+                    or feedback.meta.parent_revision_id != current.revision_id
+                ):
+                    raise ProductRepositoryError("preview feedback revision must follow the current revision")
+                self._conn.execute(
+                    "UPDATE product_preview_feedback SET revision=?, feedback_json=? "
+                    "WHERE feedback_id=? AND revision=?",
+                    (feedback.meta.revision, feedback.model_dump_json(), feedback.feedback_id, expected_revision),
+                )
+            self._conn.commit()
+        except sqlite3.IntegrityError as exc:
+            self._conn.rollback()
+            raise ProductRepositoryError("preview feedback already exists") from exc
+        except Exception:
+            self._conn.rollback()
+            raise
+        return feedback
 
     def save_command(
         self,

@@ -1222,3 +1222,69 @@ class ProductDeliveryBundle(FrozenModel):
         if not {"source", "build", "notes"} <= roles:
             raise ValueError("delivery bundle requires source, build and notes files")
         return self
+
+
+# B7 preview feedback (PS-O007): only explicit, user-written reports are
+# recorded.  Nothing is captured automatically from the preview.  Withdrawal
+# replaces the single stored record with a tombstone so the body is erased
+# rather than hidden behind a newer revision.
+PREVIEW_FEEDBACK_CONSENT_VERSION = "b7-explicit-v1"
+PREVIEW_FEEDBACK_MAX_TEXT = 2000
+PREVIEW_FEEDBACK_CONSENT_STATEMENT = (
+    "Only what you write here is recorded: the text, its category, the page/task/state you anchor it to, "
+    "the preview revision, your name and the time. No clicks, navigation, typing, screen recording or "
+    "screenshots are captured from the preview. You can withdraw a report at any time; its text is then erased."
+)
+PREVIEW_FEEDBACK_CAPTURED = ("text", "category", "anchor", "bundle_revision", "actor", "time")
+PREVIEW_FEEDBACK_NOT_CAPTURED = ("clicks", "navigation", "typed_input", "screen_recording", "screenshots", "dwell_time")
+
+
+class PreviewFeedbackConsent(FrozenModel):
+    version: Literal["b7-explicit-v1"] = PREVIEW_FEEDBACK_CONSENT_VERSION
+    granted_by: Identifier
+    granted_at: datetime
+
+
+class PreviewFeedbackAnchor(FrozenModel):
+    screen_id: Identifier
+    task_id: Identifier | None = None
+    state_id: Identifier | None = None
+
+
+class PreviewFeedback(FrozenModel):
+    """One explicit report about a previewed delivery bundle revision."""
+
+    feedback_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    delivery_bundle_id: Identifier
+    delivery_bundle_revision_id: Identifier
+    execution_job_revision_id: Identifier
+    web_generation_contract_revision_id: Identifier
+    anchor: PreviewFeedbackAnchor
+    status: Literal["submitted", "withdrawn"] = "submitted"
+    category: Literal["bug", "confusing", "missing", "works"] | None = None
+    text: str | None = Field(default=None, min_length=1, max_length=PREVIEW_FEEDBACK_MAX_TEXT)
+    submitted_by: Identifier
+    submitted_at: datetime
+    consent: PreviewFeedbackConsent
+    withdrawn_at: datetime | None = None
+    evidence_level: Literal["user_report"] = "user_report"
+    automatic_capture: Literal["none"] = "none"
+
+    @model_validator(mode="after")
+    def validate_preview_feedback(self) -> "PreviewFeedback":
+        if self.revision_id != f"{self.feedback_id}.r{self.meta.revision}":
+            raise ValueError("preview feedback revision id does not match its revision")
+        if self.consent.granted_by != self.submitted_by:
+            raise ValueError("preview feedback consent must be granted by its submitter")
+        if not self.delivery_bundle_revision_id.startswith(f"{self.delivery_bundle_id}.r"):
+            raise ValueError("preview feedback bundle revision does not match its bundle")
+        if self.status == "submitted":
+            if self.meta.revision != 1 or self.category is None or self.text is None or self.withdrawn_at is not None:
+                raise ValueError("submitted preview feedback is revision 1 with a category and text")
+        else:
+            if self.meta.revision != 2 or self.category is not None or self.text is not None or self.withdrawn_at is None:
+                raise ValueError("withdrawn preview feedback is a revision 2 tombstone without content")
+        return self

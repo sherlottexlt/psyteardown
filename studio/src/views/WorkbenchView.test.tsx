@@ -24,6 +24,7 @@ const executionJob = { job_id: "execution-job-1", revision_id: "execution-job-1.
 const bundle = {
   bundle_id: "delivery-bundle-1",
   execution_job_revision_id: "execution-job-1.r7",
+  web_generation_contract_revision_id: "web-contract-1.r1",
   materialization_kind: "template",
   archive_sha256: "a".repeat(64),
   archive_bytes: 4096,
@@ -73,6 +74,16 @@ describe("WorkbenchView delivery export", () => {
     renderWorkbench({ deliveryBundle: bundle });
     expect(screen.getByRole("link", { name: /下载交付包/ })).toHaveAttribute("href", "/archive/delivery-bundle-1");
     expect(screen.getByText("No real-user evidence.")).toBeInTheDocument();
+  });
+
+  it("opens the delivered build preview only for the current bundle", () => {
+    const preview = { url: (id: string) => `/preview/${id}/`, policy: null, feedback: [], onSubmit: vi.fn(), onWithdraw: vi.fn() };
+    renderWorkbench({ deliveryBundle: bundle, preview });
+    expect(screen.getByTitle("交付构建预览")).toHaveAttribute("src", "/preview/delivery-bundle-1/");
+    cleanup();
+    renderWorkbench({ deliveryBundle: { ...bundle, execution_job_revision_id: "execution-job-0.r7" }, preview });
+    expect(screen.queryByTitle("交付构建预览")).toBeNull();
+    expect(screen.getByText("还没有可预览的交付构建")).toBeInTheDocument();
   });
 
   it("does not present a bundle from an older execution as current", () => {

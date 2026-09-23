@@ -1621,6 +1621,230 @@
         "title": "OutcomeContractResponse",
         "type": "object"
       },
+      "PreviewFeedbackAnchor": {
+        "additionalProperties": false,
+        "properties": {
+          "screen_id": {
+            "minLength": 1,
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "state_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          }
+        },
+        "required": [
+          "screen_id"
+        ],
+        "title": "PreviewFeedbackAnchor",
+        "type": "object"
+      },
+      "PreviewFeedbackPolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "captured": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Captured",
+            "type": "array"
+          },
+          "consent_version": {
+            "const": "b7-explicit-v1",
+            "title": "Consent Version",
+            "type": "string"
+          },
+          "evidence_level": {
+            "const": "user_report",
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "max_text_length": {
+            "title": "Max Text Length",
+            "type": "integer"
+          },
+          "not_captured": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Captured",
+            "type": "array"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consent_version",
+          "statement",
+          "captured",
+          "not_captured",
+          "max_text_length",
+          "evidence_level"
+        ],
+        "title": "PreviewFeedbackPolicyResponse",
+        "type": "object"
+      },
+      "PreviewFeedbackResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "$ref": "#/components/schemas/PreviewFeedbackAnchor"
+          },
+          "automatic_capture": {
+            "const": "none",
+            "title": "Automatic Capture",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "bug",
+                  "confusing",
+                  "missing",
+                  "works"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "consent": {
+            "additionalProperties": true,
+            "title": "Consent",
+            "type": "object"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "delivery_bundle_id": {
+            "title": "Delivery Bundle Id",
+            "type": "string"
+          },
+          "delivery_bundle_revision_id": {
+            "title": "Delivery Bundle Revision Id",
+            "type": "string"
+          },
+          "evidence_level": {
+            "const": "user_report",
+            "title": "Evidence Level",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "feedback_id": {
+            "title": "Feedback Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "submitted",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "submitted_by": {
+            "title": "Submitted By",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "feedback_id",
+          "revision_id",
+          "project_id",
+          "meta",
+          "delivery_bundle_id",
+          "delivery_bundle_revision_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "anchor",
+          "status",
+          "category",
+          "text",
+          "submitted_by",
+          "submitted_at",
+          "consent",
+          "withdrawn_at",
+          "evidence_level",
+          "automatic_capture",
+          "content_hash"
+        ],
+        "title": "PreviewFeedbackResponse",
+        "type": "object"
+      },
       "ProblemAssumption": {
         "additionalProperties": false,
         "properties": {
@@ -3637,6 +3861,80 @@
         "title": "SubmitOutcomeContractRequest",
         "type": "object"
       },
+      "SubmitPreviewFeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "bug",
+              "confusing",
+              "missing",
+              "works"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "consent_granted": {
+            "title": "Consent Granted",
+            "type": "boolean"
+          },
+          "consent_version": {
+            "minLength": 1,
+            "title": "Consent Version",
+            "type": "string"
+          },
+          "screen_id": {
+            "minLength": 1,
+            "title": "Screen Id",
+            "type": "string"
+          },
+          "state_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "category",
+          "text",
+          "actor",
+          "consent_version",
+          "consent_granted"
+        ],
+        "title": "SubmitPreviewFeedbackRequest",
+        "type": "object"
+      },
       "SubmitProblemModelRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4536,11 +4834,32 @@
         ],
         "title": "WebTaskSpec",
         "type": "object"
+      },
+      "WithdrawPreviewFeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "actor",
+          "expected_revision"
+        ],
+        "title": "WithdrawPreviewFeedbackRequest",
+        "type": "object"
       }
     }
   },
   "info": {
-    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is never executed by the generation job; a separate, explicit B4 execution job provides bounded build, preview and browser validation. A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. A B6 delivery bundle is an immutable, content-addressed export of one verified execution.",
+    "description": "Local-first command and projection API for Product Studio. Proposal and generation work is created as a persisted job; an explicit run command performs only the bounded local step. Generated source is never executed by the generation job; a separate, explicit B4 execution job provides bounded build, preview and browser validation. A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. A B6 delivery bundle is an immutable, content-addressed export of one verified execution. B7 previews a delivered build and records only explicit, consented, withdrawable feedback.",
     "title": "psyteardown Product Studio API",
     "version": "0.1.0"
   },
@@ -4564,6 +4883,27 @@
         "summary": "Health",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/preview-feedback-policy": {
+      "get": {
+        "operationId": "get_preview_feedback_policy_api_v1_preview_feedback_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewFeedbackPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Preview Feedback Policy",
+        "tags": [
+          "product-preview-feedback"
         ]
       }
     },
@@ -4961,6 +5301,160 @@
         "summary": "Download Delivery Bundle",
         "tags": [
           "product-delivery-bundles"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/feedback": {
+      "post": {
+        "operationId": "submit_preview_feedback_api_v1_projects__project_id__delivery_bundles__bundle_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPreviewFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewFeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Preview Feedback",
+        "tags": [
+          "product-preview-feedback"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/preview/{path}": {
+      "get": {
+        "operationId": "get_bundle_preview_file_api_v1_projects__project_id__delivery_bundles__bundle_id__preview__path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integrity-checked delivered build file"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Bundle Preview File",
+        "tags": [
+          "product-preview-feedback"
         ]
       }
     },
@@ -6176,6 +6670,169 @@
         "summary": "Confirm Outcome Contract Revision",
         "tags": [
           "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/preview-feedback": {
+      "get": {
+        "operationId": "list_preview_feedback_api_v1_projects__project_id__preview_feedback_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bundle_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bundle Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PreviewFeedbackResponse"
+                  },
+                  "title": "Response List Preview Feedback Api V1 Projects  Project Id  Preview Feedback Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Preview Feedback",
+        "tags": [
+          "product-preview-feedback"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/preview-feedback/{feedback_id}/withdrawal": {
+      "post": {
+        "operationId": "withdraw_preview_feedback_api_v1_projects__project_id__preview_feedback__feedback_id__withdrawal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawPreviewFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewFeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Withdraw Preview Feedback",
+        "tags": [
+          "product-preview-feedback"
         ]
       }
     },

@@ -521,3 +521,58 @@ export function listDeliveryBundles(projectId: string): Promise<import("./types"
 export function deliveryBundleArchiveUrl(projectId: string, bundleId: string): string {
   return `${apiBase}/api/v1/projects/${encodeURIComponent(projectId)}/delivery-bundles/${encodeURIComponent(bundleId)}/archive`;
 }
+
+export function deliveryBundlePreviewUrl(projectId: string, bundleId: string): string {
+  // Trailing slash so the delivered build's relative asset URLs resolve inside the preview path.
+  return `${apiBase}/api/v1/projects/${encodeURIComponent(projectId)}/delivery-bundles/${encodeURIComponent(bundleId)}/preview/`;
+}
+
+export function getPreviewFeedbackPolicy(): Promise<import("./types").PreviewFeedbackPolicy> {
+  return request("/api/v1/preview-feedback-policy");
+}
+
+export function listPreviewFeedback(projectId: string): Promise<import("./types").PreviewFeedback[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/preview-feedback`);
+}
+
+export function submitPreviewFeedback(input: {
+  projectId: string;
+  bundleId: string;
+  screenId: string;
+  taskId: string | null;
+  stateId: string | null;
+  category: import("./types").PreviewFeedbackCategory;
+  text: string;
+  consentVersion: string;
+}): Promise<import("./types").PreviewFeedback> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/delivery-bundles/${encodeURIComponent(input.bundleId)}/feedback`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        screen_id: input.screenId,
+        task_id: input.taskId,
+        state_id: input.stateId,
+        category: input.category,
+        text: input.text,
+        actor: "local-user",
+        consent_version: input.consentVersion,
+        consent_granted: true,
+      }),
+    },
+  );
+}
+
+export function withdrawPreviewFeedback(input: {
+  projectId: string;
+  feedbackId: string;
+  expectedRevision: number;
+}): Promise<import("./types").PreviewFeedback> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/preview-feedback/${encodeURIComponent(input.feedbackId)}/withdrawal`,
+    {
+      method: "POST",
+      body: JSON.stringify({ actor: "local-user", expected_revision: input.expectedRevision }),
+    },
+  );
+}

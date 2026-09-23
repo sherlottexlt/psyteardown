@@ -1,6 +1,7 @@
 import type { ProductProjectView } from "../api/types";
 import { Badge, statusLabel } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
+import { PreviewFeedbackPanel, type PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
 
 export function WorkbenchView({
   view,
@@ -17,6 +18,7 @@ export function WorkbenchView({
   onExecuteProduct,
   onRepairProduct,
   onExportProduct,
+  preview,
 }: {
   view: ProductProjectView;
   busy: boolean;
@@ -32,6 +34,13 @@ export function WorkbenchView({
   onExecuteProduct: () => void;
   onRepairProduct: () => void;
   onExportProduct?: () => void;
+  preview?: {
+    url: (bundleId: string) => string;
+    policy: import("../api/types").PreviewFeedbackPolicy | null;
+    feedback: import("../api/types").PreviewFeedback[];
+    onSubmit: (bundleId: string, draft: PreviewFeedbackDraft) => Promise<boolean>;
+    onWithdraw: (item: import("../api/types").PreviewFeedback) => void;
+  };
 }) {
   const bundleMatchesExecution = Boolean(
     deliveryBundle && executionJob && deliveryBundle.execution_job_revision_id === executionJob.revision_id,
@@ -82,10 +91,24 @@ export function WorkbenchView({
           </article>
         ))}
       </div>
-      <section className="preview-frame">
-        <div className="preview-frame__bar"><span /><span /><span /><p>Runnable product preview</p><Badge tone="warn">尚未构建</Badge></div>
-        <div className="preview-frame__empty"><div className="preview-glyph">↗</div><h2>运行环境尚未接入</h2><p>完成生成 Job、隔离构建和 Playwright 验证后，真实产物会在这里打开。</p></div>
-      </section>
+      {bundleMatchesExecution && deliveryBundle && preview ? (
+        <PreviewFeedbackPanel
+          key={deliveryBundle.bundle_id}
+          bundle={deliveryBundle}
+          contract={view.web_generation_contract ?? null}
+          previewUrl={preview.url(deliveryBundle.bundle_id)}
+          policy={preview.policy}
+          feedback={preview.feedback.filter((item) => item.delivery_bundle_id === deliveryBundle.bundle_id)}
+          busy={busy}
+          onSubmit={(draft) => preview.onSubmit(deliveryBundle.bundle_id, draft)}
+          onWithdraw={preview.onWithdraw}
+        />
+      ) : (
+        <section className="preview-frame">
+          <div className="preview-frame__bar"><span /><span /><span /><p>Runnable product preview</p><Badge tone="warn">尚未交付</Badge></div>
+          <div className="preview-frame__empty"><div className="preview-glyph">↗</div><h2>还没有可预览的交付构建</h2><p>完成生成、隔离构建与浏览器验证并导出交付包后，已交付的构建物会在这里打开，你可以对页面和任务留下反馈。</p></div>
+        </section>
+      )}
       {view.web_generation_contract ? (
         <section className="panel contract-card contract-card--wide" aria-label="Web 生成契约">
           <div className="panel__heading">

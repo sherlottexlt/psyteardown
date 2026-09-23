@@ -16,6 +16,11 @@ import {
   createDeliveryBundle,
   listDeliveryBundles,
   deliveryBundleArchiveUrl,
+  deliveryBundlePreviewUrl,
+  getPreviewFeedbackPolicy,
+  listPreviewFeedback,
+  submitPreviewFeedback,
+  withdrawPreviewFeedback,
   confirmRevision,
   createProposalJob,
   getProject,
@@ -27,6 +32,7 @@ import {
   transitionThesis,
 } from "../api/client";
 import type {
+  PreviewFeedback,
   EditableOutcomeContract,
   EditableProblemModel,
   EditableProductIntent,
@@ -42,6 +48,7 @@ import { ContractView } from "./ContractView";
 import { DecisionsView } from "./DecisionsView";
 import { EvidenceView } from "./EvidenceView";
 import { WorkbenchView } from "./WorkbenchView";
+import type { PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
 
 type Area = "command" | "contract" | "workbench" | "decisions" | "evidence";
 
@@ -89,6 +96,17 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   const deliveryBundlesQuery = useQuery({
     queryKey: ["delivery-bundles", projectId],
     queryFn: () => listDeliveryBundles(projectId),
+    retry: false,
+  });
+
+  const feedbackPolicyQuery = useQuery({
+    queryKey: ["preview-feedback-policy"],
+    queryFn: getPreviewFeedbackPolicy,
+    retry: false,
+  });
+  const previewFeedbackQuery = useQuery({
+    queryKey: ["preview-feedback", projectId],
+    queryFn: () => listPreviewFeedback(projectId),
     retry: false,
   });
 
@@ -286,6 +304,31 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
+  async function handleSubmitFeedback(bundleId: string, draft: PreviewFeedbackDraft): Promise<boolean> {
+    const policy = feedbackPolicyQuery.data;
+    if (!policy) {
+      setActionError("反馈政策尚未加载，无法记录同意。");
+      return false;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      await submitPreviewFeedback({ projectId, bundleId, ...draft, consentVersion: policy.consent_version });
+      await previewFeedbackQuery.refetch();
+      return true;
+    } catch (error) {
+      setActionError(formatApiError(error));
+      return false;
+    } finally { setBusy(false); }
+  }
+
+  function handleWithdrawFeedback(item: PreviewFeedback) {
+    void refreshAfter(async () => {
+      await withdrawPreviewFeedback({ projectId, feedbackId: item.feedback_id, expectedRevision: item.meta.revision });
+      await previewFeedbackQuery.refetch();
+    });
+  }
+
   if (query.isLoading) {
     return <main className="loading-screen"><div className="loading-mark"><span /><span /><span /></div><p>正在读取产品模型…</p></main>;
   }
@@ -322,7 +365,13 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
         <div className="studio-content">
           {area === "command" ? <CommandView view={view} /> : null}
           {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
-          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} preview={{
+            url: (bundleId) => deliveryBundlePreviewUrl(projectId, bundleId),
+            policy: feedbackPolicyQuery.data ?? null,
+            feedback: previewFeedbackQuery.data ?? [],
+            onSubmit: handleSubmitFeedback,
+            onWithdraw: handleWithdrawFeedback,
+          }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));

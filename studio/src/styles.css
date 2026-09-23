@@ -400,3 +400,27 @@ select { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.preview-frame__bar .badge { flex: 0 0 auto; white-space: nowrap; }
+.preview-frame__bar p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-frame__viewport { display: block; width: 100%; height: 420px; border: 0; border-bottom: 1px solid var(--line); background: #fff; }
+.preview-feedback { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1px; background: var(--line); }
+.preview-feedback > * { padding: 22px 24px; background: var(--panel); }
+.preview-feedback h2 { margin: 0 0 14px; font-size: 14px; }
+.preview-feedback__form { display: flex; flex-direction: column; gap: 14px; }
+.preview-feedback__anchors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.preview-feedback__categories { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.preview-feedback__categories legend { margin-bottom: 8px; color: #cdd3cf; font-size: 12px; font-weight: 600; }
+.preview-feedback__categories label { flex-direction: row; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid #343d3a; cursor: pointer; }
+.preview-feedback__categories label.is-active { border-color: var(--acid-dark); color: var(--text); }
+.preview-feedback__categories input { width: auto; accent-color: var(--acid); }
+.preview-feedback__list ul { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.preview-feedback__list li { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); }
+.preview-feedback__list li > div { display: flex; align-items: center; gap: 10px; }
+.preview-feedback__list li small { color: var(--dim); font-family: var(--mono); font-size: 10px; }
+.preview-feedback__list li p { margin: 0; font-size: 12px; line-height: 1.6; }
+.preview-feedback__list li.is-withdrawn p { color: var(--dim); font-style: italic; }
+.preview-feedback__list li .button { align-self: flex-start; }
+@media (max-width: 900px) {
+  .preview-feedback, .preview-feedback__anchors { grid-template-columns: 1fr; }
+}
