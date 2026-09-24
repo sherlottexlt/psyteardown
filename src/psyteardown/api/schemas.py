@@ -31,6 +31,7 @@ from psyteardown.product.models import (
     PREVIEW_FEEDBACK_MAX_TEXT,
     GenerationBudget,
     GenerationManifest,
+    ModelCallRecord,
     GenerationSandboxPolicy,
     ExecutionBudget,
     ExecutionSandboxPolicy,
@@ -198,6 +199,32 @@ class CreateGenerationJobRequest(TransportModel):
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
     budget: GenerationBudgetRequest | None = None
+    # "model" asks the configured source model to write App.tsx/styles.css
+    # from the confirmed contract; its budget is fixed server-side.
+    source: Literal["template", "model"] = "template"
+
+
+class SourceModelPolicyResponse(TransportModel):
+    available: bool
+    provider: str | None
+    model: str | None
+    sent: list[str]
+    not_sent: list[str]
+    retention: str
+    max_calls_per_job: int
+    model_writes: list[str]
+    repair_uses_model: bool
+
+
+class ModelCallTranscriptResponse(TransportModel):
+    attempt: int
+    provider: str
+    model: str
+    system: str
+    prompt: str
+    response: str | None
+    gate: dict[str, Any] | None
+    error: str | None
 
 
 class GenerationJobActionRequest(TransportModel):
@@ -398,7 +425,7 @@ class ProductGenerationJobResponse(TransportModel):
     status: Literal[
         "queued", "running", "paused", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"
     ]
-    provider: Literal["deterministic_template", "deterministic_repair"]
+    provider: Literal["deterministic_template", "deterministic_repair", "model_source"]
     provider_version: str
     input_dependencies: list[dict[str, Any]]
     web_generation_contract_revision_id: str
@@ -407,9 +434,10 @@ class ProductGenerationJobResponse(TransportModel):
     budget: GenerationBudget
     sandbox: GenerationSandboxPolicy
     fingerprint: str
-    materialization_kind: Literal["template", "repair"]
+    materialization_kind: Literal["template", "repair", "model"]
     parent_generation_job_id: str | None
     repair_job_id: str | None
+    model_calls: list[ModelCallRecord]
     attempt: int
     checkpoint_step: Literal["prepare", "generate", "validate"] | None
     consumed_files: int
@@ -494,7 +522,7 @@ class DeliveryBundleResponse(TransportModel):
     generation_job_revision_id: str
     web_generation_contract_revision_id: str
     contract_is_current: bool
-    materialization_kind: Literal["template", "repair"]
+    materialization_kind: Literal["template", "repair", "model"]
     parent_generation_job_id: str | None
     repair_job_id: str | None
     template_id: Literal["react_typescript_vite_spa"]

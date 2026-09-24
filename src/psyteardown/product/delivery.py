@@ -154,6 +154,8 @@ class ProductDeliveryBundleService:
         contract = view.web_generation_contract
         contract_is_current = contract is not None and contract.revision_id == generation.web_generation_contract_revision_id
         claims = list(DELIVERY_BASE_UNVERIFIED_CLAIMS)
+        if generation.materialization_kind == "model":
+            claims.append("src/App.tsx and src/styles.css were written by a language model; they passed a static gate and the contract-derived browser test, but no human has reviewed the code.")
         if not contract_is_current:
             claims.append("The Web generation contract has changed since this workspace was generated; this bundle reflects the superseded revision.")
         entries = self._collect_entries(workspace, generation)
@@ -374,6 +376,9 @@ def _delivery_notes(
         f"- Web generation contract: `{generation.web_generation_contract_revision_id}`",
         f"- Generation: `{generation.revision_id}` ({generation.materialization_kind})",
     ]
+    if generation.materialization_kind == "model":
+        for call in generation.model_calls:
+            lines.append(f"- Model call {call.attempt}: {call.provider} `{call.model}` — {call.outcome} (request sha256 `{call.request_sha256[:12]}`); only the confirmed Web contract was sent")
     if generation.materialization_kind == "repair":
         lines.append(f"- Repaired from generation `{generation.parent_generation_job_id}` by repair job `{generation.repair_job_id}`")
     lines += [

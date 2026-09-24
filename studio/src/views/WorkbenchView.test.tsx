@@ -91,4 +91,31 @@ describe("WorkbenchView delivery export", () => {
     expect(screen.queryByRole("link", { name: /下载交付包/ })).toBeNull();
     expect(screen.getByRole("button", { name: "导出交付包" })).toBeInTheDocument();
   });
+
+  it("explains what the source model receives and offers a gated retry", async () => {
+    const policy = { available: true, provider: "deepseek", model: "deepseek-v4-flash", sent: [], not_sent: [], retention: "local", max_calls_per_job: 2, model_writes: ["src/App.tsx", "src/styles.css"], repair_uses_model: false };
+    const failed = {
+      ...generationJob,
+      status: "failed",
+      materialization_kind: "model",
+      attempt: 1,
+      budget: { max_attempts: 2, max_bytes: 1000 },
+      model_calls: [{ attempt: 1, provider: "deepseek", model: "deepseek-flash", outcome: "rejected", input_tokens: 10, output_tokens: 20, duration_seconds: 3, rejection_reasons: ["import of 'axios' is not allowed"] }],
+    } as unknown as ProductGenerationJob;
+    const sourceModel = { policy, onGenerate: vi.fn(), onRetry: vi.fn() };
+    renderWorkbench({ generationJob: failed, executionJob: null, sourceModel });
+
+    expect(screen.getByText(/模型只收到已确认的 Web 契约/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /用模型写源码 · deepseek/ }));
+    expect(sourceModel.onGenerate).toHaveBeenCalledOnce();
+    expect(screen.getByText("import of 'axios' is not allowed")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /带上门禁原因重试/ }));
+    expect(sourceModel.onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("disables model generation when no source model is configured", () => {
+    renderWorkbench({ sourceModel: { policy: { available: false } as never, onGenerate: vi.fn(), onRetry: vi.fn() } });
+    expect(screen.getByRole("button", { name: "模型写源码（未配置）" })).toBeDisabled();
+    expect(screen.getByText(/PSYTEARDOWN_PRODUCT_SOURCE_MODEL=deepseek/)).toBeInTheDocument();
+  });
 });

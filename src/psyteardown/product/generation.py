@@ -13,21 +13,37 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import uuid4
 
 from psyteardown.experience.models import DependencyRef, DomainStateError, RevisionMeta
 from psyteardown.product.models import (
+    GENERATION_DEFAULT_MAX_COST_UNITS,
+    GENERATION_DEFAULT_MAX_DURATION_SECONDS,
+    GENERATION_MODEL_PROVIDER,
+    GENERATION_MODEL_VERSION,
     GenerationBudget,
     GenerationManifest,
     GeneratedFile,
+    ModelCallRecord,
     ProductGenerationJob,
+    model_generation_budget,
     WebProductGenerationContract,
     WEB_OUTPUT_PATHS,
     WEB_TEMPLATE_ID,
     WEB_TEMPLATE_VERSION,
 )
 from psyteardown.product.repositories import ProductRepositoryError
+from psyteardown.product.source_model import (
+    SOURCE_MODEL_SYSTEM,
+    ProductSourceModel,
+    SourceModelError,
+    build_source_prompt,
+    check_model_source,
+    contract_browser_test,
+    parse_source_reply,
+    timed_generate,
+)
 
 
 class ProductGenerationJobRepository(Protocol):
@@ -109,6 +125,14 @@ class _StaleInput(RuntimeError):
     pass
 
 
+class _ModelAttemptFailed(RuntimeError):
+    def __init__(self, record: ModelCallRecord, error_code: str, error_summary: str) -> None:
+        super().__init__(error_summary)
+        self.record = record
+        self.error_code = error_code
+        self.error_summary = error_summary
+
+
 _SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 _FORBIDDEN_NAMES = {".env", ".git", "id_rsa", "id_ed25519", "credentials.json"}
 
@@ -124,14 +148,20 @@ class ProductGenerationJobService:
         workspace_root: Path | str = Path("output/product-studio/workspaces"),
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[str], str] | None = None,
+        source_model: ProductSourceModel | None = None,
+        transcript_root: Path | str | None = None,
     ) -> None:
         self.application = application
+        self.source_model = source_model
         self.job_repository = job_repository
         if hasattr(job_repository, "attach_product_repository"):
             job_repository.attach_product_repository(application.repository)
         self.workspace_root = Path(workspace_root)
         self.workspace_root.mkdir(parents=True, exist_ok=True)
         self._root = self.workspace_root.resolve()
+        # Model transcripts live beside, never inside, job workspaces so they
+        # are not part of the manifest or of any delivery bundle.
+        self.transcript_root = Path(transcript_root) if transcript_root else self.workspace_root.parent / "model-calls"
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._id_factory = id_factory or (lambda prefix: f"{prefix}-{uuid4().hex}")
 
@@ -142,6 +172,7 @@ class ProductGenerationJobService:
         actor: str,
         reason: str,
         budget: GenerationBudget | None = None,
+        source: Literal["template", "model"] = "template",
     ) -> ProductGenerationJob:
         view = self.application.get_project_view(project_id)
         if view.project.status != "active":
@@ -151,19 +182,32 @@ class ProductGenerationJobService:
             raise DomainStateError(
                 "a human-confirmed Web generation contract is required before source generation"
             )
-        selected_budget = budget or GenerationBudget()
+        if source == "model":
+            if self.source_model is None:
+                raise DomainStateError("model source generation requires a configured source model provider")
+            selected_budget = budget or model_generation_budget()
+        else:
+            selected_budget = budget or GenerationBudget()
+            if (
+                selected_budget.max_cost_units > GENERATION_DEFAULT_MAX_COST_UNITS
+                or selected_budget.max_duration_seconds > GENERATION_DEFAULT_MAX_DURATION_SECONDS
+            ):
+                raise DomainStateError("template generation budget exceeds the template limits")
         dependency = DependencyRef(
             object_type="web_generation_contract",
             object_id=contract.web_generation_contract_id,
             revision=contract.meta.revision,
         )
-        fingerprint = _fingerprint(project_id, dependency, selected_budget)
+        fingerprint = _fingerprint(project_id, dependency, selected_budget, source=source)
+        # A model draft is non-deterministic and each explicit request spends
+        # budget, so only an unfinished model job is reused.
+        reusable_statuses = {"queued", "running", "paused"} if source == "model" else {"queued", "running", "paused", "succeeded"}
         reusable = next(
             (
                 item
                 for item in reversed(self.job_repository.list_generation_jobs(project_id=project_id))
                 if item.fingerprint == fingerprint
-                and item.status in {"queued", "running", "paused", "succeeded"}
+                and item.status in reusable_statuses
             ),
             None,
         )
@@ -187,6 +231,11 @@ class ProductGenerationJobService:
             workspace_relative_path=workspace_path,
             budget=selected_budget,
             fingerprint=fingerprint,
+            **(
+                {"provider": GENERATION_MODEL_PROVIDER, "provider_version": GENERATION_MODEL_VERSION, "materialization_kind": "model"}
+                if source == "model"
+                else {}
+            ),
         )
         return self.job_repository.save_generation_job(job, expected_revision=None)
 
@@ -251,6 +300,16 @@ class ProductGenerationJobService:
                 checkpoint_step="generate",
             )
             files = self._render_files(contract)
+            if running.materialization_kind == "model":
+                files, record = self._model_files(running, contract, files)
+                running = self._transition(
+                    running,
+                    status="running",
+                    actor=actor,
+                    reason="model source accepted by static gate",
+                    checkpoint_step="generate",
+                    model_calls=(*running.model_calls, record),
+                )
             elapsed = time.monotonic() - started
             self._check_budget(running.budget, files, elapsed)
             if not self._inputs_are_current(running):
@@ -297,6 +356,17 @@ class ProductGenerationJobService:
                 error_summary="The generated workspace exceeded the configured local budget.",
                 consumed_duration_seconds=time.monotonic() - started,
             )
+        except _ModelAttemptFailed as failure:
+            return self._transition(
+                running,
+                status="failed",
+                actor=actor,
+                reason="model source attempt did not pass",
+                error_code=failure.error_code,
+                error_summary=failure.error_summary,
+                model_calls=(*running.model_calls, failure.record),
+                consumed_duration_seconds=time.monotonic() - started,
+            )
         except _SandboxViolation:
             return self._transition(
                 running,
@@ -323,7 +393,7 @@ class ProductGenerationJobService:
             running,
             status="succeeded",
             actor=actor,
-            reason="template workspace materialized",
+            reason="model workspace materialized" if running.materialization_kind == "model" else "template workspace materialized",
             checkpoint_step="validate",
             consumed_duration_seconds=elapsed,
             manifest=manifest,
@@ -512,6 +582,85 @@ class ProductGenerationJobService:
             "public/fixture.json": fixture,
         }
 
+    def _model_files(
+        self, job: ProductGenerationJob, contract: WebProductGenerationContract, template: dict[str, str]
+    ) -> tuple[dict[str, str], ModelCallRecord]:
+        """One model call: send only the contract, keep the transcript, gate the reply."""
+        model = self.source_model
+        if model is None:
+            raise DomainStateError("model source generation requires a configured source model provider")
+        attempt = len(job.model_calls) + 1
+        previous = job.model_calls[-1].rejection_reasons if job.model_calls else ()
+        prompt = build_source_prompt(contract, previous)
+        request_sha = hashlib.sha256(f"{SOURCE_MODEL_SYSTEM}\n\n{prompt}".encode("utf-8")).hexdigest()
+        relative = "/".join((_safe_segment(job.project_id), _safe_segment(job.job_id), f"attempt-{attempt}.json"))
+        transcript = {
+            "job_id": job.job_id,
+            "attempt": attempt,
+            "provider": model.name,
+            "model": model.model,
+            "sent_object_types": ["web_generation_contract"],
+            "web_generation_contract_revision_id": contract.revision_id,
+            "system": SOURCE_MODEL_SYSTEM,
+            "prompt": prompt,
+        }
+        base = {
+            "attempt": attempt,
+            "provider": model.name,
+            "request_sha256": request_sha,
+            "transcript_path": relative,
+        }
+        started = time.monotonic()
+        try:
+            reply, duration = timed_generate(model, system=SOURCE_MODEL_SYSTEM, prompt=prompt)
+        except SourceModelError as exc:
+            transcript["error"] = str(exc)
+            self._write_transcript(relative, transcript)
+            record = ModelCallRecord(**base, model=model.model, outcome="failed", duration_seconds=time.monotonic() - started)
+            raise _ModelAttemptFailed(record, "model_call_failed", f"The model call failed: {exc}.") from exc
+        response_sha = hashlib.sha256(reply.text.encode("utf-8")).hexdigest()
+        transcript.update(
+            response=reply.text,
+            response_model=reply.model,
+            input_tokens=reply.input_tokens,
+            output_tokens=reply.output_tokens,
+            truncated=reply.truncated,
+        )
+        files, reasons = parse_source_reply(reply.text, truncated=reply.truncated)
+        if not reasons:
+            reasons = check_model_source(files, contract)
+        transcript["gate"] = {"accepted": not reasons, "reasons": reasons}
+        self._write_transcript(relative, transcript)
+        record = ModelCallRecord(
+            **base,
+            model=reply.model or model.model,
+            outcome="rejected" if reasons else "accepted",
+            response_sha256=response_sha,
+            input_tokens=reply.input_tokens,
+            output_tokens=reply.output_tokens,
+            duration_seconds=duration,
+            rejection_reasons=tuple(reason[:200] for reason in reasons),
+        )
+        if reasons:
+            summary = f"The model draft was rejected by the static gate ({len(reasons)} issue(s)): {reasons[0]}."
+            raise _ModelAttemptFailed(record, "model_output_rejected", summary[:240])
+        merged = dict(template)
+        merged.update(files)
+        # The model never writes its own checks: B4 runs a contract-derived test.
+        merged["tests/generated-contract.spec.ts"] = contract_browser_test(contract)
+        return merged, record
+
+    def _write_transcript(self, relative: str, payload: dict) -> None:
+        target = self.transcript_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def transcript_path(self, job: ProductGenerationJob, attempt: int) -> Path:
+        record = next((item for item in job.model_calls if item.attempt == attempt), None)
+        if record is None:
+            raise DomainStateError(f"unknown model call attempt: {attempt}")
+        return self.transcript_root / record.transcript_path
+
     def _write_workspace(self, job: ProductGenerationJob, files: dict[str, str]) -> GenerationManifest:
         final = self._workspace_path(job)
         if final.exists():
@@ -655,13 +804,13 @@ def _safe_segment(value: str) -> str:
     return f"id-{digest}"
 
 
-def _fingerprint(project_id: str, dependency: DependencyRef, budget: GenerationBudget) -> str:
+def _fingerprint(project_id: str, dependency: DependencyRef, budget: GenerationBudget, *, source: str = "template") -> str:
     payload = {
         "project_id": project_id,
         "dependency": dependency.model_dump(mode="json"),
         "budget": budget.model_dump(mode="json"),
-        "provider": "deterministic_template",
-        "version": "b3-v1",
+        "provider": GENERATION_MODEL_PROVIDER if source == "model" else "deterministic_template",
+        "version": GENERATION_MODEL_VERSION if source == "model" else "b3-v1",
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 

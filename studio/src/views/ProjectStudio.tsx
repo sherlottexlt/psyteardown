@@ -8,6 +8,8 @@ import {
   listGenerationJobs,
   listExecutionJobs,
   runGenerationJob,
+  retryGenerationJob,
+  getSourceModelPolicy,
   runExecutionJob,
   createRepairJob,
   listRepairJobs,
@@ -99,6 +101,11 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     retry: false,
   });
 
+  const sourceModelPolicyQuery = useQuery({
+    queryKey: ["source-model-policy"],
+    queryFn: getSourceModelPolicy,
+    retry: false,
+  });
   const feedbackPolicyQuery = useQuery({
     queryKey: ["preview-feedback-policy"],
     queryFn: getPreviewFeedbackPolicy,
@@ -229,16 +236,33 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
-  async function handleGenerateProduct() {
+  async function handleGenerateProduct(source: "template" | "model" = "template") {
     setBusy(true);
     setActionError(null);
     try {
-      const queued = await createGenerationJob({ projectId });
+      const queued = await createGenerationJob({ projectId, source });
       await generationJobsQuery.refetch();
       const completed = await runGenerationJob({ projectId, jobId: queued.job_id });
       await generationJobsQuery.refetch();
       if (completed.status !== "succeeded") {
         setActionError(completed.error_summary ?? "生成 workspace 未完成。");
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
+  async function handleRetryModelSource() {
+    const job = generationJobsQuery.data?.at(-1);
+    if (!job || job.materialization_kind !== "model") return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await retryGenerationJob({ projectId, jobId: job.job_id });
+      const completed = await runGenerationJob({ projectId, jobId: job.job_id });
+      await generationJobsQuery.refetch();
+      if (completed.status !== "succeeded") {
+        setActionError(completed.error_summary ?? "模型源码未通过。");
       }
     } catch (error) {
       setActionError(formatApiError(error));
@@ -371,7 +395,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             feedback: previewFeedbackQuery.data ?? [],
             onSubmit: handleSubmitFeedback,
             onWithdraw: handleWithdrawFeedback,
-          }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+          }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} sourceModel={{ policy: sourceModelPolicyQuery.data ?? null, onGenerate: () => void handleGenerateProduct("model"), onRetry: () => void handleRetryModelSource() }} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));

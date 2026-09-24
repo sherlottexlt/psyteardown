@@ -272,6 +272,15 @@
             "minLength": 1,
             "title": "Reason",
             "type": "string"
+          },
+          "source": {
+            "default": "template",
+            "enum": [
+              "template",
+              "model"
+            ],
+            "title": "Source",
+            "type": "string"
           }
         },
         "required": [
@@ -516,7 +525,8 @@
           "materialization_kind": {
             "enum": [
               "template",
-              "repair"
+              "repair",
+              "model"
             ],
             "title": "Materialization Kind",
             "type": "string"
@@ -1143,14 +1153,14 @@
           },
           "max_cost_units": {
             "default": 1,
-            "maximum": 1.0,
+            "maximum": 2.0,
             "minimum": 1.0,
             "title": "Max Cost Units",
             "type": "integer"
           },
           "max_duration_seconds": {
             "default": 60,
-            "maximum": 60.0,
+            "maximum": 300.0,
             "minimum": 1.0,
             "title": "Max Duration Seconds",
             "type": "integer"
@@ -1400,6 +1410,191 @@
           "uncertainty"
         ],
         "title": "MechanismHypothesis",
+        "type": "object"
+      },
+      "ModelCallRecord": {
+        "additionalProperties": false,
+        "description": "Provenance of one model call; the full transcript stays local.",
+        "properties": {
+          "attempt": {
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "minimum": 0.0,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "model": {
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "provider": {
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "rejection_reasons": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Rejection Reasons",
+            "type": "array"
+          },
+          "request_sha256": {
+            "minLength": 1,
+            "title": "Request Sha256",
+            "type": "string"
+          },
+          "response_sha256": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Sha256"
+          },
+          "sent_object_types": {
+            "default": [
+              "web_generation_contract"
+            ],
+            "items": {
+              "const": "web_generation_contract",
+              "type": "string"
+            },
+            "title": "Sent Object Types",
+            "type": "array"
+          },
+          "transcript_path": {
+            "minLength": 1,
+            "title": "Transcript Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "provider",
+          "model",
+          "outcome",
+          "request_sha256",
+          "transcript_path",
+          "duration_seconds"
+        ],
+        "title": "ModelCallRecord",
+        "type": "object"
+      },
+      "ModelCallTranscriptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "system": {
+            "title": "System",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "provider",
+          "model",
+          "system",
+          "prompt",
+          "response",
+          "gate",
+          "error"
+        ],
+        "title": "ModelCallTranscriptResponse",
         "type": "object"
       },
       "OutcomeContractProposal": {
@@ -2196,13 +2391,21 @@
           "materialization_kind": {
             "enum": [
               "template",
-              "repair"
+              "repair",
+              "model"
             ],
             "title": "Materialization Kind",
             "type": "string"
           },
           "meta": {
             "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "model_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ModelCallRecord"
+            },
+            "title": "Model Calls",
+            "type": "array"
           },
           "parent_generation_job_id": {
             "anyOf": [
@@ -2222,7 +2425,8 @@
           "provider": {
             "enum": [
               "deterministic_template",
-              "deterministic_repair"
+              "deterministic_repair",
+              "model_source"
             ],
             "title": "Provider",
             "type": "string"
@@ -2295,6 +2499,7 @@
           "materialization_kind",
           "parent_generation_job_id",
           "repair_job_id",
+          "model_calls",
           "attempt",
           "checkpoint_step",
           "consumed_files",
@@ -3690,6 +3895,83 @@
           "reason"
         ],
         "title": "RevisionMetaResponse",
+        "type": "object"
+      },
+      "SourceModelPolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "max_calls_per_job": {
+            "title": "Max Calls Per Job",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "model_writes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Writes",
+            "type": "array"
+          },
+          "not_sent": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Sent",
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "repair_uses_model": {
+            "title": "Repair Uses Model",
+            "type": "boolean"
+          },
+          "retention": {
+            "title": "Retention",
+            "type": "string"
+          },
+          "sent": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sent",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "provider",
+          "model",
+          "sent",
+          "not_sent",
+          "retention",
+          "max_calls_per_job",
+          "model_writes",
+          "repair_uses_model"
+        ],
+        "title": "SourceModelPolicyResponse",
         "type": "object"
       },
       "SourceReference": {
@@ -6196,6 +6478,86 @@
         ]
       }
     },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/model-calls/{attempt}": {
+      "get": {
+        "operationId": "get_model_call_transcript_api_v1_projects__project_id__generation_jobs__job_id__model_calls__attempt__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attempt",
+            "required": true,
+            "schema": {
+              "title": "Attempt",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelCallTranscriptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Get Model Call Transcript",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
     "/api/v1/projects/{project_id}/generation-jobs/{job_id}/pauses": {
       "post": {
         "operationId": "pause_generation_job_api_v1_projects__project_id__generation_jobs__job_id__pauses_post",
@@ -8336,6 +8698,27 @@
         "summary": "Confirm Web Generation Contract Revision",
         "tags": [
           "product-projects"
+        ]
+      }
+    },
+    "/api/v1/source-model-policy": {
+      "get": {
+        "operationId": "get_source_model_policy_api_v1_source_model_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceModelPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Source Model Policy",
+        "tags": [
+          "product-generation-jobs"
         ]
       }
     }

@@ -764,6 +764,15 @@ GENERATION_DEFAULT_MAX_BYTES = 1024 * 1024
 GENERATION_DEFAULT_MAX_DURATION_SECONDS = 60
 GENERATION_DEFAULT_MAX_COST_UNITS = 1
 
+# B7m lets a real model write the two source files of the fixed template.  Only
+# the human-confirmed Web contract is sent; each model call costs one unit and
+# a model job may spend at most two, so a rejected first draft gets one retry.
+GENERATION_MODEL_PROVIDER = "model_source"
+GENERATION_MODEL_VERSION = "b7m-v1"
+GENERATION_MODEL_MAX_CALLS = 2
+GENERATION_MODEL_MAX_DURATION_SECONDS = 300
+GENERATION_MODEL_SOURCE_PATHS = ("src/App.tsx", "src/styles.css")
+
 # B4 execution is deliberately a different budget and policy from B3 source
 # generation.  A generation job may only write files; an execution job is the
 # explicit capability that may install the fixed template dependencies and run
@@ -795,13 +804,38 @@ class GenerationBudget(FrozenModel):
     max_duration_seconds: int = Field(
         default=GENERATION_DEFAULT_MAX_DURATION_SECONDS,
         ge=1,
-        le=GENERATION_DEFAULT_MAX_DURATION_SECONDS,
+        le=GENERATION_MODEL_MAX_DURATION_SECONDS,
     )
     max_cost_units: int = Field(
         default=GENERATION_DEFAULT_MAX_COST_UNITS,
         ge=1,
-        le=GENERATION_DEFAULT_MAX_COST_UNITS,
+        le=GENERATION_MODEL_MAX_CALLS,
     )
+
+
+def model_generation_budget() -> "GenerationBudget":
+    return GenerationBudget(
+        max_attempts=GENERATION_MODEL_MAX_CALLS,
+        max_duration_seconds=GENERATION_MODEL_MAX_DURATION_SECONDS,
+        max_cost_units=GENERATION_MODEL_MAX_CALLS,
+    )
+
+
+class ModelCallRecord(FrozenModel):
+    """Provenance of one model call; the full transcript stays local."""
+
+    attempt: int = Field(ge=1, le=GENERATION_MODEL_MAX_CALLS)
+    provider: Identifier
+    model: Identifier
+    outcome: Literal["accepted", "rejected", "failed"]
+    request_sha256: Identifier
+    response_sha256: Identifier | None = None
+    transcript_path: Identifier
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    duration_seconds: float = Field(ge=0)
+    rejection_reasons: tuple[Identifier, ...] = Field(default=(), max_length=20)
+    sent_object_types: tuple[Literal["web_generation_contract"], ...] = ("web_generation_contract",)
 
 
 class GenerationSandboxPolicy(FrozenModel):
@@ -861,7 +895,7 @@ class ProductGenerationJob(FrozenModel):
         "budget_exhausted",
         "cancelled",
     ] = "queued"
-    provider: Literal["deterministic_template", "deterministic_repair"] = GENERATION_JOB_PROVIDER
+    provider: Literal["deterministic_template", "deterministic_repair", "model_source"] = GENERATION_JOB_PROVIDER
     provider_version: Identifier = GENERATION_JOB_VERSION
     input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
     web_generation_contract_revision_id: Identifier
@@ -870,9 +904,10 @@ class ProductGenerationJob(FrozenModel):
     budget: GenerationBudget = Field(default_factory=GenerationBudget)
     sandbox: GenerationSandboxPolicy = Field(default_factory=GenerationSandboxPolicy)
     fingerprint: Identifier
-    materialization_kind: Literal["template", "repair"] = "template"
+    materialization_kind: Literal["template", "repair", "model"] = "template"
     parent_generation_job_id: Identifier | None = None
     repair_job_id: Identifier | None = None
+    model_calls: tuple[ModelCallRecord, ...] = Field(default=(), max_length=GENERATION_MODEL_MAX_CALLS)
     attempt: int = Field(default=0, ge=0)
     checkpoint_step: Literal["prepare", "generate", "validate"] | None = None
     consumed_files: int = Field(default=0, ge=0)
@@ -895,8 +930,19 @@ class ProductGenerationJob(FrozenModel):
         if self.materialization_kind == "repair":
             if self.provider != "deterministic_repair" or self.provider_version != REPAIR_JOB_VERSION or not self.parent_generation_job_id or not self.repair_job_id:
                 raise ValueError("repair generation requires repair provider and lineage")
+        elif self.materialization_kind == "model":
+            if self.provider != GENERATION_MODEL_PROVIDER or self.provider_version != GENERATION_MODEL_VERSION or self.parent_generation_job_id or self.repair_job_id:
+                raise ValueError("model generation requires the model provider and no repair lineage")
+            if self.budget.max_cost_units > GENERATION_MODEL_MAX_CALLS or len(self.model_calls) > self.consumed_cost_units:
+                raise ValueError("model generation calls exceed the consumed budget")
+            if [item.attempt for item in self.model_calls] != list(range(1, len(self.model_calls) + 1)):
+                raise ValueError("model call attempts must be sequential")
+            if self.status == "succeeded" and (not self.model_calls or self.model_calls[-1].outcome != "accepted"):
+                raise ValueError("succeeded model generation requires an accepted model call")
         elif self.provider != "deterministic_template" or self.parent_generation_job_id or self.repair_job_id:
             raise ValueError("template generation cannot carry repair lineage")
+        if self.materialization_kind != "model" and self.model_calls:
+            raise ValueError("only model generation may record model calls")
         if self.status == "succeeded" and self.manifest is None:
             raise ValueError("succeeded generation job requires an artifact manifest")
         if self.status in {"failed", "budget_exhausted"} and (
@@ -1179,7 +1225,7 @@ class ProductDeliveryBundle(FrozenModel):
     generation_job_revision_id: Identifier
     web_generation_contract_revision_id: Identifier
     contract_is_current: bool
-    materialization_kind: Literal["template", "repair"]
+    materialization_kind: Literal["template", "repair", "model"]
     parent_generation_job_id: Identifier | None = None
     repair_job_id: Identifier | None = None
     template_id: Literal["react_typescript_vite_spa"] = WEB_TEMPLATE_ID

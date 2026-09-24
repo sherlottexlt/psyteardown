@@ -19,6 +19,7 @@ export function WorkbenchView({
   onRepairProduct,
   onExportProduct,
   preview,
+  sourceModel,
 }: {
   view: ProductProjectView;
   busy: boolean;
@@ -41,7 +42,14 @@ export function WorkbenchView({
     onSubmit: (bundleId: string, draft: PreviewFeedbackDraft) => Promise<boolean>;
     onWithdraw: (item: import("../api/types").PreviewFeedback) => void;
   };
+  sourceModel?: {
+    policy: import("../api/types").SourceModelPolicy | null;
+    onGenerate: () => void;
+    onRetry: () => void;
+  };
 }) {
+  const modelJob = generationJob?.materialization_kind === "model" ? generationJob : null;
+  const modelPolicy = sourceModel?.policy ?? null;
   const bundleMatchesExecution = Boolean(
     deliveryBundle && executionJob && deliveryBundle.execution_job_revision_id === executionJob.revision_id,
   );
@@ -129,10 +137,39 @@ export function WorkbenchView({
               <button className="button button--primary" disabled={busy} onClick={onGenerateProduct}>
                 {busy ? "正在生成 workspace…" : "生成受限 Web workspace"}
               </button>
+              {sourceModel ? (
+                <button className="button button--quiet" disabled={busy || !modelPolicy?.available} onClick={sourceModel.onGenerate}>
+                  {modelPolicy?.available ? `用模型写源码 · ${modelPolicy.provider} ${modelPolicy.model}` : "模型写源码（未配置）"}
+                </button>
+              ) : null}
               {generationJob ? <Badge tone={generationJob.status === "succeeded" ? "good" : "warn"}>{generationJob.status} · {generationJob.consumed_files} files</Badge> : null}
             </div>
           ) : null}
-          {generationJob ? <p className="unknown-copy">B3 本地边界：{generationJob.sandbox.network_policy} network · {generationJob.sandbox.execution_policy} · budget {generationJob.consumed_bytes}/{generationJob.budget.max_bytes} bytes。源码尚未执行或预览。</p> : null}
+          {sourceModel && view.web_generation_contract.status === "confirmed" ? (
+            <p className="unknown-copy">
+              {modelPolicy?.available
+                ? `模型只收到已确认的 Web 契约，不会收到原始输入、问题模型、结果契约或论题；它只写 ${modelPolicy.model_writes.join("、")}，每个 job 最多 ${modelPolicy.max_calls_per_job} 次调用，请求与响应全文只保存在本机。测试由契约派生，模型不能修改。`
+                : "未配置源码模型：启动 API 前设置 PSYTEARDOWN_PRODUCT_SOURCE_MODEL=deepseek 与 DEEPSEEK_API_KEY。"}
+            </p>
+          ) : null}
+          {generationJob && !modelJob ? <p className="unknown-copy">B3 本地边界：{generationJob.sandbox.network_policy} network · {generationJob.sandbox.execution_policy} · budget {generationJob.consumed_bytes}/{generationJob.budget.max_bytes} bytes。源码尚未执行或预览。</p> : null}
+          {modelJob ? (
+            <section className="model-calls" aria-label="模型调用记录">
+              <p className="unknown-copy">B7m 模型源码：App.tsx 与 styles.css 由模型写出并通过静态门禁才落盘；其余模板文件固定；尚未经人审阅，需 B4 真实验证后才能导出。</p>
+              <ol>
+                {modelJob.model_calls.map((call) => (
+                  <li key={call.attempt}>
+                    <Badge tone={call.outcome === "accepted" ? "good" : "warn"}>{call.outcome}</Badge>
+                    <span>第 {call.attempt} 次 · {call.provider} {call.model} · {call.input_tokens ?? "?"}/{call.output_tokens ?? "?"} tokens · {call.duration_seconds.toFixed(1)}s</span>
+                    {call.rejection_reasons.length ? <ul>{call.rejection_reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}
+                  </li>
+                ))}
+              </ol>
+              {sourceModel && modelJob.status === "failed" && modelJob.attempt < modelJob.budget.max_attempts ? (
+                <button className="button button--quiet" disabled={busy} onClick={sourceModel.onRetry}>带上门禁原因重试（剩余 {modelJob.budget.max_attempts - modelJob.attempt} 次）</button>
+              ) : null}
+            </section>
+          ) : null}
           {generationJob?.status === "succeeded" ? (
             <div className="panel__actions">
               <button className="button button--quiet" disabled={busy} onClick={onExecuteProduct}>
@@ -175,7 +212,7 @@ export function WorkbenchView({
             <section aria-label="交付包">
               <dl className="definition-grid definition-grid--three">
                 <div><dt>包 sha256</dt><dd><code>{deliveryBundle.archive_sha256.slice(0, 16)}…</code></dd></div>
-                <div><dt>来源</dt><dd>{deliveryBundle.materialization_kind === "repair" ? "B5 修复 lineage" : "B3 模板生成"} · {deliveryBundle.execution_job_revision_id}</dd></div>
+                <div><dt>来源</dt><dd>{deliveryBundle.materialization_kind === "repair" ? "B5 修复 lineage" : deliveryBundle.materialization_kind === "model" ? "B7m 模型写源码" : "B3 模板生成"} · {deliveryBundle.execution_job_revision_id}</dd></div>
                 <div><dt>结果证据</dt><dd>{deliveryBundle.outcome_evidence_level}</dd></div>
               </dl>
               {deliveryArchiveUrl ? <a className="button button--primary" href={deliveryArchiveUrl(deliveryBundle.bundle_id)} download>下载交付包 (.zip)</a> : null}

@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from psyteardown.api.errors import error_response, register_error_handlers
 from psyteardown.api.projects import router as projects_router
 from psyteardown.api.proposal_jobs import router as proposal_jobs_router
+from psyteardown.api.generation_jobs import policy_router as source_model_policy_router
 from psyteardown.api.generation_jobs import router as generation_jobs_router
 from psyteardown.api.execution_jobs import router as execution_jobs_router
 from psyteardown.api.repair_jobs import router as repair_jobs_router
@@ -39,6 +40,7 @@ from psyteardown.product import (
     ProductProposalJobService,
     SQLiteProductRepository,
 )
+from psyteardown.product.source_model import ProductSourceModel, build_source_model_from_env
 
 
 DEFAULT_PRODUCT_STORE = Path("output/product-studio/product.sqlite3")
@@ -61,6 +63,7 @@ def create_app(
     execution_job_service: ProductExecutionJobService | None = None,
     repair_job_service: ProductRepairJobService | None = None,
     delivery_bundle_service: ProductDeliveryBundleService | None = None,
+    source_model: ProductSourceModel | None = None,
     allowed_hosts: Sequence[str] = tuple(DEFAULT_ALLOWED_HOSTS),
     allowed_origins: Sequence[str] = DEFAULT_ALLOWED_ORIGINS,
 ) -> FastAPI:
@@ -87,6 +90,7 @@ def create_app(
                 service,
                 InMemoryProductGenerationJobRepository(),
                 workspace_root=Path("output/product-studio/workspaces"),
+                source_model=source_model,
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
@@ -159,6 +163,7 @@ def create_app(
                 app.state.product_service,
                 repository,
                 workspace_root=resolved_path.parent / "workspaces",
+                source_model=source_model if source_model is not None else build_source_model_from_env(),
                 **kwargs,
             )
             app.state.product_execution_job_service = ProductExecutionJobService(
@@ -263,6 +268,7 @@ def create_app(
     application.include_router(projects_router, prefix="/api/v1")
     application.include_router(proposal_jobs_router, prefix="/api/v1")
     application.include_router(generation_jobs_router, prefix="/api/v1")
+    application.include_router(source_model_policy_router, prefix="/api/v1")
     application.include_router(execution_jobs_router, prefix="/api/v1")
     application.include_router(repair_jobs_router, prefix="/api/v1")
     application.include_router(delivery_bundles_router, prefix="/api/v1")

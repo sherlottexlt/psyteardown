@@ -10,6 +10,7 @@ import type {
   ProblemModel,
   ProductProposalJob,
   ProductGenerationJob,
+  SourceModelPolicy,
   ProposalJobKind,
   ProductIntent,
   ProductProject,
@@ -384,17 +385,39 @@ export function confirmWebGenerationContract(input: {
 
 export function createGenerationJob(input: {
   projectId: string;
+  source?: "template" | "model";
 }): Promise<ProductGenerationJob> {
+  const source = input.source ?? "template";
   return request(
     `/api/v1/projects/${encodeURIComponent(input.projectId)}/generation-jobs`,
     {
       method: "POST",
       body: JSON.stringify({
         actor: "local-user",
-        reason: "Materialized confirmed Web contract in Product Studio",
+        reason: source === "model"
+          ? "Asked the source model to write the confirmed Web contract in Product Studio"
+          : "Materialized confirmed Web contract in Product Studio",
+        source,
       }),
     },
   );
+}
+
+export function retryGenerationJob(input: {
+  projectId: string;
+  jobId: string;
+}): Promise<ProductGenerationJob> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/generation-jobs/${encodeURIComponent(input.jobId)}/retries`,
+    {
+      method: "POST",
+      body: JSON.stringify({ actor: "local-user" }),
+    },
+  );
+}
+
+export function getSourceModelPolicy(): Promise<SourceModelPolicy> {
+  return request("/api/v1/source-model-policy");
 }
 
 export function runGenerationJob(input: {

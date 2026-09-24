@@ -296,6 +296,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/model-calls/{attempt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Call Transcript */
+        get: operations["get_model_call_transcript_api_v1_projects__project_id__generation_jobs__job_id__model_calls__attempt__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/generation-jobs/{job_id}/pauses": {
         parameters: {
             query?: never;
@@ -740,6 +757,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/source-model-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Model Policy */
+        get: operations["get_source_model_policy_api_v1_source_model_policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -836,6 +870,12 @@ export interface components {
             budget?: components["schemas"]["GenerationBudgetRequest"] | null;
             /** Reason */
             reason: string;
+            /**
+             * Source
+             * @default template
+             * @enum {string}
+             */
+            source: "template" | "model";
         };
         /** CreateProjectRequest */
         CreateProjectRequest: {
@@ -934,7 +974,7 @@ export interface components {
              * Materialization Kind
              * @enum {string}
              */
-            materialization_kind: "template" | "repair";
+            materialization_kind: "template" | "repair" | "model";
             meta: components["schemas"]["RevisionMetaResponse"];
             /**
              * Outcome Evidence Level
@@ -1369,6 +1409,68 @@ export interface components {
             /** Uncertainty */
             uncertainty: string;
         };
+        /**
+         * ModelCallRecord
+         * @description Provenance of one model call; the full transcript stays local.
+         */
+        ModelCallRecord: {
+            /** Attempt */
+            attempt: number;
+            /** Duration Seconds */
+            duration_seconds: number;
+            /** Input Tokens */
+            input_tokens?: number | null;
+            /** Model */
+            model: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "accepted" | "rejected" | "failed";
+            /** Output Tokens */
+            output_tokens?: number | null;
+            /** Provider */
+            provider: string;
+            /**
+             * Rejection Reasons
+             * @default []
+             */
+            rejection_reasons: string[];
+            /** Request Sha256 */
+            request_sha256: string;
+            /** Response Sha256 */
+            response_sha256?: string | null;
+            /**
+             * Sent Object Types
+             * @default [
+             *       "web_generation_contract"
+             *     ]
+             */
+            sent_object_types: "web_generation_contract"[];
+            /** Transcript Path */
+            transcript_path: string;
+        };
+        /** ModelCallTranscriptResponse */
+        ModelCallTranscriptResponse: {
+            /** Attempt */
+            attempt: number;
+            /** Error */
+            error: string | null;
+            /** Gate */
+            gate: {
+                [key: string]: unknown;
+            } | null;
+            /** Model */
+            model: string;
+            /** Prompt */
+            prompt: string;
+            /** Provider */
+            provider: string;
+            /** Response */
+            response: string | null;
+            /** System */
+            system: string;
+        };
         /** OutcomeContractProposal */
         OutcomeContractProposal: {
             /** Applicable Contexts */
@@ -1648,8 +1750,10 @@ export interface components {
              * Materialization Kind
              * @enum {string}
              */
-            materialization_kind: "template" | "repair";
+            materialization_kind: "template" | "repair" | "model";
             meta: components["schemas"]["RevisionMetaResponse"];
+            /** Model Calls */
+            model_calls: components["schemas"]["ModelCallRecord"][];
             /** Parent Generation Job Id */
             parent_generation_job_id: string | null;
             /** Project Id */
@@ -1658,7 +1762,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "deterministic_template" | "deterministic_repair";
+            provider: "deterministic_template" | "deterministic_repair" | "model_source";
             /** Provider Version */
             provider_version: string;
             /** Repair Job Id */
@@ -2137,6 +2241,27 @@ export interface components {
             reason: string;
             /** Revision */
             revision: number;
+        };
+        /** SourceModelPolicyResponse */
+        SourceModelPolicyResponse: {
+            /** Available */
+            available: boolean;
+            /** Max Calls Per Job */
+            max_calls_per_job: number;
+            /** Model */
+            model: string | null;
+            /** Model Writes */
+            model_writes: string[];
+            /** Not Sent */
+            not_sent: string[];
+            /** Provider */
+            provider: string | null;
+            /** Repair Uses Model */
+            repair_uses_model: boolean;
+            /** Retention */
+            retention: string;
+            /** Sent */
+            sent: string[];
         };
         /**
          * SourceReference
@@ -3466,6 +3591,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductGenerationJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_model_call_transcript_api_v1_projects__project_id__generation_jobs__job_id__model_calls__attempt__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+                attempt: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCallTranscriptResponse"];
                 };
             };
             /** @description Resource not found */
@@ -4976,6 +5152,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_source_model_policy_api_v1_source_model_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceModelPolicyResponse"];
                 };
             };
         };
