@@ -9,7 +9,12 @@ from fastapi.responses import FileResponse
 
 from psyteardown.api.dependencies import get_product_delivery_bundle_service
 from psyteardown.api.projects import ERROR_RESPONSES
-from psyteardown.api.schemas import CreateDeliveryBundleRequest, DeliveryBundleResponse
+from psyteardown.api.schemas import (
+    CreateDeliveryBundleRequest,
+    DeliveryBundleDiffResponse,
+    DeliveryBundleFileChange,
+    DeliveryBundleResponse,
+)
 from psyteardown.product import ProductDeliveryBundleService
 
 
@@ -49,6 +54,28 @@ async def list_delivery_bundles(
     project_id: str, service: DeliveryService
 ) -> list[DeliveryBundleResponse]:
     return [DeliveryBundleResponse.from_domain(item) for item in service.list_bundles(project_id)]
+
+
+@router.get(
+    "/{project_id}/delivery-bundles/{bundle_id}/diff",
+    response_model=DeliveryBundleDiffResponse,
+    responses=ERROR_RESPONSES,
+)
+async def diff_delivery_bundles(
+    project_id: str, bundle_id: str, base_bundle_id: str, service: DeliveryService
+) -> DeliveryBundleDiffResponse:
+    diff = service.diff_bundles(project_id, base_bundle_id, bundle_id)
+    return DeliveryBundleDiffResponse(
+        base_bundle_id=diff.base.bundle_id,
+        target_bundle_id=diff.target.bundle_id,
+        base_contract_revision_id=diff.base.web_generation_contract_revision_id,
+        target_contract_revision_id=diff.target.web_generation_contract_revision_id,
+        contract_changes=list(diff.contract_changes),
+        files=[
+            DeliveryBundleFileChange(path=path, change=change, base_sha256=before, target_sha256=after)
+            for path, change, before, after in diff.files
+        ],
+    )
 
 
 @router.get(

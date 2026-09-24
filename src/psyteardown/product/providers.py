@@ -18,6 +18,7 @@ from psyteardown.product.models import (
     FalsifiablePrediction,
     MechanismHypothesis,
     OutcomeContract,
+    PreviewFeedback,
     ProblemFact,
     ProblemModel,
     ProblemUnknown,
@@ -28,9 +29,11 @@ from psyteardown.product.models import (
     SuccessIndicator,
     TargetOutcome,
     ProductIntent,
+    ProductThesis,
     ValidationStep,
     WebAcceptanceCheck,
     WebContentSlot,
+    WebProductGenerationContract,
     WebScreenSpec,
     WebStateSpec,
     WebTaskSpec,
@@ -68,6 +71,14 @@ class ProductContractProposalProvider(Protocol):
         self,
         thesis: ProductThesis,
         contract: OutcomeContract,
+        *,
+        suggestion_id: str,
+    ) -> WebProductGenerationContractProposal: ...
+
+    def propose_web_generation_contract_from_feedback(
+        self,
+        baseline_contract: WebProductGenerationContract,
+        feedback: PreviewFeedback,
         *,
         suggestion_id: str,
     ) -> WebProductGenerationContractProposal: ...
@@ -509,5 +520,60 @@ class DeterministicFakeProductContractProvider:
             source_refs=[
                 SourceReference(source_type="model_proposal", source_id=suggestion_id, revision_id=WEB_TEMPLATE_VERSION),
                 SourceReference(source_type="human_decision", source_id=thesis.thesis_id, revision_id=thesis.revision_id),
+            ],
+        )
+
+    def propose_web_generation_contract_from_feedback(
+        self,
+        baseline_contract: WebProductGenerationContract,
+        feedback: PreviewFeedback,
+        *,
+        suggestion_id: str,
+    ) -> WebProductGenerationContractProposal:
+        """Revise a confirmed B2 contract in response to one explicit report (B8).
+
+        Only the anchor, category and feedback ID are used; the report text is
+        never copied into the contract, so withdrawing the feedback still
+        erases it everywhere.  Every baseline ID is preserved so anchors and
+        revision diffs stay comparable; the revision adds one reviewable check.
+        """
+
+        screen = next(
+            item for item in baseline_contract.screens if item.screen_id == feedback.anchor.screen_id
+        )
+        task_id = feedback.anchor.task_id or screen.task_ids[0]
+        focus = {
+            "bug": "no longer reproduces the reported defect",
+            "confusing": "makes the next step unambiguous",
+            "missing": "exposes the reported missing capability or explains its absence",
+            "works": "keeps the confirmed behaviour unchanged",
+        }[feedback.category or "works"]
+        state_note = f" in state {feedback.anchor.state_id}" if feedback.anchor.state_id else ""
+        check = WebAcceptanceCheck(
+            check_id=f"{suggestion_id}-feedback-check",
+            task_id=task_id,
+            assertion=(
+                f"Screen {screen.screen_id}{state_note} {focus} "
+                f"(preview feedback {feedback.feedback_id}, {feedback.category}); human review required."
+            ),
+        )
+        return WebProductGenerationContractProposal(
+            product_thesis_revision_id=baseline_contract.product_thesis_revision_id,
+            outcome_contract_revision_id=baseline_contract.outcome_contract_revision_id,
+            app_title=baseline_contract.app_title,
+            screens=list(baseline_contract.screens),
+            tasks=list(baseline_contract.tasks),
+            states=list(baseline_contract.states),
+            content_slots=list(baseline_contract.content_slots),
+            acceptance_checks=[*baseline_contract.acceptance_checks, check],
+            source_refs=[
+                *baseline_contract.source_refs,
+                SourceReference(
+                    source_type="preview_feedback",
+                    source_id=feedback.feedback_id,
+                    revision_id=feedback.revision_id,
+                    locator="anchor+category only; text not copied",
+                ),
+                SourceReference(source_type="model_proposal", source_id=suggestion_id, revision_id="b8-v1"),
             ],
         )

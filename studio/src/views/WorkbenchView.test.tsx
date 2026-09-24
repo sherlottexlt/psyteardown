@@ -118,4 +118,53 @@ describe("WorkbenchView delivery export", () => {
     expect(screen.getByRole("button", { name: "模型写源码（未配置）" })).toBeDisabled();
     expect(screen.getByText(/PSYTEARDOWN_PRODUCT_SOURCE_MODEL=deepseek/)).toBeInTheDocument();
   });
+
+  it("shows the delivery diff honestly, including when source and build are unchanged", async () => {
+    const onDisposition = vi.fn();
+    const feedback = {
+      feedback_id: "preview-feedback-1",
+      delivery_bundle_id: "delivery-bundle-1",
+      status: "submitted",
+      disposition: "pending",
+      text: "Stop is unclear",
+      meta: { revision: 1 },
+    };
+    renderWorkbench({
+      view: {
+        ...view,
+        web_generation_contract: {
+          ...view.web_generation_contract,
+          source_refs: [{ source_type: "preview_feedback", source_id: "preview-feedback-1" }],
+          meta: { revision: 3 },
+        },
+      } as unknown as ProductProjectView,
+      preview: {
+        url: (id) => `/preview/${id}/`,
+        policy: null,
+        feedback: [feedback] as never,
+        onSubmit: vi.fn(),
+        onWithdraw: vi.fn(),
+        onDisposition,
+        diff: {
+          base_bundle_id: "delivery-bundle-1",
+          target_bundle_id: "delivery-bundle-2",
+          base_contract_revision_id: "web-contract-1.r2",
+          target_contract_revision_id: "web-contract-1.r4",
+          contract_changes: ["acceptance_checks: added job-feedback-check"],
+          files: [
+            { path: "DELIVERY.md", change: "modified", base_sha256: "a", target_sha256: "b" },
+            { path: "source/src/App.tsx", change: "unchanged", base_sha256: "c", target_sha256: "c" },
+          ],
+        },
+      },
+    });
+
+    const diff = screen.getByRole("region", { name: "交付版本差异" });
+    expect(diff).toHaveTextContent("源码与构建未变化");
+    expect(diff).toHaveTextContent("acceptance_checks: added job-feedback-check");
+    expect(diff).toHaveTextContent("DELIVERY.md");
+    expect(diff).not.toHaveTextContent("source/src/App.tsx");
+    await userEvent.click(screen.getByRole("button", { name: "标记已采纳" }));
+    expect(onDisposition).toHaveBeenCalledWith(feedback, "incorporated");
+  });
 });

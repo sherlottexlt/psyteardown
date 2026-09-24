@@ -80,9 +80,11 @@ def create_app(
         repository = None
         if service is not None:
             app.state.product_service = service
+            feedback_repository = InMemoryPreviewFeedbackRepository()
             app.state.product_job_service = job_service or ProductProposalJobService(
                 service,
                 InMemoryProductJobRepository(),
+                feedback_repository=feedback_repository,
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
@@ -139,7 +141,7 @@ def create_app(
             )
             app.state.product_preview_feedback_service = ProductPreviewFeedbackService(
                 service,
-                InMemoryPreviewFeedbackRepository(),
+                feedback_repository,
                 app.state.product_delivery_bundle_service,
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
@@ -157,6 +159,7 @@ def create_app(
             app.state.product_job_service = ProductProposalJobService(
                 app.state.product_service,
                 repository,
+                feedback_repository=repository,
                 **kwargs,
             )
             app.state.product_generation_job_service = ProductGenerationJobService(
@@ -221,7 +224,8 @@ def create_app(
             "explicit B4 execution job provides bounded build, preview and browser validation. "
             "A B5 repair job may apply only deterministic, allowlisted patches in a new lineage. "
             "A B6 delivery bundle is an immutable, content-addressed export of one verified execution. "
-            "B7 previews a delivered build and records only explicit, consented, withdrawable feedback."
+            "B7 previews a delivered build and records only explicit, consented, withdrawable feedback. "
+            "B8 lets one feedback report drive a new, human-confirmed contract revision and compares deliveries."
         ),
         lifespan=lifespan,
     )

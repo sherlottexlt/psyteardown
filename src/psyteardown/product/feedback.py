@@ -207,11 +207,12 @@ class ProductPreviewFeedbackService:
         if current.status == "withdrawn":
             raise DomainStateError("preview feedback is already withdrawn")
         now = self._now()
+        revision = current.meta.revision + 1
         tombstone = current.model_copy(
             update={
-                "revision_id": f"{feedback_id}.r2",
+                "revision_id": f"{feedback_id}.r{revision}",
                 "meta": RevisionMeta(
-                    revision=2,
+                    revision=revision,
                     parent_revision_id=current.revision_id,
                     created_at=now,
                     created_by=actor,
@@ -221,6 +222,7 @@ class ProductPreviewFeedbackService:
                 "category": None,
                 "text": None,
                 "withdrawn_at": now,
+                "disposition": "pending",
             }
         )
         tombstone = PreviewFeedback.model_validate(tombstone.model_dump())
@@ -235,6 +237,45 @@ class ProductPreviewFeedbackService:
     def list_feedback(self, project_id: str, *, bundle_id: str | None = None) -> tuple[PreviewFeedback, ...]:
         self.application.get_project_view(project_id)
         return tuple(self.feedback_repository.list_preview_feedback(project_id=project_id, bundle_id=bundle_id))
+
+    def set_disposition(
+        self,
+        *,
+        project_id: str,
+        feedback_id: str,
+        disposition: str,
+        actor: str,
+        reason: str,
+        expected_revision: int,
+    ) -> PreviewFeedback:
+        """Record a human decision about how a report was handled (B8).
+
+        Creating an iteration job never changes feedback; only this explicit
+        command does, and the text stays withdrawable afterwards.
+        """
+
+        current = self.get_feedback(project_id, feedback_id)
+        if current.status != "submitted":
+            raise DomainStateError("only submitted preview feedback can be given a disposition")
+        if disposition not in {"pending", "incorporated", "deferred"}:
+            raise DomainStateError(f"unknown preview feedback disposition: {disposition}")
+        now = self._now()
+        revision = current.meta.revision + 1
+        updated = current.model_copy(
+            update={
+                "revision_id": f"{feedback_id}.r{revision}",
+                "meta": RevisionMeta(
+                    revision=revision,
+                    parent_revision_id=current.revision_id,
+                    created_at=now,
+                    created_by=actor,
+                    reason=reason,
+                ),
+                "disposition": disposition,
+            }
+        )
+        updated = PreviewFeedback.model_validate(updated.model_dump())
+        return self.feedback_repository.save_preview_feedback(updated, expected_revision=expected_revision)
 
     def _id(self, prefix: str) -> str:
         value = self._id_factory(prefix)

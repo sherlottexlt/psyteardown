@@ -20,6 +20,7 @@ from psyteardown.product.commands import (
 )
 from psyteardown.product.models import (
     OutcomeContract,
+    PreviewFeedback,
     ProblemModel,
     ProductIntent,
     ProductProposalJob,
@@ -42,6 +43,10 @@ class ProductJobRepository(Protocol):
     def get_job(self, job_id: str) -> ProductProposalJob | None: ...
 
     def list_jobs(self, *, project_id: str | None = None) -> list[ProductProposalJob]: ...
+
+
+class PreviewFeedbackReader(Protocol):
+    def get_preview_feedback(self, feedback_id: str) -> PreviewFeedback | None: ...
 
 
 class InMemoryProductJobRepository:
@@ -77,11 +82,15 @@ class ProductProposalJobService:
         job_repository: ProductJobRepository,
         *,
         provider: ProductContractProposalProvider | None = None,
+        feedback_repository: PreviewFeedbackReader | None = None,
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[str], str] | None = None,
     ) -> None:
         self.application = application
         self.job_repository = job_repository
+        # B8 iteration jobs pin preview feedback, which lives outside the
+        # product repository; without a reader they are simply unavailable.
+        self.feedback_repository = feedback_repository
         self.provider = provider or DeterministicFakeProductContractProvider()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._id_factory = id_factory or (lambda prefix: f"{prefix}-{uuid4().hex}")
@@ -100,11 +109,15 @@ class ProductProposalJobService:
         actor: str,
         reason: str,
         raw_input: str | None = None,
+        feedback_id: str | None = None,
     ) -> ProductProposalJob:
         view = self.application.get_project_view(project_id)
         if view.project.status != "active":
             raise DomainStateError("product project must be active for proposal jobs")
+        result_expected_revision: int | None = None
         if kind == "product_intent":
+            if feedback_id is not None:
+                raise DomainStateError("feedback_id is only accepted for web_generation_contract jobs")
             if view.product_intent is not None:
                 raise DomainStateError(
                     "project already has a current product intent; revise it through a domain command"
@@ -124,6 +137,8 @@ class ProductProposalJobService:
         elif kind == "problem_model":
             if raw_input is not None:
                 raise DomainStateError("raw input is only accepted for product intent jobs")
+            if feedback_id is not None:
+                raise DomainStateError("feedback_id is only accepted for web_generation_contract jobs")
             intent = view.product_intent
             if intent is None or intent.status != "confirmed":
                 raise DomainStateError(
@@ -145,6 +160,8 @@ class ProductProposalJobService:
         elif kind == "outcome_contract":
             if raw_input is not None:
                 raise DomainStateError("raw input is only accepted for product intent jobs")
+            if feedback_id is not None:
+                raise DomainStateError("feedback_id is only accepted for web_generation_contract jobs")
             intent = view.product_intent
             problem = view.problem_model
             if intent is None or intent.status != "confirmed":
@@ -176,6 +193,8 @@ class ProductProposalJobService:
         elif kind == "product_theses":
             if raw_input is not None:
                 raise DomainStateError("raw input is only accepted for product intent jobs")
+            if feedback_id is not None:
+                raise DomainStateError("feedback_id is only accepted for web_generation_contract jobs")
             problem = view.problem_model
             contract = view.outcome_contract
             if problem is None or problem.status != "confirmed":
@@ -204,44 +223,73 @@ class ProductProposalJobService:
             )
             result_object_ids = tuple(self._id("thesis") for _ in range(3))
             result_object_id = result_object_ids[0]
-        else:
+        elif kind == "web_generation_contract":
             if raw_input is not None:
                 raise DomainStateError("raw input is only accepted for product intent jobs")
-            thesis = next(
-                (
-                    item
-                    for item in view.product_theses
-                    if item.status in {"exploring", "selected"}
-                ),
-                None,
-            )
-            outcome = view.outcome_contract
-            if thesis is None:
-                raise DomainStateError(
-                    "an exploring or selected product thesis is required before Web generation"
+            if feedback_id is not None:
+                feedback = self._require_feedback(project_id, feedback_id)
+                baseline = view.web_generation_contract
+                if baseline is None or baseline.status != "confirmed":
+                    raise DomainStateError(
+                        "a confirmed Web generation contract is required before iterating from feedback"
+                    )
+                if baseline.revision_id != feedback.web_generation_contract_revision_id:
+                    raise DomainStateError(
+                        "feedback was given on a different contract revision than the current confirmed contract"
+                    )
+                dependencies = (
+                    DependencyRef(
+                        object_type="web_generation_contract",
+                        object_id=baseline.web_generation_contract_id,
+                        revision=baseline.meta.revision,
+                    ),
+                    DependencyRef(
+                        object_type="preview_feedback",
+                        object_id=feedback.feedback_id,
+                        revision=feedback.meta.revision,
+                    ),
                 )
-            if outcome is None or outcome.status != "confirmed":
-                raise DomainStateError(
-                    "outcome contract must be human-confirmed before Web generation"
+                result_object_ids = ()
+                result_object_id = baseline.web_generation_contract_id
+                result_expected_revision = baseline.meta.revision
+            else:
+                thesis = next(
+                    (
+                        item
+                        for item in view.product_theses
+                        if item.status in {"exploring", "selected"}
+                    ),
+                    None,
                 )
-            if thesis.outcome_contract_revision_id != outcome.revision_id:
-                raise DomainStateError(
-                    "current thesis and outcome contract revisions do not match"
+                outcome = view.outcome_contract
+                if thesis is None:
+                    raise DomainStateError(
+                        "an exploring or selected product thesis is required before Web generation"
+                    )
+                if outcome is None or outcome.status != "confirmed":
+                    raise DomainStateError(
+                        "outcome contract must be human-confirmed before Web generation"
+                    )
+                if thesis.outcome_contract_revision_id != outcome.revision_id:
+                    raise DomainStateError(
+                        "current thesis and outcome contract revisions do not match"
+                    )
+                dependencies = (
+                    DependencyRef(
+                        object_type="product_thesis",
+                        object_id=thesis.thesis_id,
+                        revision=thesis.meta.revision,
+                    ),
+                    DependencyRef(
+                        object_type="outcome_contract",
+                        object_id=outcome.outcome_contract_id,
+                        revision=outcome.meta.revision,
+                    ),
                 )
-            dependencies = (
-                DependencyRef(
-                    object_type="product_thesis",
-                    object_id=thesis.thesis_id,
-                    revision=thesis.meta.revision,
-                ),
-                DependencyRef(
-                    object_type="outcome_contract",
-                    object_id=outcome.outcome_contract_id,
-                    revision=outcome.meta.revision,
-                ),
-            )
-            result_object_ids = ()
-            result_object_id = self._id("web-contract")
+                result_object_ids = ()
+                result_object_id = self._id("web-contract")
+        else:
+            raise DomainStateError(f"unknown job kind: {kind}")
 
         fingerprint = _fingerprint(
             project_id,
@@ -278,7 +326,9 @@ class ProductProposalJobService:
             input_dependencies=dependencies,
             result_object_id=result_object_id,
             result_object_ids=result_object_ids,
+            result_expected_revision=result_expected_revision,
             raw_input=raw_input,
+            feedback_id=feedback_id,
             fingerprint=fingerprint,
         )
         return self.job_repository.save_job(job, expected_revision=None)
@@ -404,6 +454,29 @@ class ProductProposalJobService:
                     reason=f"proposal generated by job {job.job_id}",
                 )
             )
+        if job.kind == "web_generation_contract" and job.feedback_id:
+            baseline_ref = dependencies["web_generation_contract"]
+            feedback_ref = dependencies["preview_feedback"]
+            baseline = self.application.repository.get_revision(
+                "web_generation_contract", f"{baseline_ref.object_id}.r{baseline_ref.revision}"
+            )
+            feedback = self._require_feedback(job.project_id, feedback_ref.object_id)
+            assert isinstance(baseline, WebProductGenerationContract)
+            proposal = self.provider.propose_web_generation_contract_from_feedback(
+                baseline, feedback, suggestion_id=job.job_id
+            )
+            if not self._inputs_are_current(job):
+                raise ProductRepositoryError("revision conflict: job inputs changed")
+            return self.application.submit_web_generation_contract(
+                SubmitWebProductGenerationContractProposal(
+                    project_id=job.project_id,
+                    web_generation_contract_id=job.result_object_id,
+                    expected_revision=job.result_expected_revision,
+                    proposal=proposal,
+                    actor=provider_actor,
+                    reason=f"proposal generated by job {job.job_id}",
+                )
+            )
         if job.kind == "web_generation_contract":
             thesis_ref = dependencies["product_thesis"]
             outcome_ref = dependencies["outcome_contract"]
@@ -508,6 +581,17 @@ class ProductProposalJobService:
 
     def _inputs_are_current(self, job: ProductProposalJob) -> bool:
         for dependency in job.input_dependencies:
+            if dependency.object_type == "preview_feedback":
+                # Feedback is pinned by identity, not revision: a disposition
+                # change keeps it usable, withdrawal makes the job stale.
+                feedback = (
+                    self.feedback_repository.get_preview_feedback(dependency.object_id)
+                    if self.feedback_repository is not None
+                    else None
+                )
+                if feedback is None or feedback.status != "submitted":
+                    return False
+                continue
             current = self.application.repository.get_current(
                 dependency.object_type, dependency.object_id
             )
@@ -522,6 +606,16 @@ class ProductProposalJobService:
             elif getattr(current, "status", None) != "confirmed":
                 return False
         return True
+
+    def _require_feedback(self, project_id: str, feedback_id: str) -> PreviewFeedback:
+        if self.feedback_repository is None:
+            raise DomainStateError("preview feedback is not available to proposal jobs")
+        feedback = self.feedback_repository.get_preview_feedback(feedback_id)
+        if feedback is None or feedback.project_id != project_id:
+            raise DomainStateError(f"unknown preview feedback: {feedback_id}")
+        if feedback.status != "submitted":
+            raise DomainStateError("withdrawn preview feedback cannot drive an iteration")
+        return feedback
 
     def _reconcile_committed_result(
         self, job: ProductProposalJob, *, actor: str

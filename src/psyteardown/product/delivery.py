@@ -90,6 +90,45 @@ _DENIED_NAMES = {".env", ".npmrc", ".netrc", "id_rsa", "id_ed25519"}
 _DENIED_SUFFIXES = (".pem", ".key", ".p12", ".pfx")
 
 
+@dataclass(frozen=True)
+class DeliveryBundleDiff:
+    base: ProductDeliveryBundle
+    target: ProductDeliveryBundle
+    contract_changes: tuple[str, ...]
+    # (path, added|removed|modified|unchanged, base sha256, target sha256)
+    files: tuple[tuple[str, str, str | None, str | None], ...]
+
+
+_CONTRACT_COLLECTIONS = (
+    ("screens", "screen_id"),
+    ("tasks", "task_id"),
+    ("states", "state_id"),
+    ("content_slots", "slot_id"),
+    ("acceptance_checks", "check_id"),
+)
+
+
+def _contract_changes(base, target) -> list[str]:
+    if base is None or target is None:
+        return ["contract revision unavailable; contract changes not compared"]
+    if base.revision_id == target.revision_id:
+        return []
+    changes: list[str] = []
+    if base.app_title != target.app_title:
+        changes.append("app_title changed")
+    for field, key in _CONTRACT_COLLECTIONS:
+        before = {getattr(item, key): item for item in getattr(base, field)}
+        after = {getattr(item, key): item for item in getattr(target, field)}
+        changes.extend(f"{field}: added {item}" for item in sorted(after.keys() - before.keys()))
+        changes.extend(f"{field}: removed {item}" for item in sorted(before.keys() - after.keys()))
+        changes.extend(
+            f"{field}: changed {item}"
+            for item in sorted(before.keys() & after.keys())
+            if before[item] != after[item]
+        )
+    return changes
+
+
 class ProductDeliveryBundleService:
     """Package one verified execution into an immutable delivery bundle."""
 
@@ -225,6 +264,40 @@ class ProductDeliveryBundleService:
     def list_bundles(self, project_id: str) -> tuple[ProductDeliveryBundle, ...]:
         self.application.get_project_view(project_id)
         return tuple(self.bundle_repository.list_delivery_bundles(project_id=project_id))
+
+    def diff_bundles(self, project_id: str, base_bundle_id: str, target_bundle_id: str) -> "DeliveryBundleDiff":
+        """Compare two recorded deliveries by manifest hashes (B8, PS-O015).
+
+        Only recorded sha256 values are compared: no archive is re-read and no
+        line-level or semantic diff is claimed.
+        """
+
+        base = self.get_bundle(project_id, base_bundle_id)
+        target = self.get_bundle(project_id, target_bundle_id)
+        base_files = {item.path: item.sha256 for item in base.files}
+        target_files = {item.path: item.sha256 for item in target.files}
+        files = []
+        for path in sorted(base_files.keys() | target_files.keys()):
+            before, after = base_files.get(path), target_files.get(path)
+            change = (
+                "added" if before is None
+                else "removed" if after is None
+                else "unchanged" if before == after
+                else "modified"
+            )
+            files.append((path, change, before, after))
+        base_contract = self.application.repository.get_revision(
+            "web_generation_contract", base.web_generation_contract_revision_id
+        )
+        target_contract = self.application.repository.get_revision(
+            "web_generation_contract", target.web_generation_contract_revision_id
+        )
+        return DeliveryBundleDiff(
+            base=base,
+            target=target,
+            contract_changes=tuple(_contract_changes(base_contract, target_contract)),
+            files=tuple(files),
+        )
 
     def archive_path(self, project_id: str, bundle_id: str) -> Path:
         """Return the stored archive only if its bytes still match the record."""

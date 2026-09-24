@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type {
   PreviewFeedback,
   PreviewFeedbackCategory,
+  PreviewFeedbackDisposition,
   PreviewFeedbackPolicy,
   ProductDeliveryBundle,
   WebProductGenerationContract,
@@ -23,6 +24,37 @@ const categories: Array<{ id: PreviewFeedbackCategory; label: string }> = [
   { id: "works", label: "可用" },
 ];
 
+const dispositionLabels: Record<PreviewFeedbackDisposition, string> = {
+  pending: "待处理",
+  incorporated: "已采纳",
+  deferred: "暂缓",
+};
+
+export function FeedbackDispositionControls({
+  item,
+  busy,
+  onDisposition,
+}: {
+  item: PreviewFeedback;
+  busy: boolean;
+  onDisposition: (item: PreviewFeedback, disposition: PreviewFeedbackDisposition) => void;
+}) {
+  return (
+    <span className="feedback-disposition">
+      <Badge tone={item.disposition === "incorporated" ? "good" : item.disposition === "deferred" ? "neutral" : "warn"}>
+        {dispositionLabels[item.disposition]}
+      </Badge>
+      {(["incorporated", "deferred", "pending"] as const)
+        .filter((value) => value !== item.disposition)
+        .map((value) => (
+          <button key={value} className="button button--quiet" type="button" disabled={busy} onClick={() => onDisposition(item, value)}>
+            标记{dispositionLabels[value]}
+          </button>
+        ))}
+    </span>
+  );
+}
+
 function categoryLabel(category: PreviewFeedbackCategory | null | undefined): string {
   return categories.find((item) => item.id === category)?.label ?? "—";
 }
@@ -36,6 +68,8 @@ export function PreviewFeedbackPanel({
   busy,
   onSubmit,
   onWithdraw,
+  onIterate,
+  onDisposition,
 }: {
   bundle: ProductDeliveryBundle;
   contract: WebProductGenerationContract | null;
@@ -45,6 +79,8 @@ export function PreviewFeedbackPanel({
   busy: boolean;
   onSubmit: (draft: PreviewFeedbackDraft) => Promise<boolean>;
   onWithdraw: (item: PreviewFeedback) => void;
+  onIterate?: (item: PreviewFeedback) => void;
+  onDisposition?: (item: PreviewFeedback, disposition: PreviewFeedbackDisposition) => void;
 }) {
   const anchorsAvailable = Boolean(contract && contract.revision_id === bundle.web_generation_contract_revision_id);
   const screens = anchorsAvailable && contract ? contract.screens : [];
@@ -58,6 +94,9 @@ export function PreviewFeedbackPanel({
   const tasks = !anchorsAvailable ? [] : contract?.tasks.filter((task) => screen?.task_ids.includes(task.task_id)) ?? [];
   const states = !anchorsAvailable ? [] : contract?.states.filter((state) => screen?.state_ids.includes(state.state_id)) ?? [];
   const canSubmit = Boolean(anchorsAvailable && screen && policy && consented && text.trim() && !busy);
+  // B8: an iteration revises the contract this bundle was built from, so it is
+  // offered only while that contract revision is still current and confirmed.
+  const canIterate = Boolean(anchorsAvailable && contract?.status === "confirmed" && onIterate);
 
   function anchorLabel(item: PreviewFeedback): string {
     const parts = [
@@ -141,7 +180,7 @@ export function PreviewFeedbackPanel({
             <span>我同意记录这条反馈。{policy?.statement ?? "正在读取反馈政策…"}</span>
           </label>
           <button className="button button--primary" type="submit" disabled={!canSubmit}>{busy ? "正在提交…" : "提交反馈"}</button>
-          <p className="unknown-copy">反馈是 user_report，只说明你在预览里的看法，不代表任务完成或真实结果。</p>
+          <p className="unknown-copy">反馈是 user_report，只说明你在预览里的看法，不代表任务完成或真实结果。基于反馈提出的新契约仍需你确认；反馈正文不会被复制进契约。</p>
         </form>
         <div className="preview-feedback__list">
           <h2>已提交 · {feedback.length}</h2>
@@ -156,8 +195,18 @@ export function PreviewFeedbackPanel({
                   <small>{anchorLabel(item)}</small>
                 </div>
                 <p>{item.status === "withdrawn" ? "正文已按撤回清除。" : item.text}</p>
-                {item.status === "submitted" && item.submitted_by === "local-user" ? (
-                  <button className="button button--quiet" type="button" disabled={busy} onClick={() => onWithdraw(item)}>撤回</button>
+                {item.status === "submitted" ? (
+                  <div className="preview-feedback__actions">
+                    {canIterate ? (
+                      <button className="button button--primary" type="button" disabled={busy} onClick={() => onIterate?.(item)}>
+                        基于此反馈提出新契约
+                      </button>
+                    ) : null}
+                    {onDisposition ? <FeedbackDispositionControls item={item} busy={busy} onDisposition={onDisposition} /> : null}
+                    {item.submitted_by === "local-user" ? (
+                      <button className="button button--quiet" type="button" disabled={busy} onClick={() => onWithdraw(item)}>撤回</button>
+                    ) : null}
+                  </div>
                 ) : null}
               </li>
             ))}

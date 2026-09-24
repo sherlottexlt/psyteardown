@@ -53,6 +53,7 @@ class SourceReference(FrozenModel):
         "tool_result",
         "model_proposal",
         "human_decision",
+        "preview_feedback",
     ]
     source_id: Identifier
     revision_id: str | None = None
@@ -696,6 +697,7 @@ class ProductProposalJob(FrozenModel):
     result_object_ids: tuple[Identifier, ...] = ()
     result_expected_revision: int | None = Field(default=None, ge=1)
     raw_input: str | None = None
+    feedback_id: Identifier | None = None
     fingerprint: Identifier
     attempt: int = Field(default=0, ge=0)
     result_revision_id: str | None = None
@@ -713,7 +715,27 @@ class ProductProposalJob(FrozenModel):
             "web_generation_contract": {"product_thesis", "outcome_contract"},
         }[self.kind]
         actual_types = {item.object_type for item in self.input_dependencies}
-        if actual_types != expected_types:
+        # B8: an iteration revises the pinned baseline contract from one
+        # explicit feedback report instead of the thesis/outcome pair.
+        if self.kind == "web_generation_contract" and self.feedback_id:
+            if actual_types != {"web_generation_contract", "preview_feedback"}:
+                raise ValueError(
+                    "feedback iteration job requires its baseline contract and feedback dependencies"
+                )
+            baseline = next(
+                item for item in self.input_dependencies if item.object_type == "web_generation_contract"
+            )
+            feedback = next(
+                item for item in self.input_dependencies if item.object_type == "preview_feedback"
+            )
+            if feedback.object_id != self.feedback_id:
+                raise ValueError("feedback iteration job dependency does not match its feedback")
+            if (
+                self.result_object_id != baseline.object_id
+                or self.result_expected_revision != baseline.revision
+            ):
+                raise ValueError("feedback iteration job must revise its baseline contract")
+        elif actual_types != expected_types:
             raise ValueError(
                 f"{self.kind} job requires dependencies: "
                 + ", ".join(sorted(expected_types))
@@ -722,6 +744,8 @@ class ProductProposalJob(FrozenModel):
             raise ValueError("product intent job requires the original raw input")
         if self.kind != "product_intent" and self.raw_input is not None:
             raise ValueError("only product intent jobs may retain raw input")
+        if self.kind != "web_generation_contract" and self.feedback_id:
+            raise ValueError("only web generation contract jobs may reference feedback")
         if self.kind == "product_theses":
             if not 2 <= len(self.result_object_ids) <= 3:
                 raise ValueError(
@@ -1316,6 +1340,8 @@ class PreviewFeedback(FrozenModel):
     submitted_at: datetime
     consent: PreviewFeedbackConsent
     withdrawn_at: datetime | None = None
+    # B8: set only by an explicit human decision; never inferred from a job.
+    disposition: Literal["pending", "incorporated", "deferred"] = "pending"
     evidence_level: Literal["user_report"] = "user_report"
     automatic_capture: Literal["none"] = "none"
 
@@ -1328,9 +1354,13 @@ class PreviewFeedback(FrozenModel):
         if not self.delivery_bundle_revision_id.startswith(f"{self.delivery_bundle_id}.r"):
             raise ValueError("preview feedback bundle revision does not match its bundle")
         if self.status == "submitted":
-            if self.meta.revision != 1 or self.category is None or self.text is None or self.withdrawn_at is not None:
-                raise ValueError("submitted preview feedback is revision 1 with a category and text")
+            if self.category is None or self.text is None or self.withdrawn_at is not None:
+                raise ValueError("submitted preview feedback requires a category and text")
+            if self.meta.revision == 1 and self.disposition != "pending":
+                raise ValueError("new preview feedback starts with a pending disposition")
         else:
-            if self.meta.revision != 2 or self.category is not None or self.text is not None or self.withdrawn_at is None:
-                raise ValueError("withdrawn preview feedback is a revision 2 tombstone without content")
+            if self.meta.revision < 2 or self.category is not None or self.text is not None or self.withdrawn_at is None:
+                raise ValueError("withdrawn preview feedback is a later-revision tombstone without content")
+            if self.disposition != "pending":
+                raise ValueError("withdrawn preview feedback keeps no disposition")
         return self

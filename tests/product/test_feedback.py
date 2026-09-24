@@ -175,3 +175,51 @@ def test_sqlite_withdrawal_leaves_no_text_in_database_file(tmp_path):
             reopened.save_preview_feedback(kept, expected_revision=None)
     finally:
         reopened.close()
+
+
+def test_disposition_is_explicit_and_withdrawal_still_erases_text(tmp_path):
+    database = tmp_path / "product.sqlite3"
+    repository = SQLiteProductRepository(database)
+    try:
+        service, project, bundle, contract = _bundle_setup(tmp_path, repository)
+        secret = "distinctive-deferred-phrase-19c2"
+        feedback = _submit(service, project, bundle, contract, text=secret)
+        assert feedback.disposition == "pending"
+
+        deferred = service.set_disposition(
+            project_id=project.project_id,
+            feedback_id=feedback.feedback_id,
+            disposition="deferred",
+            actor="user-li",
+            reason="not in this revision",
+            expected_revision=1,
+        )
+        assert deferred.revision_id == f"{feedback.feedback_id}.r2"
+        assert deferred.disposition == "deferred" and deferred.text == secret
+        with pytest.raises(ProductRepositoryError, match="revision conflict"):
+            service.set_disposition(
+                project_id=project.project_id,
+                feedback_id=feedback.feedback_id,
+                disposition="incorporated",
+                actor="user-li",
+                reason="stale view",
+                expected_revision=1,
+            )
+
+        withdrawn = service.withdraw_feedback(
+            project_id=project.project_id, feedback_id=feedback.feedback_id, actor="user-li", expected_revision=2
+        )
+        assert withdrawn.revision_id == f"{feedback.feedback_id}.r3"
+        assert withdrawn.text is None and withdrawn.disposition == "pending"
+        assert secret.encode() not in database.read_bytes()
+        with pytest.raises(DomainStateError, match="only submitted"):
+            service.set_disposition(
+                project_id=project.project_id,
+                feedback_id=feedback.feedback_id,
+                disposition="incorporated",
+                actor="user-li",
+                reason="too late",
+                expected_revision=3,
+            )
+    finally:
+        repository.close()

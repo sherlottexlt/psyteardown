@@ -502,3 +502,27 @@ def test_failed_sqlite_job_recovers_after_restart_and_can_be_retried(tmp_path):
         assert second_application.get_project_view(intent.project_id).problem_model
     finally:
         second_repository.close()
+
+
+def test_feedback_iteration_requires_a_feedback_reader_and_web_kind():
+    import pytest
+    from psyteardown.experience.models import DomainStateError
+
+    application, _, service = build_services()
+    project, _, _ = _confirmed_outcome_contract(application, service)
+    with pytest.raises(DomainStateError, match="only accepted for web_generation_contract"):
+        service.create_job(
+            project_id=project.project_id,
+            kind="product_theses",
+            actor="user-li",
+            reason="search",
+            feedback_id="preview-feedback-1",
+        )
+    with pytest.raises(DomainStateError, match="not available to proposal jobs"):
+        service.create_job(
+            project_id=project.project_id,
+            kind="web_generation_contract",
+            actor="user-li",
+            reason="iterate",
+            feedback_id="preview-feedback-1",
+        )

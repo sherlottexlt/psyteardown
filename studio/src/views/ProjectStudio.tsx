@@ -23,6 +23,8 @@ import {
   listPreviewFeedback,
   submitPreviewFeedback,
   withdrawPreviewFeedback,
+  setPreviewFeedbackDisposition,
+  diffDeliveryBundles,
   confirmRevision,
   createProposalJob,
   getProject,
@@ -35,6 +37,7 @@ import {
 } from "../api/client";
 import type {
   PreviewFeedback,
+  PreviewFeedbackDisposition,
   EditableOutcomeContract,
   EditableProblemModel,
   EditableProductIntent,
@@ -114,6 +117,15 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   const previewFeedbackQuery = useQuery({
     queryKey: ["preview-feedback", projectId],
     queryFn: () => listPreviewFeedback(projectId),
+    retry: false,
+  });
+  const bundles = deliveryBundlesQuery.data ?? [];
+  const diffBase = bundles.length >= 2 ? bundles[bundles.length - 2] : null;
+  const diffTarget = bundles.length >= 2 ? bundles[bundles.length - 1] : null;
+  const bundleDiffQuery = useQuery({
+    queryKey: ["delivery-bundle-diff", projectId, diffBase?.bundle_id, diffTarget?.bundle_id],
+    queryFn: () => diffDeliveryBundles({ projectId, baseBundleId: diffBase!.bundle_id, targetBundleId: diffTarget!.bundle_id }),
+    enabled: Boolean(diffBase && diffTarget),
     retry: false,
   });
 
@@ -353,6 +365,32 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     });
   }
 
+  async function handleIterateFromFeedback(item: PreviewFeedback) {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createProposalJob({ projectId, kind: "web_generation_contract", feedbackId: item.feedback_id });
+      const completed = await runProposalJob({ projectId, jobId: queued.job_id });
+      await Promise.all([query.refetch(), jobsQuery.refetch()]);
+      if (completed.status !== "succeeded") {
+        setActionError(
+          completed.status === "stale_input"
+            ? "反馈已撤回或契约已变化，新的契约提案没有提交。"
+            : completed.error_summary ?? "迭代提案没有成功完成。",
+        );
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
+  function handleFeedbackDisposition(item: PreviewFeedback, disposition: PreviewFeedbackDisposition) {
+    void refreshAfter(async () => {
+      await setPreviewFeedbackDisposition({ projectId, feedbackId: item.feedback_id, disposition, expectedRevision: item.meta.revision });
+      await previewFeedbackQuery.refetch();
+    });
+  }
+
   if (query.isLoading) {
     return <main className="loading-screen"><div className="loading-mark"><span /><span /><span /></div><p>正在读取产品模型…</p></main>;
   }
@@ -395,6 +433,9 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             feedback: previewFeedbackQuery.data ?? [],
             onSubmit: handleSubmitFeedback,
             onWithdraw: handleWithdrawFeedback,
+            onIterate: (item) => void handleIterateFromFeedback(item),
+            onDisposition: handleFeedbackDisposition,
+            diff: bundleDiffQuery.data ?? null,
           }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} sourceModel={{ policy: sourceModelPolicyQuery.data ?? null, onGenerate: () => void handleGenerateProduct("model"), onRetry: () => void handleRetryModelSource() }} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;

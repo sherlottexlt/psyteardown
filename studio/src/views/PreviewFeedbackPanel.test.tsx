@@ -125,4 +125,40 @@ describe("PreviewFeedbackPanel", () => {
     await userEvent.click(buttons[0]!);
     expect(onWithdraw).toHaveBeenCalledWith(submitted);
   });
+
+  it("offers iteration only on a confirmed current contract and records disposition explicitly", async () => {
+    const submitted = {
+      feedback_id: "preview-feedback-1",
+      status: "submitted",
+      category: "confusing",
+      text: "Where is urgent contact?",
+      submitted_by: "local-user",
+      disposition: "pending",
+      anchor: { screen_id: "focus", task_id: null, state_id: null },
+      meta: { revision: 1 },
+    } as unknown as PreviewFeedback;
+    const onIterate = vi.fn();
+    const onDisposition = vi.fn();
+    renderPanel({
+      contract: { ...contract, status: "confirmed" } as WebProductGenerationContract,
+      feedback: [submitted],
+      onIterate,
+      onDisposition,
+    });
+
+    expect(screen.getByText("待处理")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "基于此反馈提出新契约" }));
+    expect(onIterate).toHaveBeenCalledWith(submitted);
+    await userEvent.click(screen.getByRole("button", { name: "标记暂缓" }));
+    expect(onDisposition).toHaveBeenCalledWith(submitted, "deferred");
+
+    cleanup();
+    renderPanel({
+      contract: { ...contract, status: "proposed" } as WebProductGenerationContract,
+      feedback: [submitted],
+      onIterate,
+      onDisposition,
+    });
+    expect(screen.queryByRole("button", { name: "基于此反馈提出新契约" })).not.toBeInTheDocument();
+  });
 });

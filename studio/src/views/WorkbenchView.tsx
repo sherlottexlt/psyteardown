@@ -1,7 +1,65 @@
 import type { ProductProjectView } from "../api/types";
 import { Badge, statusLabel } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
-import { PreviewFeedbackPanel, type PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
+import { FeedbackDispositionControls, PreviewFeedbackPanel, type PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
+
+type DeliveryBundleDiff = import("../api/types").DeliveryBundleDiff;
+type PreviewFeedback = import("../api/types").PreviewFeedback;
+type PreviewFeedbackDisposition = import("../api/types").PreviewFeedbackDisposition;
+
+const fileChangeLabels = { added: "新增", removed: "删除", modified: "变化", unchanged: "未变" } as const;
+
+function BundleDiffPanel({
+  diff,
+  sourceFeedback,
+  busy,
+  onDisposition,
+}: {
+  diff: DeliveryBundleDiff;
+  sourceFeedback: PreviewFeedback[];
+  busy: boolean;
+  onDisposition?: (item: PreviewFeedback, disposition: PreviewFeedbackDisposition) => void;
+}) {
+  const changed = diff.files.filter((item) => item.change !== "unchanged");
+  const productChanged = changed.some((item) => item.path.startsWith("source/") || item.path.startsWith("build/"));
+  return (
+    <section className="panel bundle-diff" aria-label="交付版本差异">
+      <div className="panel__heading">
+        <div><p className="eyebrow">Revision diff</p><h2>{diff.base_bundle_id} → {diff.target_bundle_id}</h2></div>
+        <Badge tone={productChanged ? "accent" : "warn"}>{productChanged ? "源码/构建有变化" : "源码与构建未变化"}</Badge>
+      </div>
+      <p className="unknown-copy">
+        契约 {diff.base_contract_revision_id} → {diff.target_contract_revision_id}。只比较记录的文件 sha256，不做逐行或语义差异。
+        {productChanged ? null : " 当前模板不读取新增的验收检查，所以产品本身没有改变；需要模型生成或人工修改才会体现在源码中。"}
+      </p>
+      <div className="bundle-diff__columns">
+        <div>
+          <h3>契约变化 · {diff.contract_changes.length}</h3>
+          {diff.contract_changes.length ? <ul>{diff.contract_changes.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="unknown-copy">两个交付包使用同一契约 revision。</p>}
+        </div>
+        <div>
+          <h3>文件变化 · {changed.length} / {diff.files.length}</h3>
+          <ul>{changed.map((item) => <li key={item.path}><Badge tone={item.change === "removed" ? "danger" : "neutral"}>{fileChangeLabels[item.change]}</Badge> <code>{item.path}</code></li>)}</ul>
+        </div>
+      </div>
+      {sourceFeedback.length ? (
+        <div className="bundle-diff__feedback">
+          <h3>这次迭代来源的反馈</h3>
+          <ul>
+            {sourceFeedback.map((item) => (
+              <li key={item.feedback_id}>
+                <small>{item.feedback_id}</small>
+                <p>{item.status === "withdrawn" ? "正文已按撤回清除。" : item.text}</p>
+                {item.status === "submitted" && onDisposition ? <FeedbackDispositionControls item={item} busy={busy} onDisposition={onDisposition} /> : null}
+              </li>
+            ))}
+          </ul>
+          <p className="unknown-copy">是否采纳由你标记，平台不会根据生成结果自动推断。</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 export function WorkbenchView({
   view,
@@ -41,6 +99,9 @@ export function WorkbenchView({
     feedback: import("../api/types").PreviewFeedback[];
     onSubmit: (bundleId: string, draft: PreviewFeedbackDraft) => Promise<boolean>;
     onWithdraw: (item: import("../api/types").PreviewFeedback) => void;
+    onIterate?: (item: PreviewFeedback) => void;
+    onDisposition?: (item: PreviewFeedback, disposition: PreviewFeedbackDisposition) => void;
+    diff?: DeliveryBundleDiff | null;
   };
   sourceModel?: {
     policy: import("../api/types").SourceModelPolicy | null;
@@ -110,6 +171,8 @@ export function WorkbenchView({
           busy={busy}
           onSubmit={(draft) => preview.onSubmit(deliveryBundle.bundle_id, draft)}
           onWithdraw={preview.onWithdraw}
+          onIterate={preview.onIterate}
+          onDisposition={preview.onDisposition}
         />
       ) : (
         <section className="preview-frame">
@@ -117,6 +180,18 @@ export function WorkbenchView({
           <div className="preview-frame__empty"><div className="preview-glyph">↗</div><h2>还没有可预览的交付构建</h2><p>完成生成、隔离构建与浏览器验证并导出交付包后，已交付的构建物会在这里打开，你可以对页面和任务留下反馈。</p></div>
         </section>
       )}
+      {preview?.diff ? (
+        <BundleDiffPanel
+          diff={preview.diff}
+          sourceFeedback={preview.feedback.filter((item) =>
+            view.web_generation_contract?.source_refs.some(
+              (ref) => ref.source_type === "preview_feedback" && ref.source_id === item.feedback_id,
+            ),
+          )}
+          busy={busy}
+          onDisposition={preview.onDisposition}
+        />
+      ) : null}
       {view.web_generation_contract ? (
         <section className="panel contract-card contract-card--wide" aria-label="Web 生成契约">
           <div className="panel__heading">
@@ -129,6 +204,15 @@ export function WorkbenchView({
             <div><dt>运行边界</dt><dd>local fixture only · no network</dd></div>
           </dl>
           <p className="unknown-copy">这是待确认的生成输入，不是源码、运行实例或真实结果。确认后仍需 B3 的 workspace、预算和沙箱 Gate。</p>
+          {view.web_generation_contract.status === "proposed" && view.web_generation_contract.meta.revision > 1 ? (
+            <p className="unknown-copy">
+              这是 r{view.web_generation_contract.meta.revision} 修订提案
+              {view.web_generation_contract.source_refs.filter((ref) => ref.source_type === "preview_feedback").at(-1)
+                ? `，来源预览反馈 ${view.web_generation_contract.source_refs.filter((ref) => ref.source_type === "preview_feedback").at(-1)?.source_id}`
+                : ""}
+              。确认前请核对新增的验收检查；反馈本身不会因此改变状态。
+            </p>
+          ) : null}
           {view.web_generation_contract.status === "proposed" ? (
             <button className="button button--primary" disabled={busy} onClick={onConfirmWeb}>确认 Web 生成契约</button>
           ) : null}

@@ -124,6 +124,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Diff Delivery Bundles */
+        get: operations["diff_delivery_bundles_api_v1_projects__project_id__delivery_bundles__bundle_id__diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/delivery-bundles/{bundle_id}/feedback": {
         parameters: {
             query?: never;
@@ -426,6 +443,23 @@ export interface paths {
         get: operations["list_preview_feedback_api_v1_projects__project_id__preview_feedback_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/preview-feedback/{feedback_id}/disposition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Preview Feedback Disposition */
+        post: operations["set_preview_feedback_disposition_api_v1_projects__project_id__preview_feedback__feedback_id__disposition_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -898,6 +932,8 @@ export interface components {
         CreateProposalJobRequest: {
             /** Actor */
             actor: string;
+            /** Feedback Id */
+            feedback_id?: string | null;
             /**
              * Kind
              * @enum {string}
@@ -918,6 +954,21 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** DeliveryBundleDiffResponse */
+        DeliveryBundleDiffResponse: {
+            /** Base Bundle Id */
+            base_bundle_id: string;
+            /** Base Contract Revision Id */
+            base_contract_revision_id: string;
+            /** Contract Changes */
+            contract_changes: string[];
+            /** Files */
+            files: components["schemas"]["DeliveryBundleFileChange"][];
+            /** Target Bundle Id */
+            target_bundle_id: string;
+            /** Target Contract Revision Id */
+            target_contract_revision_id: string;
+        };
         /** DeliveryBundleFile */
         DeliveryBundleFile: {
             /** Byte Count */
@@ -931,6 +982,20 @@ export interface components {
             role: "source" | "build" | "verification" | "notes";
             /** Sha256 */
             sha256: string;
+        };
+        /** DeliveryBundleFileChange */
+        DeliveryBundleFileChange: {
+            /** Base Sha256 */
+            base_sha256: string | null;
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "added" | "removed" | "modified" | "unchanged";
+            /** Path */
+            path: string;
+            /** Target Sha256 */
+            target_sha256: string | null;
         };
         /** DeliveryBundleResponse */
         DeliveryBundleResponse: {
@@ -1557,6 +1622,20 @@ export interface components {
             /** Task Id */
             task_id?: string | null;
         };
+        /** PreviewFeedbackDispositionRequest */
+        PreviewFeedbackDispositionRequest: {
+            /** Actor */
+            actor: string;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "pending" | "incorporated" | "deferred";
+            /** Expected Revision */
+            expected_revision: number;
+            /** Reason */
+            reason: string;
+        };
         /** PreviewFeedbackPolicyResponse */
         PreviewFeedbackPolicyResponse: {
             /** Captured */
@@ -1598,6 +1677,11 @@ export interface components {
             delivery_bundle_id: string;
             /** Delivery Bundle Revision Id */
             delivery_bundle_revision_id: string;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "pending" | "incorporated" | "deferred";
             /**
              * Evidence Level
              * @constant
@@ -1877,6 +1961,8 @@ export interface components {
             error_code: string | null;
             /** Error Summary */
             error_summary: string | null;
+            /** Feedback Id */
+            feedback_id: string | null;
             /** Fingerprint */
             fingerprint: string;
             /** Input Dependencies */
@@ -2278,7 +2364,7 @@ export interface components {
              * Source Type
              * @enum {string}
              */
-            source_type: "user_input" | "imported_artifact" | "research" | "evidence" | "tool_result" | "model_proposal" | "human_decision";
+            source_type: "user_input" | "imported_artifact" | "research" | "evidence" | "tool_result" | "model_proposal" | "human_decision" | "preview_feedback";
         };
         /** StakeholderTension */
         StakeholderTension: {
@@ -2968,6 +3054,58 @@ export interface operations {
                 };
                 content: {
                     "application/zip": unknown;
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    diff_delivery_bundles_api_v1_projects__project_id__delivery_bundles__bundle_id__diff_get: {
+        parameters: {
+            query: {
+                base_bundle_id: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryBundleDiffResponse"];
                 };
             };
             /** @description Resource not found */
@@ -4016,6 +4154,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewFeedbackResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    set_preview_feedback_disposition_api_v1_projects__project_id__preview_feedback__feedback_id__disposition_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                feedback_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewFeedbackDispositionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewFeedbackResponse"];
                 };
             };
             /** @description Resource not found */

@@ -285,6 +285,7 @@ export function createProposalJob(input: {
   projectId: string;
   kind: ProposalJobKind;
   rawInput?: string;
+  feedbackId?: string;
 }): Promise<ProductProposalJob> {
   return request(
     `/api/v1/projects/${encodeURIComponent(input.projectId)}/proposal-jobs`,
@@ -295,6 +296,7 @@ export function createProposalJob(input: {
         actor: "local-user",
         reason: `Requested ${input.kind} proposal in Product Studio`,
         raw_input: input.rawInput ?? null,
+        feedback_id: input.feedbackId ?? null,
       }),
     },
   );
@@ -597,5 +599,35 @@ export function withdrawPreviewFeedback(input: {
       method: "POST",
       body: JSON.stringify({ actor: "local-user", expected_revision: input.expectedRevision }),
     },
+  );
+}
+
+export function setPreviewFeedbackDisposition(input: {
+  projectId: string;
+  feedbackId: string;
+  disposition: import("./types").PreviewFeedbackDisposition;
+  expectedRevision: number;
+}): Promise<import("./types").PreviewFeedback> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/preview-feedback/${encodeURIComponent(input.feedbackId)}/disposition`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        disposition: input.disposition,
+        expected_revision: input.expectedRevision,
+        actor: "local-user",
+        reason: `Marked ${input.disposition} in Product Studio`,
+      }),
+    },
+  );
+}
+
+export function diffDeliveryBundles(input: {
+  projectId: string;
+  baseBundleId: string;
+  targetBundleId: string;
+}): Promise<import("./types").DeliveryBundleDiff> {
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/delivery-bundles/${encodeURIComponent(input.targetBundleId)}/diff?base_bundle_id=${encodeURIComponent(input.baseBundleId)}`,
   );
 }

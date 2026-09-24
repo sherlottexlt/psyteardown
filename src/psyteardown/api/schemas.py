@@ -181,6 +181,7 @@ class CreateProposalJobRequest(TransportModel):
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
     raw_input: str | None = Field(default=None, min_length=1)
+    feedback_id: str | None = None
 
 
 class ProposalJobActionRequest(TransportModel):
@@ -401,6 +402,7 @@ class ProductProposalJobResponse(TransportModel):
     result_object_ids: list[str]
     result_expected_revision: int | None
     raw_input: str | None
+    feedback_id: str | None
     fingerprint: str
     attempt: int
     result_revision_id: str | None
@@ -562,6 +564,29 @@ class SubmitPreviewFeedbackRequest(TransportModel):
     consent_granted: bool
 
 
+class PreviewFeedbackDispositionRequest(TransportModel):
+    disposition: Literal["pending", "incorporated", "deferred"]
+    expected_revision: int = Field(ge=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class DeliveryBundleFileChange(TransportModel):
+    path: str
+    change: Literal["added", "removed", "modified", "unchanged"]
+    base_sha256: str | None
+    target_sha256: str | None
+
+
+class DeliveryBundleDiffResponse(TransportModel):
+    base_bundle_id: str
+    target_bundle_id: str
+    base_contract_revision_id: str
+    target_contract_revision_id: str
+    contract_changes: list[str]
+    files: list[DeliveryBundleFileChange]
+
+
 class WithdrawPreviewFeedbackRequest(TransportModel):
     actor: str = Field(min_length=1)
     expected_revision: int = Field(ge=1)
@@ -584,6 +609,7 @@ class PreviewFeedbackResponse(TransportModel):
     submitted_at: datetime
     consent: dict[str, Any]
     withdrawn_at: datetime | None
+    disposition: Literal["pending", "incorporated", "deferred"]
     evidence_level: Literal["user_report"]
     automatic_capture: Literal["none"]
     content_hash: str

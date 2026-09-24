@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Response, status
 from psyteardown.api.dependencies import get_product_preview_feedback_service
 from psyteardown.api.projects import ERROR_RESPONSES
 from psyteardown.api.schemas import (
+    PreviewFeedbackDispositionRequest,
     PreviewFeedbackPolicyResponse,
     PreviewFeedbackResponse,
     SubmitPreviewFeedbackRequest,
@@ -127,6 +128,29 @@ async def withdraw_preview_feedback(
             project_id=project_id,
             feedback_id=feedback_id,
             actor=request.actor,
+            expected_revision=request.expected_revision,
+        )
+    )
+
+
+@router.post(
+    "/projects/{project_id}/preview-feedback/{feedback_id}/disposition",
+    response_model=PreviewFeedbackResponse,
+    responses=ERROR_RESPONSES,
+)
+async def set_preview_feedback_disposition(
+    project_id: str,
+    feedback_id: str,
+    request: PreviewFeedbackDispositionRequest,
+    service: FeedbackService,
+) -> PreviewFeedbackResponse:
+    return PreviewFeedbackResponse.from_domain(
+        service.set_disposition(
+            project_id=project_id,
+            feedback_id=feedback_id,
+            disposition=request.disposition,
+            actor=request.actor,
+            reason=request.reason,
             expected_revision=request.expected_revision,
         )
     )
