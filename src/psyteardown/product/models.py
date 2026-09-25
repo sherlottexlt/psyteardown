@@ -690,7 +690,7 @@ class ProductProposalJob(FrozenModel):
     status: Literal[
         "queued", "running", "succeeded", "failed", "stale_input", "cancelled"
     ] = "queued"
-    provider: Literal["deterministic_fake"] = "deterministic_fake"
+    provider: Literal["deterministic_fake", "real"] = "deterministic_fake"
     provider_version: Identifier = "b2-v1"
     input_dependencies: tuple[DependencyRef, ...] = Field(min_length=1)
     result_object_id: Identifier

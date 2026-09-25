@@ -82,6 +82,7 @@ class ProductProposalJobService:
         job_repository: ProductJobRepository,
         *,
         provider: ProductContractProposalProvider | None = None,
+        real_provider: ProductContractProposalProvider | None = None,
         feedback_repository: PreviewFeedbackReader | None = None,
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[str], str] | None = None,
@@ -92,6 +93,7 @@ class ProductProposalJobService:
         # product repository; without a reader they are simply unavailable.
         self.feedback_repository = feedback_repository
         self.provider = provider or DeterministicFakeProductContractProvider()
+        self.real_provider = real_provider  # C0: optional real model provider
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._id_factory = id_factory or (lambda prefix: f"{prefix}-{uuid4().hex}")
 
@@ -110,6 +112,7 @@ class ProductProposalJobService:
         reason: str,
         raw_input: str | None = None,
         feedback_id: str | None = None,
+        provider: Literal["deterministic_fake", "real"] = "deterministic_fake",
     ) -> ProductProposalJob:
         view = self.application.get_project_view(project_id)
         if view.project.status != "active":
@@ -291,12 +294,20 @@ class ProductProposalJobService:
         else:
             raise DomainStateError(f"unknown job kind: {kind}")
 
+        # C0: Select provider based on parameter
+        if provider == "real":
+            if self.real_provider is None:
+                raise DomainStateError("real provider is not configured")
+            selected_provider = self.real_provider
+        else:
+            selected_provider = self.provider
+
         fingerprint = _fingerprint(
             project_id,
             kind,
             dependencies,
-            self.provider.name,
-            self.provider.version,
+            selected_provider.name,
+            selected_provider.version,
             raw_input=raw_input,
         )
         reusable = next(
@@ -321,8 +332,8 @@ class ProductProposalJobService:
             ),
             project_id=project_id,
             kind=kind,
-            provider=self.provider.name,
-            provider_version=self.provider.version,
+            provider=provider,
+            provider_version=selected_provider.version,
             input_dependencies=dependencies,
             result_object_id=result_object_id,
             result_object_ids=result_object_ids,
@@ -421,10 +432,19 @@ class ProductProposalJobService:
         self, job: ProductProposalJob, *, actor: str
     ) -> ProductIntent | ProblemModel | OutcomeContract | WebProductGenerationContract | tuple[ProductThesis, ...]:
         dependencies = {item.object_type: item for item in job.input_dependencies}
-        provider_actor = f"provider:{self.provider.name}"
+
+        # C0: Select provider based on job's provider field
+        if job.provider == "real":
+            if self.real_provider is None:
+                raise DomainStateError("real provider is not configured")
+            selected_provider = self.real_provider
+        else:
+            selected_provider = self.provider
+
+        provider_actor = f"provider:{selected_provider.name}"
         if job.kind == "product_intent":
             assert job.raw_input is not None
-            proposal = self.provider.propose_intent(job.raw_input, job_id=job.job_id)
+            proposal = selected_provider.propose_intent(job.raw_input, job_id=job.job_id)
             if not self._inputs_are_current(job):
                 raise ProductRepositoryError("revision conflict: job inputs changed")
             return self.application.submit_product_intent(
@@ -442,7 +462,7 @@ class ProductProposalJobService:
                 "product_intent", f"{intent_ref.object_id}.r{intent_ref.revision}"
             )
             assert isinstance(intent, ProductIntent)
-            proposal = self.provider.propose_problem(intent, job_id=job.job_id)
+            proposal = selected_provider.propose_problem(intent, job_id=job.job_id)
             if not self._inputs_are_current(job):
                 raise ProductRepositoryError("revision conflict: job inputs changed")
             return self.application.submit_problem_model(
@@ -462,7 +482,7 @@ class ProductProposalJobService:
             )
             feedback = self._require_feedback(job.project_id, feedback_ref.object_id)
             assert isinstance(baseline, WebProductGenerationContract)
-            proposal = self.provider.propose_web_generation_contract_from_feedback(
+            proposal = selected_provider.propose_web_generation_contract_from_feedback(
                 baseline, feedback, suggestion_id=job.job_id
             )
             if not self._inputs_are_current(job):
@@ -488,7 +508,7 @@ class ProductProposalJobService:
             )
             assert isinstance(thesis, ProductThesis)
             assert isinstance(outcome, OutcomeContract)
-            proposal = self.provider.propose_web_generation_contract(
+            proposal = selected_provider.propose_web_generation_contract(
                 thesis, outcome, suggestion_id=job.job_id
             )
             if not self._inputs_are_current(job):
@@ -514,7 +534,7 @@ class ProductProposalJobService:
                 "product_intent", f"{intent_ref.object_id}.r{intent_ref.revision}"
             )
             assert isinstance(intent, ProductIntent)
-            proposal = self.provider.propose_outcome_contract(
+            proposal = selected_provider.propose_outcome_contract(
                 intent, problem, job_id=job.job_id
             )
             if not self._inputs_are_current(job):
@@ -535,7 +555,7 @@ class ProductProposalJobService:
             f"{contract_ref.object_id}.r{contract_ref.revision}",
         )
         assert isinstance(contract, OutcomeContract)
-        proposals = self.provider.propose_theses(
+        proposals = selected_provider.propose_theses(
             problem, contract, job_id=job.job_id
         )
         if not 2 <= len(proposals) <= 3:
