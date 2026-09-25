@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Protocol
 
 from psyteardown.product.commands import (
@@ -577,3 +578,175 @@ class DeterministicFakeProductContractProvider:
                 SourceReference(source_type="model_proposal", source_id=suggestion_id, revision_id="b8-v1"),
             ],
         )
+
+
+class RealModelProductContractProvider:
+    """C0 real model provider for Product Contract proposals (Intent/Problem/Outcome/Thesis).
+
+    Uses DeepSeek via contract_model module. Follows C0 decisions:
+    - PS-O017: Full confirmed upstream + user input sent; transcript local only
+    - PS-O018: Max 2 calls per object; no monetary budget
+    - PS-O019: No automatic retry; user must explicitly retry on failure
+    """
+
+    name = "deepseek"
+    version = "c0-v1"
+
+    def __init__(self) -> None:
+        """Initialize with environment-configured DeepSeek model."""
+        from psyteardown.product.contract_model import (
+            ContractModelError,
+            build_contract_model_from_env,
+        )
+
+        model = build_contract_model_from_env()
+        if model is None:
+            raise ContractModelError(
+                "Real model provider requires PSYTEARDOWN_PRODUCT_CONTRACT_MODEL=deepseek and DEEPSEEK_API_KEY"
+            )
+        self._model = model
+
+    def propose_intent(
+        self, raw_input: str, *, job_id: str
+    ) -> ProductIntentProposal:
+        """Generate ProductIntent proposal from raw user input."""
+        from psyteardown.product.contract_model import (
+            INTENT_SYSTEM,
+            ContractModelError,
+            build_intent_prompt,
+            parse_intent_reply,
+        )
+
+        prompt = build_intent_prompt(raw_input)
+        try:
+            reply = self._model.generate(system=INTENT_SYSTEM, prompt=prompt)
+        except ContractModelError as exc:
+            raise RuntimeError(f"provider_failed: {exc}") from exc
+
+        result = parse_intent_reply(reply.text, job_id=job_id)
+        if isinstance(result, list):
+            # Static gate rejection
+            reasons = "; ".join(result)
+            raise RuntimeError(f"static_gate_rejected: {reasons}")
+        return result
+
+    def propose_problem(
+        self, intent: ProductIntent, *, job_id: str
+    ) -> ProblemModelProposal:
+        """Generate ProblemModel proposal from confirmed ProductIntent."""
+        from psyteardown.product.contract_model import (
+            PROBLEM_SYSTEM,
+            ContractModelError,
+            build_problem_prompt,
+            parse_problem_reply,
+        )
+
+        prompt = build_problem_prompt(intent)
+        try:
+            reply = self._model.generate(system=PROBLEM_SYSTEM, prompt=prompt)
+        except ContractModelError as exc:
+            raise RuntimeError(f"provider_failed: {exc}") from exc
+
+        result = parse_problem_reply(reply.text, job_id=job_id, intent=intent)
+        if isinstance(result, list):
+            reasons = "; ".join(result)
+            raise RuntimeError(f"static_gate_rejected: {reasons}")
+        return result
+
+    def propose_outcome_contract(
+        self,
+        intent: ProductIntent,
+        problem: ProblemModel,
+        *,
+        job_id: str,
+    ) -> OutcomeContractProposal:
+        """Generate OutcomeContract proposal from confirmed Intent and ProblemModel."""
+        from psyteardown.product.contract_model import (
+            OUTCOME_SYSTEM,
+            ContractModelError,
+            build_outcome_prompt,
+            parse_outcome_reply,
+        )
+
+        prompt = build_outcome_prompt(intent, problem)
+        try:
+            reply = self._model.generate(system=OUTCOME_SYSTEM, prompt=prompt)
+        except ContractModelError as exc:
+            raise RuntimeError(f"provider_failed: {exc}") from exc
+
+        result = parse_outcome_reply(reply.text, job_id=job_id, intent=intent, problem=problem)
+        if isinstance(result, list):
+            reasons = "; ".join(result)
+            raise RuntimeError(f"static_gate_rejected: {reasons}")
+        return result
+
+    def propose_theses(
+        self,
+        problem: ProblemModel,
+        contract: OutcomeContract,
+        *,
+        job_id: str,
+    ) -> tuple[ProductThesisProposal, ...]:
+        """Generate 3 ProductThesis proposals from confirmed ProblemModel and OutcomeContract."""
+        from psyteardown.product.contract_model import (
+            THESIS_SYSTEM,
+            ContractModelError,
+            build_theses_prompt,
+            parse_theses_reply,
+        )
+
+        prompt = build_theses_prompt(problem, contract)
+        try:
+            reply = self._model.generate(system=THESIS_SYSTEM, prompt=prompt)
+        except ContractModelError as exc:
+            raise RuntimeError(f"provider_failed: {exc}") from exc
+
+        result = parse_theses_reply(reply.text, job_id=job_id, problem=problem, contract=contract)
+        if isinstance(result, list):
+            reasons = "; ".join(result)
+            raise RuntimeError(f"static_gate_rejected: {reasons}")
+        return result
+
+    def propose_web_generation_contract(
+        self,
+        thesis: ProductThesis,
+        contract: OutcomeContract,
+        *,
+        suggestion_id: str,
+    ) -> WebProductGenerationContractProposal:
+        """Delegate to fake provider for now; real model Web generation is B7m's domain."""
+        fake = DeterministicFakeProductContractProvider()
+        return fake.propose_web_generation_contract(thesis, contract, suggestion_id=suggestion_id)
+
+    def propose_web_generation_contract_from_feedback(
+        self,
+        baseline_contract: WebProductGenerationContract,
+        feedback: PreviewFeedback,
+        *,
+        suggestion_id: str,
+    ) -> WebProductGenerationContractProposal:
+        """Delegate to fake provider for now; feedback iteration uses fake revision."""
+        fake = DeterministicFakeProductContractProvider()
+        return fake.propose_web_generation_contract_from_feedback(
+            baseline_contract, feedback, suggestion_id=suggestion_id
+        )
+
+
+def build_provider_from_env(provider_name: str = "fake") -> ProductContractProposalProvider:
+    """Build provider from environment or explicit name.
+
+    Args:
+        provider_name: "fake" (default) or "real"
+
+    Returns:
+        DeterministicFakeProductContractProvider or RealModelProductContractProvider
+
+    Raises:
+        ValueError: if provider_name is invalid or real provider cannot be initialized
+    """
+    if provider_name == "fake":
+        return DeterministicFakeProductContractProvider()
+    elif provider_name == "real":
+        return RealModelProductContractProvider()
+    else:
+        raise ValueError(f"Unknown provider: {provider_name}; expected 'fake' or 'real'")
