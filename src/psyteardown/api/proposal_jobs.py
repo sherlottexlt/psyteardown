@@ -38,6 +38,7 @@ async def create_proposal_job(
         reason=request.reason,
         raw_input=request.raw_input,
         feedback_id=request.feedback_id,
+        provider=request.provider,
     )
     return ProductProposalJobResponse.from_domain(job)
 

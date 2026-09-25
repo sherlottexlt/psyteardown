@@ -19,6 +19,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from psyteardown.product.models import WebProductGenerationContract
+from psyteardown.product.env import get_project_env
 
 SOURCE_MODEL_MAX_APP_BYTES = 64 * 1024
 SOURCE_MODEL_MAX_CSS_BYTES = 32 * 1024
@@ -93,16 +94,16 @@ class DeepSeekProductSourceModel:
         base_url: str | None = None,
         timeout_seconds: int = 240,
     ) -> None:
-        key = api_key or os.environ.get("DEEPSEEK_API_KEY")
+        key = api_key or get_project_env("DEEPSEEK_API_KEY")
         if not key:
             raise SourceModelError("DEEPSEEK_API_KEY is not configured")
         self._key = key
-        self.model = model or os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
-        self._base_url = (base_url or os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/")
+        self.model = model or get_project_env("DEEPSEEK_MODEL") or "deepseek-chat"
+        self._base_url = (base_url or get_project_env("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/")
         self._timeout = timeout_seconds
         # Reasoning models can spend the whole output budget thinking and
         # return no code, so thinking is off unless explicitly enabled.
-        self._thinking = os.environ.get("DEEPSEEK_THINKING", "disabled").strip().lower() == "enabled"
+        self._thinking = get_project_env("DEEPSEEK_THINKING", "disabled").strip().lower() == "enabled"
 
     def generate(self, *, system: str, prompt: str) -> SourceModelReply:
         body = {
@@ -145,7 +146,8 @@ class DeepSeekProductSourceModel:
 
 def build_source_model_from_env() -> ProductSourceModel | None:
     """Opt-in: only ``PSYTEARDOWN_PRODUCT_SOURCE_MODEL=deepseek`` enables a real model."""
-    if os.environ.get("PSYTEARDOWN_PRODUCT_SOURCE_MODEL", "").strip().lower() != "deepseek":
+    provider = get_project_env("PSYTEARDOWN_PRODUCT_SOURCE_MODEL") or get_project_env("PSYTEARDOWN_LLM", "")
+    if provider.strip().lower() != "deepseek":
         return None
     try:
         return DeepSeekProductSourceModel()

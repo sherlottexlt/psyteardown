@@ -57,6 +57,8 @@ import type { PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
 
 type Area = "command" | "contract" | "workbench" | "decisions" | "evidence";
 
+type ProposalProvider = "deterministic_fake" | "real";
+
 const navigation: Array<{ id: Area; label: string; index: string }> = [
   { id: "command", label: "对话与指挥", index: "01" },
   { id: "contract", label: "产品契约", index: "02" },
@@ -71,6 +73,7 @@ function modeLabel(mode: string): string {
 
 export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit: () => void }) {
   const [area, setArea] = useState<Area>("contract");
+  const [proposalProvider, setProposalProvider] = useState<ProposalProvider>("deterministic_fake");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const query = useQuery({
@@ -232,7 +235,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     setBusy(true);
     setActionError(null);
     try {
-      const queued = await createProposalJob({ projectId, kind });
+      const queued = await createProposalJob({ projectId, kind, provider: kind === "web_generation_contract" ? "deterministic_fake" : proposalProvider });
       await jobsQuery.refetch();
       const completed = await runProposalJob({ projectId, jobId: queued.job_id });
       await Promise.all([query.refetch(), jobsQuery.refetch()]);
@@ -426,7 +429,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
         {actionError ? <div className="action-error" role="alert"><span>{actionError}</span><button onClick={() => setActionError(null)}>关闭</button></div> : null}
         <div className="studio-content">
           {area === "command" ? <CommandView view={view} /> : null}
-          {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
+          {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} proposalProvider={proposalProvider} onProposalProviderChange={setProposalProvider} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
           {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} preview={{
             url: (bundleId) => deliveryBundlePreviewUrl(projectId, bundleId),
             policy: feedbackPolicyQuery.data ?? null,

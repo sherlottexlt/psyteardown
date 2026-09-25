@@ -182,6 +182,7 @@ class CreateProposalJobRequest(TransportModel):
     reason: str = Field(min_length=1)
     raw_input: str | None = Field(default=None, min_length=1)
     feedback_id: str | None = None
+    provider: Literal["deterministic_fake", "real"] = "deterministic_fake"
 
 
 class ProposalJobActionRequest(TransportModel):
@@ -395,7 +396,7 @@ class ProductProposalJobResponse(TransportModel):
     status: Literal[
         "queued", "running", "succeeded", "failed", "stale_input", "cancelled"
     ]
-    provider: Literal["deterministic_fake"]
+    provider: Literal["deterministic_fake", "real"]
     provider_version: str
     input_dependencies: list[dict[str, Any]]
     result_object_id: str

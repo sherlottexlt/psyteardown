@@ -364,6 +364,15 @@
             "title": "Kind",
             "type": "string"
           },
+          "provider": {
+            "default": "deterministic_fake",
+            "enum": [
+              "deterministic_fake",
+              "real"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
           "raw_input": {
             "anyOf": [
               {
@@ -3055,7 +3064,10 @@
             "type": "string"
           },
           "provider": {
-            "const": "deterministic_fake",
+            "enum": [
+              "deterministic_fake",
+              "real"
+            ],
             "title": "Provider",
             "type": "string"
           },

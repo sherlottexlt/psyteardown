@@ -32,10 +32,23 @@ Expected outcomes:
 from __future__ import annotations
 
 import os
+import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
 
 from psyteardown.product.commands import CreateProductProject
+from psyteardown.product.commands import (
+    ConfirmOutcomeContract,
+    ConfirmProblemModel,
+    ConfirmProductIntent,
+    ConfirmWebProductGenerationContract,
+    OutcomeContractProposal,
+    SubmitOutcomeContractProposal,
+    TransitionProductThesis,
+)
 from psyteardown.product.contract_model import build_contract_model_from_env
 from psyteardown.product.jobs import (
     InMemoryProductJobRepository,
@@ -45,20 +58,37 @@ from psyteardown.product.providers import (
     DeterministicFakeProductContractProvider,
     RealModelProductContractProvider,
 )
+from psyteardown.product.env import get_project_env
+from psyteardown.product.source_model import build_source_model_from_env
+from psyteardown.product.generation import (
+    InMemoryProductGenerationJobRepository,
+    ProductGenerationJobService,
+)
+from psyteardown.product.execution import (
+    InMemoryProductExecutionJobRepository,
+    ProductExecutionJobService,
+)
+from psyteardown.product.delivery import (
+    InMemoryProductDeliveryBundleRepository,
+    ProductDeliveryBundleService,
+)
 from psyteardown.product.repositories import InMemoryProductRepository
 from psyteardown.product.service import ProductApplicationService
 
 
-def test_c0_real_provider_end_to_end():
+def _run_c0_real_provider_end_to_end():
     """Test complete chain with real provider for Product Contract objects."""
 
     # Setup: Check prerequisites
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    api_key = get_project_env("DEEPSEEK_API_KEY")
     if not api_key:
         print("❌ DEEPSEEK_API_KEY not set, skipping real provider test")
         return
 
-    contract_model_env = os.environ.get("PSYTEARDOWN_PRODUCT_CONTRACT_MODEL", "").lower()
+    contract_model_env = (
+        get_project_env("PSYTEARDOWN_PRODUCT_CONTRACT_MODEL")
+        or get_project_env("PSYTEARDOWN_LLM", "")
+    ).lower()
     if contract_model_env != "deepseek":
         print(f"ℹ️  PSYTEARDOWN_PRODUCT_CONTRACT_MODEL={contract_model_env}, setting to 'deepseek'")
         os.environ["PSYTEARDOWN_PRODUCT_CONTRACT_MODEL"] = "deepseek"
@@ -187,10 +217,13 @@ This should work offline and not involve any employee monitoring or productivity
         view = application.get_project_view(project.project_id)
         if view.product_intent and view.product_intent.status == "proposed":
             confirmed_intent = application.confirm_product_intent(
-                project_id=project.project_id,
+                ConfirmProductIntent(
+                    project_id=project.project_id,
                 intent_id=view.product_intent.intent_id,
                 expected_revision=view.product_intent.meta.revision,
                 actor="c0-test",
+                    reason="C0 real provider proposal reviewed",
+                )
             )
             print(f"✅ ProductIntent confirmed: {confirmed_intent.revision_id}")
         else:
@@ -226,6 +259,7 @@ This should work offline and not involve any employee monitoring or productivity
             })
         else:
             print(f"❌ Problem job failed: {result_job.status}")
+            print(f"   Error: {result_job.error_code} - {result_job.error_summary}")
             metrics["steps"].append({
                 "step": "generate_problem",
                 "time": step_time,
@@ -246,10 +280,13 @@ This should work offline and not involve any employee monitoring or productivity
         view = application.get_project_view(project.project_id)
         if view.problem_model and view.problem_model.status == "proposed":
             confirmed_problem = application.confirm_problem_model(
-                project_id=project.project_id,
+                ConfirmProblemModel(
+                    project_id=project.project_id,
                 problem_model_id=view.problem_model.problem_model_id,
                 expected_revision=view.problem_model.meta.revision,
                 actor="c0-test",
+                    reason="C0 real provider proposal reviewed",
+                )
             )
             print(f"✅ ProblemModel confirmed: {confirmed_problem.revision_id}")
         else:
@@ -285,6 +322,7 @@ This should work offline and not involve any employee monitoring or productivity
             })
         else:
             print(f"❌ Outcome job failed: {result_job.status}")
+            print(f"   Error: {result_job.error_code} - {result_job.error_summary}")
             metrics["steps"].append({
                 "step": "generate_outcome",
                 "time": step_time,
@@ -304,11 +342,38 @@ This should work offline and not involve any employee monitoring or productivity
         print("Step 7: Confirming OutcomeContract...")
         view = application.get_project_view(project.project_id)
         if view.outcome_contract and view.outcome_contract.status == "proposed":
+            reviewed = OutcomeContractProposal.model_validate(
+                view.outcome_contract.model_dump(
+                    mode="python",
+                    exclude={
+                        "outcome_contract_id",
+                        "revision_id",
+                        "meta",
+                        "project_id",
+                        "status",
+                        "dependencies",
+                        "confirmation",
+                    },
+                )
+            ).model_copy(update={"prohibited_outcomes_reviewed": True})
+            reviewed_contract = application.submit_outcome_contract(
+                SubmitOutcomeContractProposal(
+                    project_id=project.project_id,
+                    outcome_contract_id=view.outcome_contract.outcome_contract_id,
+                    expected_revision=view.outcome_contract.meta.revision,
+                    proposal=reviewed,
+                    actor="c0-test",
+                    reason="C0 real provider prohibited outcomes reviewed",
+                )
+            )
             confirmed_outcome = application.confirm_outcome_contract(
-                project_id=project.project_id,
-                outcome_contract_id=view.outcome_contract.outcome_contract_id,
-                expected_revision=view.outcome_contract.meta.revision,
+                ConfirmOutcomeContract(
+                    project_id=project.project_id,
+                outcome_contract_id=reviewed_contract.outcome_contract_id,
+                expected_revision=reviewed_contract.meta.revision,
                 actor="c0-test",
+                    reason="C0 real provider proposal reviewed",
+                )
             )
             print(f"✅ OutcomeContract confirmed: {confirmed_outcome.revision_id}")
         else:
@@ -346,6 +411,7 @@ This should work offline and not involve any employee monitoring or productivity
             })
         else:
             print(f"❌ Thesis job failed: {result_job.status}")
+            print(f"   Error: {result_job.error_code} - {result_job.error_summary}")
             metrics["steps"].append({
                 "step": "generate_theses",
                 "time": step_time,
@@ -366,17 +432,253 @@ This should work offline and not involve any employee monitoring or productivity
         view = application.get_project_view(project.project_id)
         if view.product_theses:
             first_thesis = view.product_theses[0]
-            selected_thesis = application.select_product_thesis(
-                project_id=project.project_id,
-                thesis_id=first_thesis.thesis_id,
-                expected_revision=first_thesis.meta.revision,
-                actor="c0-test",
+            selected_thesis = application.transition_product_thesis(
+                TransitionProductThesis(
+                    project_id=project.project_id,
+                    thesis_id=first_thesis.thesis_id,
+                    expected_revision=first_thesis.meta.revision,
+                    to_status="selected",
+                    actor="c0-test",
+                    actor_type="human",
+                    reason="C0 real provider thesis selected",
+                )
             )
             print(f"✅ ProductThesis selected: {selected_thesis.name}")
             print(f"   Thesis ID: {selected_thesis.thesis_id}")
         else:
             print(f"❌ No product theses found")
             return metrics
+        print()
+
+        # Step 10: Generate and confirm the Web generation contract. The
+        # contract provider is intentionally deterministic here; C0's real
+        # provider boundary is Product Contract, while B7m owns real source.
+        print("Step 10: Generating Web generation contract...")
+        step_start = time.time()
+        web_job = job_service.create_job(
+            project_id=project.project_id,
+            kind="web_generation_contract",
+            actor="c0-test",
+            reason="C0 real chain Web realization",
+            provider="deterministic_fake",
+        )
+        result_job = job_service.run_job(
+            project_id=project.project_id,
+            job_id=web_job.job_id,
+            actor="c0-test-worker",
+        )
+        step_time = time.time() - step_start
+        if result_job.status != "succeeded":
+            print(f"❌ Web contract job failed: {result_job.error_code} - {result_job.error_summary}")
+            metrics["failures"].append({
+                "step": "generate_web_contract",
+                "error_code": result_job.error_code,
+                "error_summary": result_job.error_summary,
+            })
+            return metrics
+        view = application.get_project_view(project.project_id)
+        draft = view.web_generation_contract
+        if draft is None:
+            print("❌ No Web generation contract proposal found")
+            return metrics
+        confirmed_web = application.confirm_web_generation_contract(
+            ConfirmWebProductGenerationContract(
+                project_id=project.project_id,
+                web_generation_contract_id=draft.web_generation_contract_id,
+                expected_revision=draft.meta.revision,
+                actor="c0-test",
+                reason="C0 Web generation boundary reviewed",
+            )
+        )
+        print(f"✅ Web generation contract confirmed: {confirmed_web.revision_id} ({step_time:.2f}s)")
+        metrics["steps"].append({
+            "step": "generate_web_contract",
+            "time": step_time,
+            "success": True,
+            "provider": "deterministic_fake",
+        })
+        print()
+
+        # Step 11: B7m real model source generation.
+        print("Step 11: Generating Web source with real model...")
+        source_model = build_source_model_from_env()
+        if source_model is None:
+            print("❌ Real source model is unavailable")
+            metrics["failures"].append({
+                "step": "generate_source",
+                "error_code": "source_model_unavailable",
+                "error_summary": "PSYTEARDOWN_PRODUCT_SOURCE_MODEL/PSYTEARDOWN_LLM is not configured.",
+            })
+            return metrics
+        run_root = Path("output/product-studio/c0-real-provider") / project.project_id
+        generation_repository = InMemoryProductGenerationJobRepository()
+        generation_service = ProductGenerationJobService(
+            application,
+            generation_repository,
+            workspace_root=run_root / "workspaces",
+            transcript_root=run_root / "model-calls",
+            source_model=source_model,
+        )
+        step_start = time.time()
+        generation_job = generation_service.create_job(
+            project_id=project.project_id,
+            actor="c0-test",
+            reason="C0 real model source generation",
+            source="model",
+        )
+        generated = generation_service.run_job(
+            project.project_id,
+            generation_job.job_id,
+            actor="c0-test-worker",
+        )
+        step_time = time.time() - step_start
+        if generated.status != "succeeded":
+            print(f"❌ Source generation failed: {generated.error_code} - {generated.error_summary}")
+            metrics["failures"].append({
+                "step": "generate_source",
+                "error_code": generated.error_code,
+                "error_summary": generated.error_summary,
+            })
+            return metrics
+        source_tokens = [
+            {"input_tokens": call.input_tokens, "output_tokens": call.output_tokens, "outcome": call.outcome}
+            for call in generated.model_calls
+        ]
+        print(f"✅ Real source generated and statically gated ({step_time:.2f}s)")
+        print(f"   Model calls: {source_tokens}")
+        metrics["steps"].append({
+            "step": "generate_source",
+            "time": step_time,
+            "success": True,
+            "provider": generated.provider,
+            "model_calls": source_tokens,
+        })
+        print()
+
+        # Step 12: B4 real local subprocess build/preview/browser validation.
+        print("Step 12: Executing B4 build and browser validation...")
+        execution_repository = InMemoryProductExecutionJobRepository(generation_repository)
+        execution_service = ProductExecutionJobService(
+            application,
+            execution_repository,
+            generation_repository,
+            workspace_root=run_root / "workspaces",
+        )
+        step_start = time.time()
+        execution_job = execution_service.create_job(
+            project_id=project.project_id,
+            generation_job_id=generated.job_id,
+            actor="c0-test",
+            reason="C0 real chain validation",
+        )
+        executed = execution_service.run_job(
+            project.project_id,
+            execution_job.job_id,
+            actor="c0-test-worker",
+        )
+        step_time = time.time() - step_start
+        if executed.status != "succeeded":
+            print(f"❌ B4 execution failed: {executed.error_code} - {executed.error_summary}")
+            metrics["failures"].append({
+                "step": "execute_b4",
+                "error_code": executed.error_code,
+                "error_summary": executed.error_summary,
+            })
+            return metrics
+        print(f"✅ B4 build, preview and browser validation succeeded ({step_time:.2f}s)")
+        metrics["steps"].append({
+            "step": "execute_b4",
+            "time": step_time,
+            "success": True,
+            "provider": executed.provider,
+            "execution_steps": [step.status for step in executed.steps],
+        })
+        print()
+
+        # Step 13: B6 content-addressed delivery bundle.
+        print("Step 13: Exporting B6 delivery bundle...")
+        bundle_repository = InMemoryProductDeliveryBundleRepository()
+        delivery_service = ProductDeliveryBundleService(
+            application,
+            bundle_repository,
+            generation_repository,
+            execution_repository,
+            workspace_root=run_root / "workspaces",
+            export_root=run_root / "exports",
+        )
+        step_start = time.time()
+        bundle = delivery_service.create_bundle(
+            project_id=project.project_id,
+            execution_job_id=executed.job_id,
+            actor="c0-test",
+            reason="C0 real chain delivery",
+        )
+        step_time = time.time() - step_start
+        print(f"✅ B6 delivery bundle exported ({step_time:.2f}s)")
+        print(f"   Bundle: {bundle.bundle_id}")
+        print(f"   Archive sha256: {bundle.archive_sha256}")
+        print(f"   Archive bytes: {bundle.archive_bytes}")
+        metrics["steps"].append({
+            "step": "export_b6",
+            "time": step_time,
+            "success": True,
+            "archive_sha256": bundle.archive_sha256,
+            "archive_bytes": bundle.archive_bytes,
+        })
+        print()
+
+        # Stage 6: retain a local, machine-readable run report. Monetary cost
+        # is intentionally not inferred; C0 records call count and tokens only.
+        contract_calls = list(real_provider.usage_records)
+        source_calls = [
+            {
+                "provider": call.provider,
+                "model": call.model,
+                "outcome": call.outcome,
+                "input_tokens": call.input_tokens,
+                "output_tokens": call.output_tokens,
+                "duration_seconds": call.duration_seconds,
+            }
+            for call in generated.model_calls
+        ]
+        metrics["model_usage"] = {
+            "contract_provider": contract_calls,
+            "source_provider": source_calls,
+            "total_calls": len(contract_calls) + len(source_calls),
+            "input_tokens": sum(
+                (item.get("input_tokens") or 0) for item in contract_calls + source_calls
+            ),
+            "output_tokens": sum(
+                (item.get("output_tokens") or 0) for item in contract_calls + source_calls
+            ),
+            "monetary_cost": None,
+        }
+        report_path = run_root / "c0-metrics.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(
+            json.dumps(
+                {
+                    "run_date": datetime.now(timezone.utc).isoformat(),
+                    "project_id": project.project_id,
+                    "steps": metrics["steps"],
+                    "model_usage": metrics["model_usage"],
+                    "failures": metrics["failures"],
+                    "total_time_seconds": (datetime.now(timezone.utc) - metrics["start_time"]).total_seconds(),
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print("Stage 6: Cost and failure analysis")
+        print(f"- Model calls: {metrics['model_usage']['total_calls']}")
+        print(f"- Input tokens: {metrics['model_usage']['input_tokens']}")
+        print(f"- Output tokens: {metrics['model_usage']['output_tokens']}")
+        print("- Monetary cost: not calculated by C0 policy")
+        print(f"- Failure count in this run: {len(metrics['failures'])}")
+        print(f"- Metrics report: {report_path}")
         print()
 
         print("=" * 80)
@@ -413,8 +715,15 @@ This should work offline and not involve any employee monitoring or productivity
         metrics["total_time"] = (metrics["end_time"] - metrics["start_time"]).total_seconds()
 
 
+def test_c0_real_provider_end_to_end():
+    metrics = _run_c0_real_provider_end_to_end()
+    if metrics is None:
+        pytest.skip("DEEPSEEK_API_KEY is not configured")
+    assert not metrics["failures"], metrics["failures"]
+
+
 if __name__ == "__main__":
-    metrics = test_c0_real_provider_end_to_end()
+    metrics = _run_c0_real_provider_end_to_end()
 
     if metrics and len(metrics.get("failures", [])) > 0:
         print("\n" + "=" * 80)

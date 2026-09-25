@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from typing import Literal, Protocol
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from psyteardown.experience.models import DependencyRef, DomainStateError, RevisionMeta
 from psyteardown.product.commands import (
     SubmitOutcomeContractProposal,
@@ -396,14 +398,34 @@ class ProductProposalJobService:
                 error_code="proposal_commit_conflict",
                 error_summary="The proposal could not be committed because its target changed.",
             )
-        except Exception:
+        except Exception as exc:
+            # Keep provider internals out of API responses, but retain a small
+            # safe class hint so real-provider failures can be diagnosed.
+            error_code = "provider_failed"
+            error_summary = (
+                "The proposal provider failed without committing a result "
+                f"({type(exc).__name__})."
+            )
+            detail = str(exc)
+            if detail.startswith("static_gate_rejected:"):
+                error_code = "static_gate_rejected"
+                error_summary = detail[:500]
+            elif detail.startswith("provider_failed:"):
+                error_summary = detail[:500]
+            elif isinstance(exc, ValidationError):
+                issues = "; ".join(
+                    f"{'.'.join(str(part) for part in item.get('loc', ())) or 'value'}: {item.get('msg', 'invalid')}"
+                    for item in exc.errors()[:5]
+                )
+                error_code = "provider_schema_invalid"
+                error_summary = f"The provider proposal did not satisfy the local schema: {issues}"[:500]
             return self._transition(
                 running,
                 status="failed",
                 actor=actor,
                 reason="provider execution failed",
-                error_code="provider_failed",
-                error_summary="The proposal provider failed without committing a result.",
+                error_code=error_code,
+                error_summary=error_summary,
             )
         return self._transition(
             running,

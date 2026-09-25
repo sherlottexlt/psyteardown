@@ -2,14 +2,15 @@
 
 import os
 from psyteardown.product.contract_model import DeepSeekProductContractModel
+from psyteardown.product.env import get_project_env
 
 # Test basic connectivity
-api_key = os.environ.get("DEEPSEEK_API_KEY")
+api_key = get_project_env("DEEPSEEK_API_KEY")
 if not api_key:
     print("❌ DEEPSEEK_API_KEY not set")
     exit(1)
 
-print(f"✅ API key configured: {api_key[:10]}...")
+print(f"✅ API key configured: {api_key[:6]}...{api_key[-4:]}")
 
 try:
     model = DeepSeekProductContractModel()

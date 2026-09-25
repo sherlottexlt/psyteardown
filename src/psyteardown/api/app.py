@@ -41,6 +41,8 @@ from psyteardown.product import (
     SQLiteProductRepository,
 )
 from psyteardown.product.source_model import ProductSourceModel, build_source_model_from_env
+from psyteardown.product.contract_model import build_contract_model_from_env
+from psyteardown.product.providers import RealModelProductContractProvider
 
 
 DEFAULT_PRODUCT_STORE = Path("output/product-studio/product.sqlite3")
@@ -156,10 +158,14 @@ def create_app(
             app.state.product_service = ProductApplicationService(
                 repository, **kwargs
             )
+            contract_model = build_contract_model_from_env()
             app.state.product_job_service = ProductProposalJobService(
                 app.state.product_service,
                 repository,
                 feedback_repository=repository,
+                real_provider=(
+                    RealModelProductContractProvider() if contract_model is not None else None
+                ),
                 **kwargs,
             )
             app.state.product_generation_job_service = ProductGenerationJobService(

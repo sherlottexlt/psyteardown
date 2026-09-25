@@ -939,6 +939,12 @@ export interface components {
              * @enum {string}
              */
             kind: "product_intent" | "problem_model" | "outcome_contract" | "product_theses" | "web_generation_contract";
+            /**
+             * Provider
+             * @default deterministic_fake
+             * @enum {string}
+             */
+            provider: "deterministic_fake" | "real";
             /** Raw Input */
             raw_input?: string | null;
             /** Reason */
@@ -1981,9 +1987,9 @@ export interface components {
             project_id: string;
             /**
              * Provider
-             * @constant
+             * @enum {string}
              */
-            provider: "deterministic_fake";
+            provider: "deterministic_fake" | "real";
             /** Provider Version */
             provider_version: string;
             /** Raw Input */

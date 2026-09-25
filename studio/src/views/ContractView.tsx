@@ -23,6 +23,8 @@ export function ContractView({
   view,
   busy,
   latestJob,
+  proposalProvider = "deterministic_fake",
+  onProposalProviderChange = () => {},
   onGenerate,
   onReviseIntent,
   onReviseProblem,
@@ -31,6 +33,8 @@ export function ContractView({
   view: ProductProjectView;
   busy: boolean;
   latestJob: ProductProposalJob | null;
+  proposalProvider?: "deterministic_fake" | "real";
+  onProposalProviderChange?: (provider: "deterministic_fake" | "real") => void;
   onGenerate: (kind: ProposalJobKind) => Promise<void>;
   onReviseIntent: (draft: EditableProductIntent) => Promise<RevisionWriteResult>;
   onReviseProblem: (draft: EditableProblemModel) => Promise<RevisionWriteResult>;
@@ -79,7 +83,14 @@ export function ContractView({
           {problem?.status === "confirmed" && !contract ? <h2>生成可审阅的结果契约提案</h2> : null}
           {contract?.status === "proposed" ? <h2>结果契约等待价值边界审查</h2> : null}
           {contract?.status === "confirmed" ? <h2>Product Contract 已形成</h2> : null}
-          <p>这里使用无网络、无研究能力的 fake provider 验证 proposal/confirm 工作流。其输出不是外部事实、证据或用户结果。</p>
+          <p>{proposalProvider === "real" ? "真实 DeepSeek 会生成可审阅 proposal；模型输出仍不是外部事实或用户结果。" : "默认使用无网络 fake provider 验证 proposal/confirm 工作流；其输出不是外部事实、证据或用户结果。"}</p>
+          <label className="inline-control">
+            <span>提案 provider</span>
+            <select value={proposalProvider} onChange={(event) => onProposalProviderChange(event.target.value as "deterministic_fake" | "real")} disabled={busy}>
+              <option value="deterministic_fake">fake（离线）</option>
+              <option value="real">real（DeepSeek）</option>
+            </select>
+          </label>
           {latestJob ? <div className="proposal-job-panel__meta"><Badge tone={latestJob.status === "succeeded" ? "good" : latestJob.status === "failed" || latestJob.status === "stale_input" ? "danger" : "warn"}>{statusLabel(latestJob.status)}</Badge><span>{latestJob.kind} · {latestJob.provider}@{latestJob.provider_version} · attempt {latestJob.attempt}</span></div> : null}
         </div>
         {!problem && intent.status === "confirmed" ? <button className="button button--primary" disabled={busy} onClick={() => void onGenerate("problem_model")}>{busy ? "正在推进…" : "生成问题模型提案"}</button> : null}

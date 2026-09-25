@@ -29,6 +29,7 @@ from psyteardown.product.models import (
     ProductIntent,
     ProductThesis,
 )
+from psyteardown.product.env import get_project_env
 
 CONTRACT_MODEL_MAX_OUTPUT_TOKENS = 8000
 CONTRACT_MODEL_MAX_CALLS_PER_JOB = 2
@@ -67,15 +68,15 @@ class DeepSeekProductContractModel:
         base_url: str | None = None,
         timeout_seconds: int = 240,
     ) -> None:
-        key = api_key or os.environ.get("DEEPSEEK_API_KEY")
+        key = api_key or get_project_env("DEEPSEEK_API_KEY")
         if not key:
             raise ContractModelError("DEEPSEEK_API_KEY is not configured")
         self._key = key
-        self.model = model or os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
-        self._base_url = (base_url or os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/")
+        self.model = model or get_project_env("DEEPSEEK_MODEL") or "deepseek-chat"
+        self._base_url = (base_url or get_project_env("DEEPSEEK_BASE_URL") or "https://api.deepseek.com").rstrip("/")
         self._timeout = timeout_seconds
         # Reasoning models can spend the whole output budget thinking
-        self._thinking = os.environ.get("DEEPSEEK_THINKING", "disabled").strip().lower() == "enabled"
+        self._thinking = get_project_env("DEEPSEEK_THINKING", "disabled").strip().lower() == "enabled"
 
     def generate(self, *, system: str, prompt: str) -> ContractModelReply:
         body = {
@@ -83,6 +84,10 @@ class DeepSeekProductContractModel:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             "max_tokens": CONTRACT_MODEL_MAX_OUTPUT_TOKENS,
             "temperature": 0.3,
+            # Contract proposals are parsed as JSON locally. DeepSeek's
+            # reasoning-capable models may otherwise put reasoning or prose in
+            # the visible content even when the prompt asks for JSON only.
+            "response_format": {"type": "json_object"},
             "thinking": {"type": "enabled" if self._thinking else "disabled"},
         }
         request = Request(
@@ -118,7 +123,8 @@ class DeepSeekProductContractModel:
 
 def build_contract_model_from_env() -> ProductContractModel | None:
     """Opt-in: only PSYTEARDOWN_PRODUCT_CONTRACT_MODEL=deepseek enables a real model."""
-    if os.environ.get("PSYTEARDOWN_PRODUCT_CONTRACT_MODEL", "").strip().lower() != "deepseek":
+    provider = get_project_env("PSYTEARDOWN_PRODUCT_CONTRACT_MODEL") or get_project_env("PSYTEARDOWN_LLM", "")
+    if provider.strip().lower() != "deepseek":
         return None
     try:
         return DeepSeekProductContractModel()
@@ -169,10 +175,10 @@ The ProblemModel captures:
 Output valid JSON matching this schema:
 {
   "facts": [{"fact_id": "unique-id", "statement": "string", "source_refs": []}],
-  "assumptions": [{"assumption_id": "unique-id", "statement": "string", "rationale": "string"}],
+   "assumptions": [{"assumption_id": "unique-id", "statement": "string", "consequence_if_wrong": "string", "cheapest_validation": "string"}],
   "unknowns": [{"unknown_id": "unique-id", "question": "string", "decision_impact": "string", "next_step": "string"}],
   "competing_explanations": [{"explanation_id": "unique-id", "statement": "string", "supporting_fact_ids": ["fact-id"], "cheapest_falsification": "string"}],
-  "stakeholder_tensions": [{"tension_id": "unique-id", "groups": ["group1", "group2"], "conflict": "string", "resolution_approach": "string"}]
+   "stakeholder_tensions": [{"tension_id": "unique-id", "stakeholder_refs": ["group1", "group2"], "description": "string", "unresolved_value_choice": "string"}]
 }
 
 Rules:
@@ -203,8 +209,8 @@ Output valid JSON matching this schema:
   "success_indicators": [{"indicator_id": "id", "operational_definition": "string", "observation_method": "string", "desired_direction": "string", "threshold_or_target": "string", "required_evidence": "string"}],
   "prohibited_outcomes": [{"prohibited_outcome_id": "id", "description": "string", "severity": "hard|soft", "detection_method": "string", "response": "string"}],
   "prohibited_outcomes_reviewed": false,
-  "resource_boundary": {"time_budget": "string or null", "cost_ceiling": "string or null", "data_boundary": "string or null", "maintenance_ceiling": "string or null", "explicit_unknowns": ["string"]},
-  "stop_conditions": [{"condition_id": "id", "condition": "string", "action": "string"}],
+   "resource_boundary": {"time_budget": "string or null", "economic_budget": "string or null", "data_boundary": "string or null", "maintenance_budget": "string or null", "explicit_unknowns": ["string"]},
+   "stop_conditions": [{"condition_id": "id", "condition": "string", "action": "pause|stop|reframe|escalate"}],
   "minimum_delivery_maturity": "runnable_prototype",
   "required_real_world_evidence": ["string"]
 }
@@ -232,7 +238,7 @@ Output valid JSON with exactly 3 theses matching this schema:
       "realization_modes": ["software"],
       "mechanism_hypotheses": [{"mechanism_id": "id", "condition": "string", "proposed_intervention": "string", "expected_change": "string", "uncertainty": "string"}],
       "falsifiable_predictions": [{"prediction_id": "id", "prediction": "string", "failure_observation": "string", "cheapest_test": "string"}],
-      "validation_strategy": [{"validation_step_id": "id", "question": "string", "method": "string", "evidence_level": "string", "pass_condition": "string", "estimated_cost": "string"}],
+       "validation_strategy": [{"validation_step_id": "id", "question": "string", "method": "string", "evidence_level": "deterministic_check|simulation|expert_review|real_user_observation|operational_result", "pass_condition": "string", "estimated_cost": "string"}],
       "key_unknowns": ["string"],
       "key_risks": ["string"],
       "delivery_estimate": {"initial_delivery_cost": "string", "operating_cost": "string", "maintenance_burden": "string"}
@@ -244,7 +250,7 @@ Rules:
 - Each thesis must have meaningfully different mechanisms (not just UI variations)
 - mechanism_hypotheses explain the causal theory
 - falsifiable_predictions must be testable and specify what failure looks like
-- validation_strategy evidence_level can be: "deterministic_check", "user_report", "measurement"
+- validation_strategy evidence_level must be one of: "deterministic_check", "simulation", "expert_review", "real_user_observation", "operational_result"
 - Theses should vary in cost, risk, and unknowns
 - Keep delivery_estimate concrete and realistic
 """
@@ -306,8 +312,8 @@ def parse_problem_reply(text: str, *, job_id: str, intent: ProductIntent) -> Pro
         return ["must provide at least 2 competing_explanations"]
 
     from psyteardown.product.models import (
-        Assumption,
         CompetingExplanation,
+        ProblemAssumption,
         ProblemFact,
         ProblemUnknown,
         SourceReference,
@@ -332,10 +338,11 @@ def parse_problem_reply(text: str, *, job_id: str, intent: ProductIntent) -> Pro
     for a in data.get("assumptions", []):
         if isinstance(a, dict) and a.get("assumption_id") and a.get("statement"):
             assumptions.append(
-                Assumption(
+                ProblemAssumption(
                     assumption_id=str(a["assumption_id"]),
                     statement=str(a["statement"]),
-                    rationale=str(a.get("rationale", "")),
+                    consequence_if_wrong=str(a.get("consequence_if_wrong", "")),
+                    cheapest_validation=str(a.get("cheapest_validation", "")),
                 )
             )
 
@@ -369,13 +376,13 @@ def parse_problem_reply(text: str, *, job_id: str, intent: ProductIntent) -> Pro
     # Build stakeholder tensions
     tensions = []
     for t in data.get("stakeholder_tensions", []):
-        if isinstance(t, dict) and t.get("tension_id") and t.get("conflict"):
+        if isinstance(t, dict) and t.get("tension_id") and t.get("description"):
             tensions.append(
                 StakeholderTension(
                     tension_id=str(t["tension_id"]),
-                    groups=tuple(str(g) for g in t.get("groups", [])),
-                    conflict=str(t["conflict"]),
-                    resolution_approach=str(t.get("resolution_approach", "")),
+                    stakeholder_refs=tuple(str(g) for g in t.get("stakeholder_refs", [])),
+                    description=str(t["description"]),
+                    unresolved_value_choice=str(t.get("unresolved_value_choice", "")),
                 )
             )
 
@@ -466,9 +473,9 @@ def parse_outcome_reply(
     rb_data = data.get("resource_boundary", {})
     resource_boundary = ResourceBoundary(
         time_budget=rb_data.get("time_budget"),
-        cost_ceiling=rb_data.get("cost_ceiling"),
+        economic_budget=rb_data.get("economic_budget"),
         data_boundary=rb_data.get("data_boundary"),
-        maintenance_ceiling=rb_data.get("maintenance_ceiling"),
+        maintenance_budget=rb_data.get("maintenance_budget"),
         explicit_unknowns=tuple(str(u) for u in rb_data.get("explicit_unknowns", [])),
     )
 

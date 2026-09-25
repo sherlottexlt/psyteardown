@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Protocol
 
 from psyteardown.product.commands import (
@@ -605,6 +606,38 @@ class RealModelProductContractProvider:
                 "Real model provider requires PSYTEARDOWN_PRODUCT_CONTRACT_MODEL=deepseek and DEEPSEEK_API_KEY"
             )
         self._model = model
+        # C0 stage 6 local evidence. This is intentionally an in-memory
+        # diagnostic ledger; proposal jobs remain the persisted source of
+        # truth and no prompt/response content is retained here.
+        self.usage_records: list[dict[str, object]] = []
+
+    def _generate(self, *, kind: str, system: str, prompt: str):
+        started = time.monotonic()
+        try:
+            reply = self._model.generate(system=system, prompt=prompt)
+        except Exception as exc:
+            self.usage_records.append(
+                {
+                    "kind": kind,
+                    "model": self._model.model,
+                    "outcome": "failed",
+                    "error_type": type(exc).__name__,
+                    "duration_seconds": time.monotonic() - started,
+                }
+            )
+            raise
+        self.usage_records.append(
+            {
+                "kind": kind,
+                "model": reply.model,
+                "outcome": "accepted",
+                "input_tokens": reply.input_tokens,
+                "output_tokens": reply.output_tokens,
+                "truncated": reply.truncated,
+                "duration_seconds": time.monotonic() - started,
+            }
+        )
+        return reply
 
     def propose_intent(
         self, raw_input: str, *, job_id: str
@@ -619,7 +652,7 @@ class RealModelProductContractProvider:
 
         prompt = build_intent_prompt(raw_input)
         try:
-            reply = self._model.generate(system=INTENT_SYSTEM, prompt=prompt)
+            reply = self._generate(kind="product_intent", system=INTENT_SYSTEM, prompt=prompt)
         except ContractModelError as exc:
             raise RuntimeError(f"provider_failed: {exc}") from exc
 
@@ -643,7 +676,7 @@ class RealModelProductContractProvider:
 
         prompt = build_problem_prompt(intent)
         try:
-            reply = self._model.generate(system=PROBLEM_SYSTEM, prompt=prompt)
+            reply = self._generate(kind="problem_model", system=PROBLEM_SYSTEM, prompt=prompt)
         except ContractModelError as exc:
             raise RuntimeError(f"provider_failed: {exc}") from exc
 
@@ -670,7 +703,7 @@ class RealModelProductContractProvider:
 
         prompt = build_outcome_prompt(intent, problem)
         try:
-            reply = self._model.generate(system=OUTCOME_SYSTEM, prompt=prompt)
+            reply = self._generate(kind="outcome_contract", system=OUTCOME_SYSTEM, prompt=prompt)
         except ContractModelError as exc:
             raise RuntimeError(f"provider_failed: {exc}") from exc
 
@@ -697,7 +730,7 @@ class RealModelProductContractProvider:
 
         prompt = build_theses_prompt(problem, contract)
         try:
-            reply = self._model.generate(system=THESIS_SYSTEM, prompt=prompt)
+            reply = self._generate(kind="product_theses", system=THESIS_SYSTEM, prompt=prompt)
         except ContractModelError as exc:
             raise RuntimeError(f"provider_failed: {exc}") from exc
 

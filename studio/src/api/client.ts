@@ -285,6 +285,7 @@ export function createProposalJob(input: {
   projectId: string;
   kind: ProposalJobKind;
   rawInput?: string;
+  provider?: "deterministic_fake" | "real";
   feedbackId?: string;
 }): Promise<ProductProposalJob> {
   return request(
@@ -297,6 +298,7 @@ export function createProposalJob(input: {
         reason: `Requested ${input.kind} proposal in Product Studio`,
         raw_input: input.rawInput ?? null,
         feedback_id: input.feedbackId ?? null,
+        provider: input.provider ?? "deterministic_fake",
       }),
     },
   );

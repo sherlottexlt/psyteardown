@@ -7,6 +7,8 @@ from .test_generation_jobs import _confirmed_web_contract
 
 def test_model_generation_is_unavailable_without_a_configured_provider(tmp_path, monkeypatch):
     monkeypatch.delenv("PSYTEARDOWN_PRODUCT_SOURCE_MODEL", raising=False)
+    monkeypatch.delenv("PSYTEARDOWN_LLM", raising=False)
+    monkeypatch.setenv("PSYTEARDOWN_ENV_FILE", str(tmp_path / "missing.env"))
     with TestClient(create_app(database_path=tmp_path / "product.sqlite3")) as client:
         policy = client.get("/api/v1/source-model-policy").json()
         assert policy["available"] is False
