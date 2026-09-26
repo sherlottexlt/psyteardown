@@ -247,6 +247,7 @@ Output valid JSON with exactly 3 theses matching this schema:
 }
 
 Rules:
+- realization_modes must contain only exact values from this allowlist: "software", "hardware", "service", "content", "process", "hybrid". Do not invent values such as "mobile", "desktop", "app", or "digital"; for this first slice, use ["software"] unless the thesis genuinely requires another approved mode.
 - Each thesis must have meaningfully different mechanisms (not just UI variations)
 - mechanism_hypotheses explain the causal theory
 - falsifiable_predictions must be testable and specify what failure looks like

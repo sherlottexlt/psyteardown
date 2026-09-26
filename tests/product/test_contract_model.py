@@ -46,3 +46,10 @@ def test_build_intent_prompt():
     """build_intent_prompt includes user input."""
     prompt = build_intent_prompt("Help me focus better")
     assert "Help me focus better" in prompt
+
+
+def test_thesis_prompt_freezes_realization_mode_allowlist():
+    from psyteardown.product.contract_model import THESIS_SYSTEM
+
+    assert '"software", "hardware", "service", "content", "process", "hybrid"' in THESIS_SYSTEM
+    assert 'Do not invent values' in THESIS_SYSTEM

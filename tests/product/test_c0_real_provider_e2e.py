@@ -74,9 +74,58 @@ from psyteardown.product.delivery import (
 )
 from psyteardown.product.repositories import InMemoryProductRepository
 from psyteardown.product.service import ProductApplicationService
+from psyteardown.product.models import ExecutionBudget
 
 
-def _run_c0_real_provider_end_to_end():
+def _run_with_bounded_retry(service, project_id: str, job, *, actor: str, metrics: dict, step: str, max_retries: int = 1):
+    """Run a job and perform at most one explicit, measured retry.
+
+    C0 remains a single-attempt integration probe by default. C3 opts into this
+    helper so the already-approved per-job retry budgets are exercised without
+    silently repeating an entire end-to-end run.
+    """
+    current = service.run_job(project_id=project_id, job_id=job.job_id, actor=actor)
+    retries = 0
+    while current.status in {"failed", "budget_exhausted", "stale_input"} and retries < max_retries:
+        retry_requested = service.retry_job(project_id, current.job_id, actor=actor)
+        if retry_requested.status != "queued":
+            break
+        failure_code = current.error_code or "unknown_failure"
+        retries += 1
+        current = service.run_job(project_id=project_id, job_id=current.job_id, actor=actor)
+        if current.status == "succeeded":
+            metrics.setdefault("recovered_failures", []).append({
+                "step": step,
+                "error_code": failure_code,
+            })
+    return current
+
+
+def _build_model_usage(real_provider, generated) -> dict:
+    contract_calls = list(getattr(real_provider, "usage_records", ()))
+    source_calls = [
+        {
+            "provider": call.provider,
+            "model": call.model,
+            "outcome": call.outcome,
+            "input_tokens": call.input_tokens,
+            "output_tokens": call.output_tokens,
+            "duration_seconds": call.duration_seconds,
+        }
+        for call in (getattr(generated, "model_calls", ()) if generated is not None else ())
+    ]
+    all_calls = contract_calls + source_calls
+    return {
+        "contract_provider": contract_calls,
+        "source_provider": source_calls,
+        "total_calls": len(all_calls),
+        "input_tokens": sum((item.get("input_tokens") or 0) for item in all_calls),
+        "output_tokens": sum((item.get("output_tokens") or 0) for item in all_calls),
+        "monetary_cost": None,
+    }
+
+
+def _run_c0_real_provider_end_to_end(*, bounded_retries: bool = False, output_root: Path | None = None):
     """Test complete chain with real provider for Product Contract objects."""
 
     # Setup: Check prerequisites
@@ -129,7 +178,9 @@ def _run_c0_real_provider_end_to_end():
         "steps": [],
         "total_cost": 0,
         "failures": [],
+        "recovered_failures": [],
     }
+    generated = None
 
     try:
         # Step 1: Create project
@@ -142,6 +193,7 @@ def _run_c0_real_provider_end_to_end():
                 name="C0 Real Provider Test",
             )
         )
+        metrics["project_id"] = project.project_id
         step_time = time.time() - step_start
         print(f"✅ Project created: {project.project_id} ({step_time:.2f}s)")
         metrics["steps"].append({"step": "create_project", "time": step_time, "success": True})
@@ -167,10 +219,14 @@ This should work offline and not involve any employee monitoring or productivity
 
         # Run the job
         try:
-            result_job = job_service.run_job(
-                project_id=project.project_id,
-                job_id=intent_job.job_id,
+            result_job = _run_with_bounded_retry(
+                job_service,
+                project.project_id,
+                intent_job,
                 actor="c0-test-worker",
+                metrics=metrics,
+                step="generate_intent",
+                max_retries=1 if bounded_retries else 0,
             )
         except Exception as e:
             print(f"❌ Exception during job execution: {e}")
@@ -242,10 +298,14 @@ This should work offline and not involve any employee monitoring or productivity
             provider="real",  # ← Use real provider
         )
 
-        result_job = job_service.run_job(
-            project_id=project.project_id,
-            job_id=problem_job.job_id,
+        result_job = _run_with_bounded_retry(
+            job_service,
+            project.project_id,
+            problem_job,
             actor="c0-test-worker",
+            metrics=metrics,
+            step="generate_problem",
+            max_retries=1 if bounded_retries else 0,
         )
         step_time = time.time() - step_start
 
@@ -305,10 +365,14 @@ This should work offline and not involve any employee monitoring or productivity
             provider="real",  # ← Use real provider
         )
 
-        result_job = job_service.run_job(
-            project_id=project.project_id,
-            job_id=outcome_job.job_id,
+        result_job = _run_with_bounded_retry(
+            job_service,
+            project.project_id,
+            outcome_job,
             actor="c0-test-worker",
+            metrics=metrics,
+            step="generate_outcome",
+            max_retries=1 if bounded_retries else 0,
         )
         step_time = time.time() - step_start
 
@@ -392,10 +456,14 @@ This should work offline and not involve any employee monitoring or productivity
             provider="real",  # ← Use real provider
         )
 
-        result_job = job_service.run_job(
-            project_id=project.project_id,
-            job_id=thesis_job.job_id,
+        result_job = _run_with_bounded_retry(
+            job_service,
+            project.project_id,
+            thesis_job,
             actor="c0-test-worker",
+            metrics=metrics,
+            step="generate_theses",
+            max_retries=1 if bounded_retries else 0,
         )
         step_time = time.time() - step_start
 
@@ -510,7 +578,7 @@ This should work offline and not involve any employee monitoring or productivity
                 "error_summary": "PSYTEARDOWN_PRODUCT_SOURCE_MODEL/PSYTEARDOWN_LLM is not configured.",
             })
             return metrics
-        run_root = Path("output/product-studio/c0-real-provider") / project.project_id
+        run_root = (output_root or Path("output/product-studio/c0-real-provider")) / project.project_id
         generation_repository = InMemoryProductGenerationJobRepository()
         generation_service = ProductGenerationJobService(
             application,
@@ -526,14 +594,28 @@ This should work offline and not involve any employee monitoring or productivity
             reason="C0 real model source generation",
             source="model",
         )
-        generated = generation_service.run_job(
+        generated = _run_with_bounded_retry(
+            generation_service,
             project.project_id,
-            generation_job.job_id,
+            generation_job,
             actor="c0-test-worker",
+            metrics=metrics,
+            step="generate_source",
+            max_retries=1 if bounded_retries else 0,
         )
         step_time = time.time() - step_start
         if generated.status != "succeeded":
             print(f"❌ Source generation failed: {generated.error_code} - {generated.error_summary}")
+            metrics["steps"].append({
+                "step": "generate_source",
+                "time": step_time,
+                "success": False,
+                "provider": generated.provider,
+                "model_calls": [
+                    {"input_tokens": call.input_tokens, "output_tokens": call.output_tokens, "outcome": call.outcome}
+                    for call in generated.model_calls
+                ],
+            })
             metrics["failures"].append({
                 "step": "generate_source",
                 "error_code": generated.error_code,
@@ -570,15 +652,27 @@ This should work offline and not involve any employee monitoring or productivity
             generation_job_id=generated.job_id,
             actor="c0-test",
             reason="C0 real chain validation",
+            budget=ExecutionBudget(max_attempts=2) if bounded_retries else None,
         )
-        executed = execution_service.run_job(
+        executed = _run_with_bounded_retry(
+            execution_service,
             project.project_id,
-            execution_job.job_id,
+            execution_job,
             actor="c0-test-worker",
+            metrics=metrics,
+            step="execute_b4",
+            max_retries=1 if bounded_retries else 0,
         )
         step_time = time.time() - step_start
         if executed.status != "succeeded":
             print(f"❌ B4 execution failed: {executed.error_code} - {executed.error_summary}")
+            metrics["steps"].append({
+                "step": "execute_b4",
+                "time": step_time,
+                "success": False,
+                "provider": executed.provider,
+                "execution_steps": [step.status for step in executed.steps],
+            })
             metrics["failures"].append({
                 "step": "execute_b4",
                 "error_code": executed.error_code,
@@ -629,30 +723,7 @@ This should work offline and not involve any employee monitoring or productivity
 
         # Stage 6: retain a local, machine-readable run report. Monetary cost
         # is intentionally not inferred; C0 records call count and tokens only.
-        contract_calls = list(real_provider.usage_records)
-        source_calls = [
-            {
-                "provider": call.provider,
-                "model": call.model,
-                "outcome": call.outcome,
-                "input_tokens": call.input_tokens,
-                "output_tokens": call.output_tokens,
-                "duration_seconds": call.duration_seconds,
-            }
-            for call in generated.model_calls
-        ]
-        metrics["model_usage"] = {
-            "contract_provider": contract_calls,
-            "source_provider": source_calls,
-            "total_calls": len(contract_calls) + len(source_calls),
-            "input_tokens": sum(
-                (item.get("input_tokens") or 0) for item in contract_calls + source_calls
-            ),
-            "output_tokens": sum(
-                (item.get("output_tokens") or 0) for item in contract_calls + source_calls
-            ),
-            "monetary_cost": None,
-        }
+        metrics["model_usage"] = _build_model_usage(real_provider, generated)
         report_path = run_root / "c0-metrics.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(
@@ -663,6 +734,7 @@ This should work offline and not involve any employee monitoring or productivity
                     "steps": metrics["steps"],
                     "model_usage": metrics["model_usage"],
                     "failures": metrics["failures"],
+                    "recovered_failures": metrics.get("recovered_failures", []),
                     "total_time_seconds": (datetime.now(timezone.utc) - metrics["start_time"]).total_seconds(),
                 },
                 ensure_ascii=False,
@@ -711,6 +783,7 @@ This should work offline and not involve any employee monitoring or productivity
         })
         return metrics
     finally:
+        metrics["model_usage"] = _build_model_usage(real_provider, generated)
         metrics["end_time"] = datetime.now(timezone.utc)
         metrics["total_time"] = (metrics["end_time"] - metrics["start_time"]).total_seconds()
 

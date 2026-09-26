@@ -25,10 +25,11 @@ class SequenceIds:
 
 
 class FakeRunner:
-    def __init__(self, *, failure: str | None = None, output_bytes: int = 0) -> None:
+    def __init__(self, *, failure: str | None = None, browser_failure: str | None = None, output_bytes: int = 0) -> None:
         self.calls: list[tuple[str, ...]] = []
         self.envs: list[dict[str, str]] = []
         self.failure = failure
+        self.browser_failure = browser_failure
         self.output_bytes = output_bytes
 
     def run(self, argv, *, cwd, timeout, env):
@@ -44,6 +45,10 @@ class FakeRunner:
     def run_preview_and_browser(self, *, preview_argv, browser_argv, cwd, timeout, env):
         self.calls.extend((tuple(preview_argv), tuple(browser_argv)))
         self.envs.extend((dict(env), dict(env)))
+        if self.browser_failure:
+            from psyteardown.product.execution import ExecutionCommandError
+
+            raise ExecutionCommandError(self.browser_failure, "The browser command failed safely.")
         return (
             CommandResult(exit_code=0, output_bytes=self.output_bytes, duration_seconds=0.01, summary="preview"),
             CommandResult(exit_code=0, output_bytes=self.output_bytes, duration_seconds=0.01, summary="browser"),
@@ -84,6 +89,21 @@ def test_execution_is_separate_from_generation_and_runs_allowlisted_steps(tmp_pa
     assert runner.calls[0][1:] == ("install", "--ignore-scripts", "--no-audit", "--no-fund")
     assert all("SECRET" not in env and "OPENAI_API_KEY" not in env for env in runner.envs)
     assert service.run_job(project.project_id, queued.job_id, actor="worker") == completed
+
+
+def test_browser_command_failure_is_recorded_on_browser_step(tmp_path):
+    runner = FakeRunner(browser_failure="browser_command_failed")
+    service, project, generated = build_execution_service(tmp_path, runner=runner)
+    queued = service.create_job(
+        project_id=project.project_id,
+        generation_job_id=generated.job_id,
+        actor="user",
+        reason="validate",
+    )
+    failed = service.run_job(project.project_id, queued.job_id, actor="worker")
+    assert failed.status == "failed"
+    assert failed.error_code == "browser_command_failed"
+    assert [step.status for step in failed.steps] == ["succeeded", "succeeded", "succeeded", "failed"]
 
 
 def test_execution_failure_is_safe_and_budget_output_does_not_break_job(tmp_path):
@@ -162,6 +182,98 @@ def _port_open(port: int) -> bool:
     with socket.socket() as probe:
         probe.settimeout(0.3)
         return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def test_browser_failure_is_classified_without_retaining_output():
+    from psyteardown.product.execution import _classify_browser_failure
+
+    assert _classify_browser_failure(b"expect(locator).toBeVisible()", "browser_command_failed") == "browser_assertion_failed"
+    assert _classify_browser_failure(b"axe violations: 2", "browser_command_failed") == "browser_accessibility_failed"
+    assert _classify_browser_failure(b"browserType.launch: executable doesn't exist", "browser_command_failed") == "browser_launch_failed"
+    assert _classify_browser_failure(b"unknown failure", "browser_command_failed") == "browser_command_failed"
+    assert _classify_browser_failure(b"expect(locator)", "command_failed") == "command_failed"
+
+
+def test_browser_timeout_is_distinct_from_outer_c3_run_timeout(tmp_path):
+    import os
+    import sys
+
+    from psyteardown.product.execution import ExecutionCommandError, SubprocessExecutionCommandRunner
+
+    runner = SubprocessExecutionCommandRunner()
+    command = [sys.executable, "-c", "import time; time.sleep(2)"]
+    with pytest.raises(ExecutionCommandError) as browser_error:
+        runner._run(
+            command,
+            cwd=tmp_path,
+            timeout=0.05,
+            env=dict(os.environ),
+            failure_code="browser_command_failed",
+        )
+    assert browser_error.value.code == "browser_timeout"
+
+    with pytest.raises(ExecutionCommandError) as command_error:
+        runner._run(
+            command,
+            cwd=tmp_path,
+            timeout=0.05,
+            env=dict(os.environ),
+        )
+    assert command_error.value.code == "timeout"
+
+
+def test_missing_browser_command_is_classified_as_browser_launch_failure(tmp_path):
+    import os
+
+    from psyteardown.product.execution import ExecutionCommandError, SubprocessExecutionCommandRunner
+
+    with pytest.raises(ExecutionCommandError) as error:
+        SubprocessExecutionCommandRunner()._run(
+            ["definitely-not-an-installed-browser-command"],
+            cwd=tmp_path,
+            timeout=1,
+            env=dict(os.environ),
+            failure_code="browser_command_failed",
+        )
+    assert error.value.code == "browser_launch_failed"
+
+
+def test_browser_timeout_is_recorded_as_budget_exhausted_on_browser_step(tmp_path):
+    runner = FakeRunner(browser_failure="browser_timeout")
+    service, project, generated = build_execution_service(tmp_path, runner=runner)
+    queued = service.create_job(
+        project_id=project.project_id,
+        generation_job_id=generated.job_id,
+        actor="user",
+        reason="validate",
+    )
+    failed = service.run_job(project.project_id, queued.job_id, actor="worker")
+    assert failed.status == "budget_exhausted"
+    assert failed.error_code == "browser_timeout"
+    assert [step.status for step in failed.steps] == ["succeeded", "succeeded", "succeeded", "failed"]
+
+
+def test_preview_browser_failure_reports_browser_phase(tmp_path):
+    import sys
+    from psyteardown.product.execution import ExecutionCommandError, SubprocessExecutionCommandRunner
+
+    if _port_open(4173):
+        pytest.skip("preview port 4173 is already in use on this host")
+    wrapper = (
+        "import subprocess, sys; "
+        "subprocess.Popen([sys.executable, '-m', 'http.server', '4173', '--bind', '127.0.0.1'], "
+        "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).wait()"
+    )
+    runner = SubprocessExecutionCommandRunner()
+    with pytest.raises(ExecutionCommandError) as error:
+        runner.run_preview_and_browser(
+            preview_argv=[sys.executable, "-c", wrapper],
+            browser_argv=[sys.executable, "-c", "raise SystemExit(3)"],
+            cwd=tmp_path,
+            timeout=30,
+            env=dict(__import__("os").environ),
+        )
+    assert error.value.code == "browser_command_failed"
 
 
 def test_preview_process_tree_is_stopped_after_browser_step(tmp_path):

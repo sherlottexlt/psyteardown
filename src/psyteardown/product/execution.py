@@ -121,6 +121,36 @@ class CommandResult:
         self.summary = summary
 
 
+def _classify_browser_failure(output: bytes, default_code: str) -> str:
+    """Map browser output to a safe diagnostic category without retaining it."""
+
+    if not default_code.startswith("browser_"):
+        return default_code
+    text = output.decode("utf-8", errors="replace").lower()
+    if "axe" in text or "accessibility" in text or "violations" in text:
+        return "browser_accessibility_failed"
+    if "expect(" in text or "tobevisible" in text or "locator" in text or "assert" in text:
+        return "browser_assertion_failed"
+    if "browsertype.launch" in text or "executable doesn't exist" in text or "browser executable" in text:
+        return "browser_launch_failed"
+    return default_code
+
+
+def _browser_timeout(*, output_bytes: int = 0) -> ExecutionCommandError:
+    """Build a safe timeout error for the browser phase.
+
+    ``run_timeout`` is reserved for the outer C3 attempt watchdog. A timeout
+    raised by the B4 browser command must remain a B4 diagnostic so the two
+    boundaries cannot be confused in an aggregate report.
+    """
+
+    return ExecutionCommandError(
+        "browser_timeout",
+        "The browser validation exceeded its time budget.",
+        output_bytes=output_bytes,
+    )
+
+
 class SubprocessExecutionCommandRunner:
     """Allowlisted, no-shell subprocess runner for the local development slice."""
 
@@ -164,13 +194,32 @@ class SubprocessExecutionCommandRunner:
                     time.sleep(0.1)
             if not healthy:
                 raise ExecutionCommandError("preview_unavailable", "The local preview did not become ready.")
-            browser = self._run(browser_argv, cwd=cwd, timeout=max(1, timeout - (time.monotonic() - started)), env={**env, "BASE_URL": _PREVIEW_URL})
+            remaining = timeout - (time.monotonic() - started)
+            if remaining <= 0:
+                # Preview is the B4 ``run`` phase. Keep its exhausted budget
+                # out of the browser diagnostic namespace.
+                raise ExecutionCommandError("timeout", "The preview and browser steps exceeded their time budget.")
+            browser = self._run(
+                browser_argv,
+                cwd=cwd,
+                timeout=remaining,
+                env={**env, "BASE_URL": _PREVIEW_URL},
+                failure_code="browser_command_failed",
+            )
             preview = CommandResult(exit_code=0, output_bytes=0, duration_seconds=time.monotonic() - started, summary="Local preview served on loopback.")
             return preview, browser
         finally:
             _stop_process_tree(process)
 
-    def _run(self, argv: Sequence[str], *, cwd: Path, timeout: float, env: Mapping[str, str]) -> CommandResult:
+    def _run(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path,
+        timeout: float,
+        env: Mapping[str, str],
+        failure_code: str = "command_failed",
+    ) -> CommandResult:
         started = time.monotonic()
         try:
             completed = subprocess.run(
@@ -179,13 +228,17 @@ class SubprocessExecutionCommandRunner:
                 timeout=timeout, check=False,
             )
         except subprocess.TimeoutExpired as exc:
+            if failure_code.startswith("browser_"):
+                raise _browser_timeout(output_bytes=len(exc.output or b"")) from exc
             raise ExecutionCommandError("timeout", "The execution step exceeded its time budget.", output_bytes=len(exc.output or b"")) from exc
         except OSError as exc:
+            if failure_code.startswith("browser_"):
+                raise ExecutionCommandError("browser_launch_failed", "The browser validation command could not be started.") from exc
             raise ExecutionCommandError("command_unavailable", "The allowlisted execution command is unavailable.") from exc
         output = completed.stdout or b""
         if completed.returncode != 0:
             raise ExecutionCommandError(
-                "command_failed",
+                _classify_browser_failure(output, failure_code),
                 f"The allowlisted command failed with exit code {completed.returncode}.",
                 output_bytes=len(output),
             )
@@ -355,9 +408,25 @@ class ProductExecutionJobService:
             running = self._step_transition(running, "browser", browser, actor)
             self._check_budget(running, started)
         except ExecutionCommandError as exc:
-            step_name = running.checkpoint_step or "install"
+            # Preview startup is the `run` phase, while Playwright is the
+            # `browser` phase even though both are launched by one runner call.
+            # Preserve that distinction so C3 can diagnose browser flakiness
+            # without exposing command output.
+            if exc.code.startswith("browser_"):
+                # The combined runner only raises for the browser after the
+                # preview has become healthy. Commit that successful run phase
+                # before recording the browser failure.
+                running = self._step_transition(
+                    running,
+                    "run",
+                    CommandResult(exit_code=0, summary="Local preview served on loopback."),
+                    actor,
+                )
+                step_name = "browser"
+            else:
+                step_name = running.checkpoint_step or "install"
             running = self._failure_step(running, step_name, exc, actor)
-            return self._transition(running, status="budget_exhausted" if exc.code in {"timeout", "output_limit"} else "failed", actor=actor, reason="execution sandbox step failed", error_code=exc.code, error_summary=exc.summary, consumed_duration_seconds=time.monotonic() - started)
+            return self._transition(running, status="budget_exhausted" if exc.code in {"timeout", "browser_timeout", "output_limit"} else "failed", actor=actor, reason="execution sandbox step failed", error_code=exc.code, error_summary=exc.summary, consumed_duration_seconds=time.monotonic() - started)
         except (ProductRepositoryError, DomainStateError):
             raise
         except Exception:

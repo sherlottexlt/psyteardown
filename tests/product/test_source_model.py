@@ -149,7 +149,12 @@ def test_static_gate_checks_css_contract_ids_and_reply_shape(tmp_path):
     files = {"src/App.tsx": "export default function App() { return null; }\n", "src/styles.css": "@import 'x.css';\nb { background: url(x.png); }\n"}
     reasons = check_model_source(files, contract)
     assert "CSS @import is not allowed" in reasons and "CSS url() is not allowed" in reasons
-    assert any(contract.tasks[0].task_id in reason for reason in reasons)
+    for identifier in [
+        *(item.screen_id for item in contract.screens),
+        *(item.task_id for item in contract.tasks),
+        *(item.slot_id for item in contract.content_slots if item.required),
+    ]:
+        assert any(identifier in reason for reason in reasons)
     assert parse_source_reply("```tsx\nA\n```")[1] == ["reply must contain exactly one css code block for src/styles.css"]
 
 
