@@ -10,6 +10,7 @@ from psyteardown.product import (
     ProductRepairJobService,
     ProductDeliveryBundleService,
     ProductPreviewFeedbackService,
+    ProductC1ObservationService,
 )
 
 
@@ -69,4 +70,11 @@ async def get_product_preview_feedback_service(
     service = getattr(request.app.state, "product_preview_feedback_service", None)
     if service is None:
         raise RuntimeError("Product Studio preview feedback service is not initialized")
+    return service
+
+
+async def get_product_c1_service(request: Request) -> ProductC1ObservationService:
+    service = getattr(request.app.state, "product_c1_service", None)
+    if service is None:
+        raise RuntimeError("Product Studio C1 service is not initialized")
     return service

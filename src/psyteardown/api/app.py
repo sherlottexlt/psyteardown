@@ -23,6 +23,7 @@ from psyteardown.api.execution_jobs import router as execution_jobs_router
 from psyteardown.api.repair_jobs import router as repair_jobs_router
 from psyteardown.api.delivery_bundles import router as delivery_bundles_router
 from psyteardown.api.preview_feedback import router as preview_feedback_router
+from psyteardown.api.c1 import router as c1_router
 from psyteardown.api.schemas import HealthResponse
 from psyteardown.product import (
     ProductApplicationService,
@@ -39,6 +40,9 @@ from psyteardown.product import (
     InMemoryPreviewFeedbackRepository,
     ProductProposalJobService,
     SQLiteProductRepository,
+    InMemoryC1Repository,
+    SQLiteC1Repository,
+    ProductC1ObservationService,
 )
 from psyteardown.product.source_model import ProductSourceModel, build_source_model_from_env
 from psyteardown.product.contract_model import build_contract_model_from_env
@@ -148,6 +152,11 @@ def create_app(
                 **({"clock": clock} if clock is not None else {}),
                 **({"id_factory": id_factory} if id_factory is not None else {}),
             )
+            app.state.product_c1_service = ProductC1ObservationService(
+                service, app.state.product_delivery_bundle_service, InMemoryC1Repository(),
+                **({"clock": clock} if clock is not None else {}),
+                **({"id_factory": id_factory} if id_factory is not None else {}),
+            )
         else:
             repository = SQLiteProductRepository(resolved_path)
             kwargs = {}
@@ -206,6 +215,10 @@ def create_app(
                 app.state.product_delivery_bundle_service,
                 **kwargs,
             )
+            app.state.product_c1_service = ProductC1ObservationService(
+                app.state.product_service, app.state.product_delivery_bundle_service,
+                SQLiteC1Repository(resolved_path), **kwargs,
+            )
         try:
             yield
         finally:
@@ -216,6 +229,10 @@ def create_app(
             app.state.product_repair_job_service = None
             app.state.product_delivery_bundle_service = None
             app.state.product_preview_feedback_service = None
+            c1_service = getattr(app.state, "product_c1_service", None)
+            if c1_service is not None:
+                c1_service.repository.close()
+            app.state.product_c1_service = None
             if owns_repository and repository is not None:
                 repository.close()
 
@@ -283,6 +300,7 @@ def create_app(
     application.include_router(repair_jobs_router, prefix="/api/v1")
     application.include_router(delivery_bundles_router, prefix="/api/v1")
     application.include_router(preview_feedback_router, prefix="/api/v1")
+    application.include_router(c1_router, prefix="/api/v1")
     return application
 
 

@@ -14,6 +14,23 @@ from psyteardown.product.commands import (
     ProductIntentProposal,
     ProductThesisProposal,
 )
+from psyteardown.product.c1 import (
+    C1ConsentReceipt,
+    C1EvidenceReview,
+    C1OutcomeObservation,
+    C1Participant,
+    C1TaskPresentation,
+    C1TrialEnvelope,
+    C1WithdrawalTombstone,
+    C1_ACCESS_POLICY,
+    C1_CONSENT_POLICY_REVISION,
+    C1_CONSENT_STATEMENT,
+    C1_DATA_CATEGORIES,
+    C1_EVIDENCE_CEILING,
+    C1_RETENTION_POLICY,
+    C1_SOURCE_LAYER,
+    C1_WITHDRAWAL_POLICY,
+)
 from psyteardown.product.models import (
     HumanConfirmation,
     OutcomeContract,
@@ -117,6 +134,58 @@ class TransitionProductThesisRequest(TransportModel):
     actor_type: Literal["human", "system"]
     reason: str = Field(min_length=1)
     authorization_ref: str | None = None
+
+
+class StartC1EnvelopeRequest(TransportModel):
+    measurement_plan_revision_id: str = Field(min_length=1)
+    delivery_bundle_id: str = Field(min_length=1)
+    execution_job_revision_id: str = Field(min_length=1)
+    web_generation_contract_revision_id: str = Field(min_length=1)
+    host: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class EnrollC1ParticipantRequest(TransportModel):
+    consent_policy_revision: str = Field(min_length=1)
+    consent_scope_acknowledged: bool
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class PresentC1TaskRequest(TransportModel):
+    participant_id: str = Field(min_length=1)
+    task_id: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class RecordC1ObservationRequest(TransportModel):
+    participant_id: str = Field(min_length=1)
+    presentation_id: str = Field(min_length=1)
+    measure_id: str = Field(min_length=1)
+    value: str | int | float | bool | None = None
+    status: Literal[
+        "observed", "participant_withdrawal", "task_abandonment", "technical_failure",
+        "skipped_by_protocol", "no_response", "not_applicable", "unknown",
+    ] = "observed"
+    completion_cause: str | None = None
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class ReviewC1EvidenceRequest(TransportModel):
+    observation_ids: list[str] = Field(min_length=1)
+    reviewer: str = Field(min_length=1)
+    decision: Literal["accepted", "modified", "rejected", "insufficient"]
+    evidence_level_after: Literal["none", "exploratory", "observed"]
+    rationale: str = Field(min_length=1)
+    limitations: list[str] = Field(default_factory=list)
+
+
+class WithdrawC1ParticipantRequest(TransportModel):
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
 
 
 class WebProductGenerationContractProposalRequest(TransportModel):
@@ -274,6 +343,182 @@ class RevisionMetaResponse(TransportModel):
     created_at: datetime
     created_by: str
     reason: str
+
+
+class C1PolicyResponse(TransportModel):
+    consent_policy_revision: str
+    statement: str
+    access_policy: list[str]
+    data_categories: list[str]
+    retention_policy: str
+    withdrawal_policy: str
+    source_layer: Literal["research_observation"]
+    evidence_ceiling: Literal["observed"]
+
+
+class C1TrialEnvelopeResponse(TransportModel):
+    envelope_id: str
+    revision_id: str
+    project_id: str
+    meta: RevisionMetaResponse
+    status: Literal["active", "closed", "stopped"]
+    measurement_plan_revision_id: str
+    delivery_bundle_id: str
+    delivery_bundle_revision_id: str
+    execution_job_revision_id: str
+    web_generation_contract_revision_id: str
+    host: str
+    consent_policy_revision: str
+    consent_statement: str
+    access_policy: list[str]
+    data_categories: list[str]
+    retention_policy: str
+    withdrawal_policy: str
+
+    @classmethod
+    def from_domain(cls, value: C1TrialEnvelope) -> "C1TrialEnvelopeResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1ConsentReceiptResponse(TransportModel):
+    meta: RevisionMetaResponse
+    receipt_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    participant_id: str
+    policy_revision: str
+    scope: str
+    data_categories: list[str]
+    access_policy: list[str]
+    retention_policy: str
+    withdrawal_policy: str
+    consented_by: str
+    granted_at: datetime
+    status: Literal["granted"]
+
+    @classmethod
+    def from_domain(cls, value: C1ConsentReceipt) -> "C1ConsentReceiptResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1ParticipantResponse(TransportModel):
+    meta: RevisionMetaResponse
+    participant_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    consent_receipt_id: str
+    consent_receipt_revision_id: str
+    status: Literal["active", "withdrawn"]
+    enrolled_at: datetime
+    withdrawn_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, value: C1Participant) -> "C1ParticipantResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1EnrollmentResponse(TransportModel):
+    participant: C1ParticipantResponse
+    consent_receipt: C1ConsentReceiptResponse
+
+
+class C1TaskPresentationResponse(TransportModel):
+    meta: RevisionMetaResponse
+    presentation_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    participant_id: str
+    task_id: str
+    consent_receipt_revision_id: str
+    delivery_bundle_id: str
+    delivery_bundle_revision_id: str
+    execution_job_revision_id: str
+    web_generation_contract_revision_id: str
+    status: Literal["presented", "completed", "withdrawn"]
+    started_at: datetime
+    ended_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, value: C1TaskPresentation) -> "C1TaskPresentationResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1OutcomeObservationResponse(TransportModel):
+    meta: RevisionMetaResponse
+    observation_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    participant_id: str
+    presentation_id: str
+    measurement_plan_revision_id: str
+    measure_id: str
+    source_layer: Literal["research_observation"]
+    value: str | int | float | bool | None
+    status: Literal[
+        "observed", "participant_withdrawal", "task_abandonment", "technical_failure",
+        "skipped_by_protocol", "no_response", "not_applicable", "unknown",
+    ]
+    completion_cause: str | None
+    consent_receipt_revision_id: str
+    delivery_bundle_id: str
+    delivery_bundle_revision_id: str
+    execution_job_revision_id: str
+    web_generation_contract_revision_id: str
+    recorded_by: str
+    recorded_at: datetime
+    evidence_refs: list[str]
+
+    @classmethod
+    def from_domain(cls, value: C1OutcomeObservation) -> "C1OutcomeObservationResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1EvidenceReviewResponse(TransportModel):
+    meta: RevisionMetaResponse
+    review_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    observation_ids: list[str]
+    measurement_plan_revision_id: str
+    delivery_bundle_revision_id: str
+    execution_job_revision_id: str
+    web_generation_contract_revision_id: str
+    source_layer: Literal["research_observation"]
+    reviewer: str
+    decision: Literal["accepted", "modified", "rejected", "insufficient"]
+    evidence_level_before: Literal["none", "exploratory", "observed", "supported", "replicated"]
+    evidence_level_after: Literal["none", "exploratory", "observed"]
+    rationale: str
+    limitations: list[str]
+    reviewed_at: datetime
+
+    @classmethod
+    def from_domain(cls, value: C1EvidenceReview) -> "C1EvidenceReviewResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
+
+
+class C1WithdrawalTombstoneResponse(TransportModel):
+    meta: RevisionMetaResponse
+    tombstone_id: str
+    revision_id: str
+    project_id: str
+    envelope_id: str
+    participant_digest: str
+    consent_policy_revision: str
+    deleted_receipts: int
+    deleted_presentations: int
+    deleted_observations: int
+    deleted_reviews: int
+    withdrawn_at: datetime
+
+    @classmethod
+    def from_domain(cls, value: C1WithdrawalTombstone) -> "C1WithdrawalTombstoneResponse":
+        return cls.model_validate(value.model_dump(mode="json"))
 
 
 class ExecutionJobResponse(TransportModel):

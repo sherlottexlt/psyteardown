@@ -469,3 +469,26 @@ select { cursor: pointer; }
   .measurement-plan-actions { justify-content: stretch; }
   .measurement-plan-actions .button { flex: 1; }
 }
+
+
+/* C1 local, consented task observation panel */
+.c1-panel { border-top: 2px solid var(--acid-dark); }
+.c1-policy { display: grid; gap: 7px; margin: 14px 0 18px; padding: 13px 15px; border-left: 2px solid var(--acid-dark); background: rgba(146, 219, 83, .05); color: var(--muted); font-size: 10px; line-height: 1.6; }
+.c1-policy strong { color: var(--text); font-family: var(--mono); font-size: 9px; }
+.c1-policy small { color: var(--dim); }
+.c1-actions, .c1-stack, .c1-grid { display: grid; gap: 12px; }
+.c1-actions { grid-template-columns: auto 1fr; align-items: center; }
+.c1-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.c1-grid > div { display: grid; align-content: start; gap: 9px; padding: 15px; border: 1px solid var(--line-soft); }
+.c1-grid h3, .c1-observations h3 { margin: 0; color: var(--text); font-size: 11px; }
+.c1-grid label { display: grid; gap: 5px; color: var(--dim); font-size: 9px; }
+.c1-grid input, .c1-grid select { width: 100%; box-sizing: border-box; padding: 8px 9px; border: 1px solid var(--line); background: #0e1311; color: var(--text); font: inherit; }
+.checkbox-label { display: flex; align-items: flex-start; gap: 7px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.checkbox-label input { width: auto; margin-top: 2px; accent-color: var(--acid); }
+.c1-participant-id { width: fit-content; padding: 6px 8px; color: var(--acid); background: #0e1311; font-family: var(--mono); font-size: 10px; }
+.c1-grid small { color: var(--dim); font-family: var(--mono); font-size: 9px; }
+.c1-observations { display: grid; gap: 9px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.c1-observations > div { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 9px 0; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 10px; }
+.c1-observations small { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 8px; }
+.c1-withdraw { justify-self: start; color: var(--amber); }
+@media (max-width: 760px) { .c1-grid, .c1-actions { grid-template-columns: 1fr; } .c1-observations small { width: 100%; margin-left: 0; } }

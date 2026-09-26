@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/c1-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get C1 Policy */
+        get: operations["get_c1_policy_api_v1_c1_policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -66,6 +83,112 @@ export interface paths {
         get: operations["get_project_api_v1_projects__project_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List C1 Envelopes */
+        get: operations["list_c1_envelopes_api_v1_projects__project_id__c1_envelopes_get"];
+        put?: never;
+        /** Start C1 Envelope */
+        post: operations["start_c1_envelope_api_v1_projects__project_id__c1_envelopes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List C1 Observations */
+        get: operations["list_c1_observations_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_get"];
+        put?: never;
+        /** Record C1 Observation */
+        post: operations["record_c1_observation_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List C1 Participants */
+        get: operations["list_c1_participants_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_get"];
+        put?: never;
+        /** Enroll C1 Participant */
+        post: operations["enroll_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/presentations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Present C1 Task */
+        post: operations["present_c1_task_api_v1_projects__project_id__c1_envelopes__envelope_id__presentations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List C1 Reviews */
+        get: operations["list_c1_reviews_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_get"];
+        put?: never;
+        /** Review C1 Evidence */
+        post: operations["review_c1_evidence_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/withdrawals/{participant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw C1 Participant */
+        post: operations["withdraw_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__withdrawals__participant_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -887,6 +1010,314 @@ export interface components {
         ApiErrorResponse: {
             error: components["schemas"]["ApiErrorDetail"];
         };
+        /** C1ConsentReceiptResponse */
+        C1ConsentReceiptResponse: {
+            /** Access Policy */
+            access_policy: string[];
+            /** Consented By */
+            consented_by: string;
+            /** Data Categories */
+            data_categories: string[];
+            /** Envelope Id */
+            envelope_id: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Participant Id */
+            participant_id: string;
+            /** Policy Revision */
+            policy_revision: string;
+            /** Project Id */
+            project_id: string;
+            /** Receipt Id */
+            receipt_id: string;
+            /** Retention Policy */
+            retention_policy: string;
+            /** Revision Id */
+            revision_id: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "granted";
+            /** Withdrawal Policy */
+            withdrawal_policy: string;
+        };
+        /** C1EnrollmentResponse */
+        C1EnrollmentResponse: {
+            consent_receipt: components["schemas"]["C1ConsentReceiptResponse"];
+            participant: components["schemas"]["C1ParticipantResponse"];
+        };
+        /** C1EvidenceReviewResponse */
+        C1EvidenceReviewResponse: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "modified" | "rejected" | "insufficient";
+            /** Delivery Bundle Revision Id */
+            delivery_bundle_revision_id: string;
+            /** Envelope Id */
+            envelope_id: string;
+            /**
+             * Evidence Level After
+             * @enum {string}
+             */
+            evidence_level_after: "none" | "exploratory" | "observed";
+            /**
+             * Evidence Level Before
+             * @enum {string}
+             */
+            evidence_level_before: "none" | "exploratory" | "observed" | "supported" | "replicated";
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Limitations */
+            limitations: string[];
+            /** Measurement Plan Revision Id */
+            measurement_plan_revision_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Observation Ids */
+            observation_ids: string[];
+            /** Project Id */
+            project_id: string;
+            /** Rationale */
+            rationale: string;
+            /** Review Id */
+            review_id: string;
+            /**
+             * Reviewed At
+             * Format: date-time
+             */
+            reviewed_at: string;
+            /** Reviewer */
+            reviewer: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Source Layer
+             * @constant
+             */
+            source_layer: "research_observation";
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
+        };
+        /** C1OutcomeObservationResponse */
+        C1OutcomeObservationResponse: {
+            /** Completion Cause */
+            completion_cause: string | null;
+            /** Consent Receipt Revision Id */
+            consent_receipt_revision_id: string;
+            /** Delivery Bundle Id */
+            delivery_bundle_id: string;
+            /** Delivery Bundle Revision Id */
+            delivery_bundle_revision_id: string;
+            /** Envelope Id */
+            envelope_id: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Measure Id */
+            measure_id: string;
+            /** Measurement Plan Revision Id */
+            measurement_plan_revision_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Observation Id */
+            observation_id: string;
+            /** Participant Id */
+            participant_id: string;
+            /** Presentation Id */
+            presentation_id: string;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Recorded By */
+            recorded_by: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Source Layer
+             * @constant
+             */
+            source_layer: "research_observation";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "observed" | "participant_withdrawal" | "task_abandonment" | "technical_failure" | "skipped_by_protocol" | "no_response" | "not_applicable" | "unknown";
+            /** Value */
+            value: string | number | boolean | null;
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
+        };
+        /** C1ParticipantResponse */
+        C1ParticipantResponse: {
+            /** Consent Receipt Id */
+            consent_receipt_id: string;
+            /** Consent Receipt Revision Id */
+            consent_receipt_revision_id: string;
+            /**
+             * Enrolled At
+             * Format: date-time
+             */
+            enrolled_at: string;
+            /** Envelope Id */
+            envelope_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Participant Id */
+            participant_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "withdrawn";
+            /** Withdrawn At */
+            withdrawn_at: string | null;
+        };
+        /** C1PolicyResponse */
+        C1PolicyResponse: {
+            /** Access Policy */
+            access_policy: string[];
+            /** Consent Policy Revision */
+            consent_policy_revision: string;
+            /** Data Categories */
+            data_categories: string[];
+            /**
+             * Evidence Ceiling
+             * @constant
+             */
+            evidence_ceiling: "observed";
+            /** Retention Policy */
+            retention_policy: string;
+            /**
+             * Source Layer
+             * @constant
+             */
+            source_layer: "research_observation";
+            /** Statement */
+            statement: string;
+            /** Withdrawal Policy */
+            withdrawal_policy: string;
+        };
+        /** C1TaskPresentationResponse */
+        C1TaskPresentationResponse: {
+            /** Consent Receipt Revision Id */
+            consent_receipt_revision_id: string;
+            /** Delivery Bundle Id */
+            delivery_bundle_id: string;
+            /** Delivery Bundle Revision Id */
+            delivery_bundle_revision_id: string;
+            /** Ended At */
+            ended_at: string | null;
+            /** Envelope Id */
+            envelope_id: string;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Participant Id */
+            participant_id: string;
+            /** Presentation Id */
+            presentation_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "presented" | "completed" | "withdrawn";
+            /** Task Id */
+            task_id: string;
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
+        };
+        /** C1TrialEnvelopeResponse */
+        C1TrialEnvelopeResponse: {
+            /** Access Policy */
+            access_policy: string[];
+            /** Consent Policy Revision */
+            consent_policy_revision: string;
+            /** Consent Statement */
+            consent_statement: string;
+            /** Data Categories */
+            data_categories: string[];
+            /** Delivery Bundle Id */
+            delivery_bundle_id: string;
+            /** Delivery Bundle Revision Id */
+            delivery_bundle_revision_id: string;
+            /** Envelope Id */
+            envelope_id: string;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Host */
+            host: string;
+            /** Measurement Plan Revision Id */
+            measurement_plan_revision_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Project Id */
+            project_id: string;
+            /** Retention Policy */
+            retention_policy: string;
+            /** Revision Id */
+            revision_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "closed" | "stopped";
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
+            /** Withdrawal Policy */
+            withdrawal_policy: string;
+        };
+        /** C1WithdrawalTombstoneResponse */
+        C1WithdrawalTombstoneResponse: {
+            /** Consent Policy Revision */
+            consent_policy_revision: string;
+            /** Deleted Observations */
+            deleted_observations: number;
+            /** Deleted Presentations */
+            deleted_presentations: number;
+            /** Deleted Receipts */
+            deleted_receipts: number;
+            /** Deleted Reviews */
+            deleted_reviews: number;
+            /** Envelope Id */
+            envelope_id: string;
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Participant Digest */
+            participant_digest: string;
+            /** Project Id */
+            project_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /** Tombstone Id */
+            tombstone_id: string;
+            /**
+             * Withdrawn At
+             * Format: date-time
+             */
+            withdrawn_at: string;
+        };
         /** ChangeProjectStatusRequest */
         ChangeProjectStatusRequest: {
             /** Actor */
@@ -1149,6 +1580,17 @@ export interface components {
             expected_revision?: number | null;
             /** Measurement Plan Id */
             measurement_plan_id?: string | null;
+            /** Reason */
+            reason: string;
+        };
+        /** EnrollC1ParticipantRequest */
+        EnrollC1ParticipantRequest: {
+            /** Actor */
+            actor: string;
+            /** Consent Policy Revision */
+            consent_policy_revision: string;
+            /** Consent Scope Acknowledged */
+            consent_scope_acknowledged: boolean;
             /** Reason */
             reason: string;
         };
@@ -1901,6 +2343,17 @@ export interface components {
             /** Withdrawal Policy */
             withdrawal_policy: string;
         };
+        /** PresentC1TaskRequest */
+        PresentC1TaskRequest: {
+            /** Actor */
+            actor: string;
+            /** Participant Id */
+            participant_id: string;
+            /** Reason */
+            reason: string;
+            /** Task Id */
+            task_id: string;
+        };
         /** PreviewFeedbackAnchor */
         PreviewFeedbackAnchor: {
             /** Screen Id */
@@ -2389,6 +2842,29 @@ export interface components {
             /** Actor */
             actor: string;
         };
+        /** RecordC1ObservationRequest */
+        RecordC1ObservationRequest: {
+            /** Actor */
+            actor: string;
+            /** Completion Cause */
+            completion_cause?: string | null;
+            /** Measure Id */
+            measure_id: string;
+            /** Participant Id */
+            participant_id: string;
+            /** Presentation Id */
+            presentation_id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Status
+             * @default observed
+             * @enum {string}
+             */
+            status: "observed" | "participant_withdrawal" | "task_abandonment" | "technical_failure" | "skipped_by_protocol" | "no_response" | "not_applicable" | "unknown";
+            /** Value */
+            value?: string | number | boolean | null;
+        };
         /**
          * RepairAttempt
          * @description Persisted safe summary of one repair proposal/application/verification.
@@ -2580,6 +3056,27 @@ export interface components {
             /** User Attention Budget */
             user_attention_budget?: string | null;
         };
+        /** ReviewC1EvidenceRequest */
+        ReviewC1EvidenceRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "modified" | "rejected" | "insufficient";
+            /**
+             * Evidence Level After
+             * @enum {string}
+             */
+            evidence_level_after: "none" | "exploratory" | "observed";
+            /** Limitations */
+            limitations?: string[];
+            /** Observation Ids */
+            observation_ids: string[];
+            /** Rationale */
+            rationale: string;
+            /** Reviewer */
+            reviewer: string;
+        };
         /** RevisionImpactResponse */
         RevisionImpactResponse: {
             /** Changed Dependency */
@@ -2694,6 +3191,23 @@ export interface components {
             tension_id: string;
             /** Unresolved Value Choice */
             unresolved_value_choice: string;
+        };
+        /** StartC1EnvelopeRequest */
+        StartC1EnvelopeRequest: {
+            /** Actor */
+            actor: string;
+            /** Delivery Bundle Id */
+            delivery_bundle_id: string;
+            /** Execution Job Revision Id */
+            execution_job_revision_id: string;
+            /** Host */
+            host: string;
+            /** Measurement Plan Revision Id */
+            measurement_plan_revision_id: string;
+            /** Reason */
+            reason: string;
+            /** Web Generation Contract Revision Id */
+            web_generation_contract_revision_id: string;
         };
         /** StopCondition */
         StopCondition: {
@@ -3057,6 +3571,13 @@ export interface components {
             /** User Decision Limit */
             user_decision_limit: string;
         };
+        /** WithdrawC1ParticipantRequest */
+        WithdrawC1ParticipantRequest: {
+            /** Actor */
+            actor: string;
+            /** Reason */
+            reason: string;
+        };
         /** WithdrawPreviewFeedbackRequest */
         WithdrawPreviewFeedbackRequest: {
             /** Actor */
@@ -3073,6 +3594,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_c1_policy_api_v1_c1_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1PolicyResponse"];
+                };
+            };
+        };
+    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -3182,6 +3723,529 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductProjectViewResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_c1_envelopes_api_v1_projects__project_id__c1_envelopes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1TrialEnvelopeResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    start_c1_envelope_api_v1_projects__project_id__c1_envelopes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartC1EnvelopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1TrialEnvelopeResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_c1_observations_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1OutcomeObservationResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    record_c1_observation_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordC1ObservationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1OutcomeObservationResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_c1_participants_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1ParticipantResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    enroll_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollC1ParticipantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1EnrollmentResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    present_c1_task_api_v1_projects__project_id__c1_envelopes__envelope_id__presentations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresentC1TaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1TaskPresentationResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_c1_reviews_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1EvidenceReviewResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    review_c1_evidence_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewC1EvidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1EvidenceReviewResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    withdraw_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__withdrawals__participant_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+                participant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawC1ParticipantRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1WithdrawalTombstoneResponse"];
                 };
             };
             /** @description Resource not found */

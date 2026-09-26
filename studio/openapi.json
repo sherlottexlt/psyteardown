@@ -79,6 +79,787 @@
         "title": "ApiErrorResponse",
         "type": "object"
       },
+      "C1ConsentReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "access_policy": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Access Policy",
+            "type": "array"
+          },
+          "consented_by": {
+            "title": "Consented By",
+            "type": "string"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "participant_id": {
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "policy_revision": {
+            "title": "Policy Revision",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "retention_policy": {
+            "title": "Retention Policy",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "status": {
+            "const": "granted",
+            "title": "Status",
+            "type": "string"
+          },
+          "withdrawal_policy": {
+            "title": "Withdrawal Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta",
+          "receipt_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "participant_id",
+          "policy_revision",
+          "scope",
+          "data_categories",
+          "access_policy",
+          "retention_policy",
+          "withdrawal_policy",
+          "consented_by",
+          "granted_at",
+          "status"
+        ],
+        "title": "C1ConsentReceiptResponse",
+        "type": "object"
+      },
+      "C1EnrollmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "consent_receipt": {
+            "$ref": "#/components/schemas/C1ConsentReceiptResponse"
+          },
+          "participant": {
+            "$ref": "#/components/schemas/C1ParticipantResponse"
+          }
+        },
+        "required": [
+          "participant",
+          "consent_receipt"
+        ],
+        "title": "C1EnrollmentResponse",
+        "type": "object"
+      },
+      "C1EvidenceReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "modified",
+              "rejected",
+              "insufficient"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "delivery_bundle_revision_id": {
+            "title": "Delivery Bundle Revision Id",
+            "type": "string"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "evidence_level_after": {
+            "enum": [
+              "none",
+              "exploratory",
+              "observed"
+            ],
+            "title": "Evidence Level After",
+            "type": "string"
+          },
+          "evidence_level_before": {
+            "enum": [
+              "none",
+              "exploratory",
+              "observed",
+              "supported",
+              "replicated"
+            ],
+            "title": "Evidence Level Before",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "measurement_plan_revision_id": {
+            "title": "Measurement Plan Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "format": "date-time",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "reviewer": {
+            "title": "Reviewer",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "source_layer": {
+            "const": "research_observation",
+            "title": "Source Layer",
+            "type": "string"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta",
+          "review_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "observation_ids",
+          "measurement_plan_revision_id",
+          "delivery_bundle_revision_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "source_layer",
+          "reviewer",
+          "decision",
+          "evidence_level_before",
+          "evidence_level_after",
+          "rationale",
+          "limitations",
+          "reviewed_at"
+        ],
+        "title": "C1EvidenceReviewResponse",
+        "type": "object"
+      },
+      "C1OutcomeObservationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completion_cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Cause"
+          },
+          "consent_receipt_revision_id": {
+            "title": "Consent Receipt Revision Id",
+            "type": "string"
+          },
+          "delivery_bundle_id": {
+            "title": "Delivery Bundle Id",
+            "type": "string"
+          },
+          "delivery_bundle_revision_id": {
+            "title": "Delivery Bundle Revision Id",
+            "type": "string"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "measure_id": {
+            "title": "Measure Id",
+            "type": "string"
+          },
+          "measurement_plan_revision_id": {
+            "title": "Measurement Plan Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "observation_id": {
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "participant_id": {
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "presentation_id": {
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "recorded_by": {
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "source_layer": {
+            "const": "research_observation",
+            "title": "Source Layer",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "observed",
+              "participant_withdrawal",
+              "task_abandonment",
+              "technical_failure",
+              "skipped_by_protocol",
+              "no_response",
+              "not_applicable",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta",
+          "observation_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "participant_id",
+          "presentation_id",
+          "measurement_plan_revision_id",
+          "measure_id",
+          "source_layer",
+          "value",
+          "status",
+          "completion_cause",
+          "consent_receipt_revision_id",
+          "delivery_bundle_id",
+          "delivery_bundle_revision_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "recorded_by",
+          "recorded_at",
+          "evidence_refs"
+        ],
+        "title": "C1OutcomeObservationResponse",
+        "type": "object"
+      },
+      "C1ParticipantResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "consent_receipt_id": {
+            "title": "Consent Receipt Id",
+            "type": "string"
+          },
+          "consent_receipt_revision_id": {
+            "title": "Consent Receipt Revision Id",
+            "type": "string"
+          },
+          "enrolled_at": {
+            "format": "date-time",
+            "title": "Enrolled At",
+            "type": "string"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "participant_id": {
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "meta",
+          "participant_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "consent_receipt_id",
+          "consent_receipt_revision_id",
+          "status",
+          "enrolled_at",
+          "withdrawn_at"
+        ],
+        "title": "C1ParticipantResponse",
+        "type": "object"
+      },
+      "C1PolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "access_policy": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Access Policy",
+            "type": "array"
+          },
+          "consent_policy_revision": {
+            "title": "Consent Policy Revision",
+            "type": "string"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "evidence_ceiling": {
+            "const": "observed",
+            "title": "Evidence Ceiling",
+            "type": "string"
+          },
+          "retention_policy": {
+            "title": "Retention Policy",
+            "type": "string"
+          },
+          "source_layer": {
+            "const": "research_observation",
+            "title": "Source Layer",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "withdrawal_policy": {
+            "title": "Withdrawal Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consent_policy_revision",
+          "statement",
+          "access_policy",
+          "data_categories",
+          "retention_policy",
+          "withdrawal_policy",
+          "source_layer",
+          "evidence_ceiling"
+        ],
+        "title": "C1PolicyResponse",
+        "type": "object"
+      },
+      "C1TaskPresentationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "consent_receipt_revision_id": {
+            "title": "Consent Receipt Revision Id",
+            "type": "string"
+          },
+          "delivery_bundle_id": {
+            "title": "Delivery Bundle Id",
+            "type": "string"
+          },
+          "delivery_bundle_revision_id": {
+            "title": "Delivery Bundle Revision Id",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "participant_id": {
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "presentation_id": {
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "presented",
+              "completed",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta",
+          "presentation_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "participant_id",
+          "task_id",
+          "consent_receipt_revision_id",
+          "delivery_bundle_id",
+          "delivery_bundle_revision_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "status",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "C1TaskPresentationResponse",
+        "type": "object"
+      },
+      "C1TrialEnvelopeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "access_policy": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Access Policy",
+            "type": "array"
+          },
+          "consent_policy_revision": {
+            "title": "Consent Policy Revision",
+            "type": "string"
+          },
+          "consent_statement": {
+            "title": "Consent Statement",
+            "type": "string"
+          },
+          "data_categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Categories",
+            "type": "array"
+          },
+          "delivery_bundle_id": {
+            "title": "Delivery Bundle Id",
+            "type": "string"
+          },
+          "delivery_bundle_revision_id": {
+            "title": "Delivery Bundle Revision Id",
+            "type": "string"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "measurement_plan_revision_id": {
+            "title": "Measurement Plan Revision Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "retention_policy": {
+            "title": "Retention Policy",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "closed",
+              "stopped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "web_generation_contract_revision_id": {
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          },
+          "withdrawal_policy": {
+            "title": "Withdrawal Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id",
+          "revision_id",
+          "project_id",
+          "meta",
+          "status",
+          "measurement_plan_revision_id",
+          "delivery_bundle_id",
+          "delivery_bundle_revision_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "host",
+          "consent_policy_revision",
+          "consent_statement",
+          "access_policy",
+          "data_categories",
+          "retention_policy",
+          "withdrawal_policy"
+        ],
+        "title": "C1TrialEnvelopeResponse",
+        "type": "object"
+      },
+      "C1WithdrawalTombstoneResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "consent_policy_revision": {
+            "title": "Consent Policy Revision",
+            "type": "string"
+          },
+          "deleted_observations": {
+            "title": "Deleted Observations",
+            "type": "integer"
+          },
+          "deleted_presentations": {
+            "title": "Deleted Presentations",
+            "type": "integer"
+          },
+          "deleted_receipts": {
+            "title": "Deleted Receipts",
+            "type": "integer"
+          },
+          "deleted_reviews": {
+            "title": "Deleted Reviews",
+            "type": "integer"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "participant_digest": {
+            "title": "Participant Digest",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "tombstone_id": {
+            "title": "Tombstone Id",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "format": "date-time",
+            "title": "Withdrawn At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meta",
+          "tombstone_id",
+          "revision_id",
+          "project_id",
+          "envelope_id",
+          "participant_digest",
+          "consent_policy_revision",
+          "deleted_receipts",
+          "deleted_presentations",
+          "deleted_observations",
+          "deleted_reviews",
+          "withdrawn_at"
+        ],
+        "title": "C1WithdrawalTombstoneResponse",
+        "type": "object"
+      },
       "ChangeProjectStatusRequest": {
         "additionalProperties": false,
         "properties": {
@@ -827,6 +1608,38 @@
           "reason"
         ],
         "title": "DeriveOutcomeMeasurementPlanRequest",
+        "type": "object"
+      },
+      "EnrollC1ParticipantRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "consent_policy_revision": {
+            "minLength": 1,
+            "title": "Consent Policy Revision",
+            "type": "string"
+          },
+          "consent_scope_acknowledged": {
+            "title": "Consent Scope Acknowledged",
+            "type": "boolean"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consent_policy_revision",
+          "consent_scope_acknowledged",
+          "actor",
+          "reason"
+        ],
+        "title": "EnrollC1ParticipantRequest",
         "type": "object"
       },
       "ExecutionBudget": {
@@ -2571,6 +3384,39 @@
         "title": "OutcomeMeasurementPlanResponse",
         "type": "object"
       },
+      "PresentC1TaskRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "participant_id": {
+            "minLength": 1,
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "task_id",
+          "actor",
+          "reason"
+        ],
+        "title": "PresentC1TaskRequest",
+        "type": "object"
+      },
       "PreviewFeedbackAnchor": {
         "additionalProperties": false,
         "properties": {
@@ -4157,6 +5003,91 @@
         "title": "ProposalJobActionRequest",
         "type": "object"
       },
+      "RecordC1ObservationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "completion_cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Cause"
+          },
+          "measure_id": {
+            "minLength": 1,
+            "title": "Measure Id",
+            "type": "string"
+          },
+          "participant_id": {
+            "minLength": 1,
+            "title": "Participant Id",
+            "type": "string"
+          },
+          "presentation_id": {
+            "minLength": 1,
+            "title": "Presentation Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "default": "observed",
+            "enum": [
+              "observed",
+              "participant_withdrawal",
+              "task_abandonment",
+              "technical_failure",
+              "skipped_by_protocol",
+              "no_response",
+              "not_applicable",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "participant_id",
+          "presentation_id",
+          "measure_id",
+          "actor",
+          "reason"
+        ],
+        "title": "RecordC1ObservationRequest",
+        "type": "object"
+      },
       "RepairAttempt": {
         "additionalProperties": false,
         "description": "Persisted safe summary of one repair proposal/application/verification.",
@@ -4641,6 +5572,64 @@
         "title": "ResourceBoundary",
         "type": "object"
       },
+      "ReviewC1EvidenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "modified",
+              "rejected",
+              "insufficient"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "evidence_level_after": {
+            "enum": [
+              "none",
+              "exploratory",
+              "observed"
+            ],
+            "title": "Evidence Level After",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "reviewer": {
+            "minLength": 1,
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_ids",
+          "reviewer",
+          "decision",
+          "evidence_level_after",
+          "rationale"
+        ],
+        "title": "ReviewC1EvidenceRequest",
+        "type": "object"
+      },
       "RevisionImpactResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4949,6 +5938,57 @@
           "unresolved_value_choice"
         ],
         "title": "StakeholderTension",
+        "type": "object"
+      },
+      "StartC1EnvelopeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "delivery_bundle_id": {
+            "minLength": 1,
+            "title": "Delivery Bundle Id",
+            "type": "string"
+          },
+          "execution_job_revision_id": {
+            "minLength": 1,
+            "title": "Execution Job Revision Id",
+            "type": "string"
+          },
+          "host": {
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "measurement_plan_revision_id": {
+            "minLength": 1,
+            "title": "Measurement Plan Revision Id",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "web_generation_contract_revision_id": {
+            "minLength": 1,
+            "title": "Web Generation Contract Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measurement_plan_revision_id",
+          "delivery_bundle_id",
+          "execution_job_revision_id",
+          "web_generation_contract_revision_id",
+          "host",
+          "actor",
+          "reason"
+        ],
+        "title": "StartC1EnvelopeRequest",
         "type": "object"
       },
       "StopCondition": {
@@ -6053,6 +7093,27 @@
         "title": "WebTaskSpec",
         "type": "object"
       },
+      "WithdrawC1ParticipantRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "reason"
+        ],
+        "title": "WithdrawC1ParticipantRequest",
+        "type": "object"
+      },
       "WithdrawPreviewFeedbackRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6083,6 +7144,27 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/c1-policy": {
+      "get": {
+        "operationId": "get_c1_policy_api_v1_c1_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get C1 Policy",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health_api_v1_health_get",
@@ -6245,6 +7327,775 @@
         "summary": "Get Project",
         "tags": [
           "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes": {
+      "get": {
+        "operationId": "list_c1_envelopes_api_v1_projects__project_id__c1_envelopes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/C1TrialEnvelopeResponse"
+                  },
+                  "title": "Response List C1 Envelopes Api V1 Projects  Project Id  C1 Envelopes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List C1 Envelopes",
+        "tags": [
+          "product-c1-observations"
+        ]
+      },
+      "post": {
+        "operationId": "start_c1_envelope_api_v1_projects__project_id__c1_envelopes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartC1EnvelopeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1TrialEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Start C1 Envelope",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/observations": {
+      "get": {
+        "operationId": "list_c1_observations_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/C1OutcomeObservationResponse"
+                  },
+                  "title": "Response List C1 Observations Api V1 Projects  Project Id  C1 Envelopes  Envelope Id  Observations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List C1 Observations",
+        "tags": [
+          "product-c1-observations"
+        ]
+      },
+      "post": {
+        "operationId": "record_c1_observation_api_v1_projects__project_id__c1_envelopes__envelope_id__observations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordC1ObservationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1OutcomeObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Record C1 Observation",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/participants": {
+      "get": {
+        "operationId": "list_c1_participants_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/C1ParticipantResponse"
+                  },
+                  "title": "Response List C1 Participants Api V1 Projects  Project Id  C1 Envelopes  Envelope Id  Participants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List C1 Participants",
+        "tags": [
+          "product-c1-observations"
+        ]
+      },
+      "post": {
+        "operationId": "enroll_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__participants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollC1ParticipantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1EnrollmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Enroll C1 Participant",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/presentations": {
+      "post": {
+        "operationId": "present_c1_task_api_v1_projects__project_id__c1_envelopes__envelope_id__presentations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresentC1TaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1TaskPresentationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Present C1 Task",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/reviews": {
+      "get": {
+        "operationId": "list_c1_reviews_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/C1EvidenceReviewResponse"
+                  },
+                  "title": "Response List C1 Reviews Api V1 Projects  Project Id  C1 Envelopes  Envelope Id  Reviews Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List C1 Reviews",
+        "tags": [
+          "product-c1-observations"
+        ]
+      },
+      "post": {
+        "operationId": "review_c1_evidence_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewC1EvidenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1EvidenceReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Review C1 Evidence",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/withdrawals/{participant_id}": {
+      "post": {
+        "operationId": "withdraw_c1_participant_api_v1_projects__project_id__c1_envelopes__envelope_id__withdrawals__participant_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "participant_id",
+            "required": true,
+            "schema": {
+              "title": "Participant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawC1ParticipantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1WithdrawalTombstoneResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Withdraw C1 Participant",
+        "tags": [
+          "product-c1-observations"
         ]
       }
     },

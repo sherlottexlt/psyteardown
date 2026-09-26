@@ -54,6 +54,7 @@ import { CommandView } from "./CommandView";
 import { ContractView } from "./ContractView";
 import { DecisionsView } from "./DecisionsView";
 import { EvidenceView } from "./EvidenceView";
+import { C1Panel } from "./C1Panel";
 import { WorkbenchView } from "./WorkbenchView";
 import type { PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
 
@@ -495,6 +496,16 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             onDeriveMeasurementPlan={handleDeriveMeasurementPlan}
             onReviseMeasurementPlan={handleMeasurementPlanRevision}
             onConfirmMeasurementPlan={() => handleConfirm(view, "outcome-measurement-plan")}
+          /> : null}
+          {area === "evidence" && view.outcome_measurement_plan?.status === "confirmed" ? <C1Panel
+            projectId={projectId}
+            view={view}
+            plan={view.outcome_measurement_plan}
+            deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null}
+            executionJob={executionJobsQuery.data?.at(-1) ?? null}
+            busy={busy}
+            onChanged={async () => { await Promise.all([query.refetch(), deliveryBundlesQuery.refetch(), executionJobsQuery.refetch()]); }}
+            onError={setActionError}
           /> : null}
         </div>
       </section>

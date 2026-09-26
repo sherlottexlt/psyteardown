@@ -687,3 +687,121 @@ export function diffDeliveryBundles(input: {
     `/api/v1/projects/${encodeURIComponent(input.projectId)}/delivery-bundles/${encodeURIComponent(input.targetBundleId)}/diff?base_bundle_id=${encodeURIComponent(input.baseBundleId)}`,
   );
 }
+
+
+export function getC1Policy(): Promise<import("./types").C1Policy> {
+  return request("/api/v1/c1-policy");
+}
+
+export function listC1Envelopes(projectId: string): Promise<import("./types").C1TrialEnvelope[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/c1/envelopes`);
+}
+
+export function startC1Envelope(input: {
+  projectId: string;
+  measurementPlanRevisionId: string;
+  deliveryBundleId: string;
+  executionJobRevisionId: string;
+  webGenerationContractRevisionId: string;
+}): Promise<import("./types").C1TrialEnvelope> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes`, {
+    method: "POST",
+    body: JSON.stringify({
+      measurement_plan_revision_id: input.measurementPlanRevisionId,
+      delivery_bundle_id: input.deliveryBundleId,
+      execution_job_revision_id: input.executionJobRevisionId,
+      web_generation_contract_revision_id: input.webGenerationContractRevisionId,
+      host: "local-host",
+      actor: "local-host",
+      reason: "Started a local C1 observation envelope",
+    }),
+  });
+}
+
+export function enrollC1Participant(input: {
+  projectId: string;
+  envelopeId: string;
+  policyRevision: string;
+}): Promise<import("./types").C1Enrollment> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/participants`, {
+    method: "POST",
+    body: JSON.stringify({
+      consent_policy_revision: input.policyRevision,
+      consent_scope_acknowledged: true,
+      actor: "local-host",
+      reason: "Recorded explicit local C1 consent",
+    }),
+  });
+}
+
+export function listC1Participants(projectId: string, envelopeId: string): Promise<import("./types").C1Participant[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/c1/envelopes/${encodeURIComponent(envelopeId)}/participants`);
+}
+
+export function presentC1Task(input: {
+  projectId: string;
+  envelopeId: string;
+  participantId: string;
+  taskId: string;
+}): Promise<import("./types").C1TaskPresentation> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/presentations`, {
+    method: "POST",
+    body: JSON.stringify({ participant_id: input.participantId, task_id: input.taskId, actor: "local-host", reason: "Presented the pinned C1 task" }),
+  });
+}
+
+export function recordC1Observation(input: {
+  projectId: string;
+  envelopeId: string;
+  participantId: string;
+  presentationId: string;
+  measureId: string;
+  value: string | number | boolean | null;
+  status: "observed" | "participant_withdrawal" | "task_abandonment" | "technical_failure" | "skipped_by_protocol" | "no_response" | "not_applicable" | "unknown";
+}): Promise<import("./types").C1OutcomeObservation> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/observations`, {
+    method: "POST",
+    body: JSON.stringify({
+      participant_id: input.participantId,
+      presentation_id: input.presentationId,
+      measure_id: input.measureId,
+      value: input.value,
+      status: input.status,
+      actor: "local-host",
+      reason: "Recorded a structured manual C1 observation",
+    }),
+  });
+}
+
+export function listC1Observations(projectId: string, envelopeId: string): Promise<import("./types").C1OutcomeObservation[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/c1/envelopes/${encodeURIComponent(envelopeId)}/observations`);
+}
+
+export function reviewC1Evidence(input: {
+  projectId: string;
+  envelopeId: string;
+  observationIds: string[];
+  reviewer: string;
+  decision: "accepted" | "modified" | "rejected" | "insufficient";
+  evidenceLevelAfter: "none" | "exploratory" | "observed";
+  rationale: string;
+}): Promise<import("./types").C1EvidenceReview> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/reviews`, {
+    method: "POST",
+    body: JSON.stringify({
+      observation_ids: input.observationIds,
+      reviewer: input.reviewer,
+      decision: input.decision,
+      evidence_level_after: input.evidenceLevelAfter,
+      rationale: input.rationale,
+      limitations: [],
+    }),
+  });
+}
+
+export function withdrawC1Participant(input: { projectId: string; envelopeId: string; participantId: string }): Promise<import("./types").C1WithdrawalTombstone> {
+  return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/withdrawals/${encodeURIComponent(input.participantId)}`, {
+    method: "POST",
+    body: JSON.stringify({ actor: "local-host", reason: "Participant withdrew from the local C1 trial" }),
+  });
+}

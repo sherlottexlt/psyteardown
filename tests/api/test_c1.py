@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import sqlite3
+
+import pytest
+from fastapi.testclient import TestClient
+
+from psyteardown.api.app import create_app
+from psyteardown.product import (
+    C1_CONSENT_POLICY_REVISION,
+    C1_CONSENT_STATEMENT,
+    C1_DATA_CATEGORIES,
+    C1_WITHDRAWAL_POLICY,
+    InMemoryC1Repository,
+    SQLiteC1Repository,
+)
+from psyteardown.product.c1 import C1ConsentReceipt, C1OutcomeObservation, C1TrialEnvelope, ProductC1ObservationService
+from tests.api.test_generation_jobs import _confirmed_web_contract
+from tests.api.test_delivery_bundles import _verified_execution
+
+
+def _confirmed_plan(client: TestClient, project_id: str) -> dict:
+    derived = client.post(
+        f"/api/v1/projects/{project_id}/outcome-measurement-plan/derive",
+        json={"actor": "studio", "reason": "derive C1 plan"},
+    ).json()
+    proposal = {
+        "outcome_contract_revision_id": derived["outcome_contract_revision_id"],
+        "measures": [
+            {
+                key: value
+                for key, value in measure.items()
+                if key not in {"collectable", "evidence_ceiling"}
+            }
+            | {"threshold_or_target": "at most 3 observed switches"}
+            for measure in derived["measures"]
+        ],
+        "guardrails": [
+            {key: value for key, value in guardrail.items() if key not in {"collectable", "evidence_ceiling"}}
+            for guardrail in derived["guardrails"]
+        ],
+        "stop_condition_ids": derived["stop_condition_ids"],
+        "sample_plan": derived["sample_plan"],
+        "observation_window": derived["observation_window"],
+        "consent_scope": derived["consent_scope"],
+        "withdrawal_policy": derived["withdrawal_policy"],
+    }
+    revised = client.post(
+        f"/api/v1/projects/{project_id}/outcome-measurement-plan/proposals",
+        json={
+            "proposal": proposal,
+            "measurement_plan_id": derived["measurement_plan_id"],
+            "expected_revision": derived["meta"]["revision"],
+            "actor": "test-user",
+            "reason": "set C1 threshold",
+        },
+    )
+    assert revised.status_code == 201, revised.text
+    confirmed = client.post(
+        f"/api/v1/projects/{project_id}/outcome-measurement-plan/{derived['measurement_plan_id']}/confirmations",
+        json={
+            "expected_revision": revised.json()["meta"]["revision"],
+            "actor": "test-user",
+            "reason": "confirm C1 plan",
+        },
+    )
+    assert confirmed.status_code == 201, confirmed.text
+    return confirmed.json()
+
+
+def _c1_setup(client: TestClient):
+    project_id, _ = _confirmed_web_contract(client)
+    plan = _confirmed_plan(client, project_id)
+    # The helper's contract is confirmed; create an ordinary verified local B6 bundle.
+    from tests.api.test_delivery_bundles import _verified_execution
+    # _verified_execution creates a new project, so use the same setup steps locally.
+    generation = client.post(
+        f"/api/v1/projects/{project_id}/generation-jobs",
+        json={"actor": "user-li", "reason": "materialize"},
+    ).json()
+    client.post(
+        f"/api/v1/projects/{project_id}/generation-jobs/{generation['job_id']}/runs",
+        json={"actor": "local-worker"},
+    )
+    client.app.state.product_execution_job_service.runner = __import__("tests.product.test_delivery", fromlist=["ArtifactRunner"]).ArtifactRunner()
+    execution = client.post(
+        f"/api/v1/projects/{project_id}/execution-jobs",
+        json={"generation_job_id": generation["job_id"], "actor": "user-li", "reason": "validate"},
+    ).json()
+    executed = client.post(
+        f"/api/v1/projects/{project_id}/execution-jobs/{execution['job_id']}/runs",
+        json={"actor": "local-worker"},
+    ).json()
+    assert executed["status"] == "succeeded"
+    bundle = client.post(
+        f"/api/v1/projects/{project_id}/delivery-bundles",
+        json={"execution_job_id": executed["job_id"], "actor": "user-li", "reason": "deliver"},
+    ).json()
+    contract = client.get(f"/api/v1/projects/{project_id}").json()["web_generation_contract"]
+    return project_id, plan, bundle, contract
+
+
+def test_c1_domain_requires_explicit_consent_and_enforces_source_ceiling():
+    repo = InMemoryC1Repository()
+    assert repo.list_tombstones() == []
+    with pytest.raises(Exception):
+        # Smoke the immutable model boundary without pretending a fake plan is an envelope.
+        C1ConsentReceipt(
+            receipt_id="receipt",
+            revision_id="receipt.r1",
+            meta={"revision": 1, "created_by": "host", "reason": "test"},
+            project_id="project",
+            envelope_id="envelope",
+            participant_id="participant",
+            policy_revision="wrong",
+            scope=C1_CONSENT_STATEMENT,
+            consented_by="host",
+            granted_at="2026-09-26T00:00:00Z",
+        )
+    assert C1_DATA_CATEGORIES
+    assert C1_WITHDRAWAL_POLICY
+
+
+def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
+    database = tmp_path / "product.sqlite3"
+    with TestClient(create_app(database_path=database)) as client:
+        project_id, plan, bundle, contract = _c1_setup(client)
+        start = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes",
+            json={
+                "measurement_plan_revision_id": plan["revision_id"],
+                "delivery_bundle_id": bundle["bundle_id"],
+                "execution_job_revision_id": bundle["execution_job_revision_id"],
+                "web_generation_contract_revision_id": contract["revision_id"],
+                "host": "host-li",
+                "actor": "research-lead",
+                "reason": "start consented local trial",
+            },
+        )
+        assert start.status_code == 201, start.text
+        envelope = start.json()
+        policy = client.get("/api/v1/c1-policy")
+        assert policy.status_code == 200
+        assert policy.json()["consent_policy_revision"] == C1_CONSENT_POLICY_REVISION
+        assert policy.json()["evidence_ceiling"] == "observed"
+
+        denied = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants",
+            json={
+                "consent_policy_revision": C1_CONSENT_POLICY_REVISION,
+                "consent_scope_acknowledged": False,
+                "actor": "host-li",
+                "reason": "declined",
+            },
+        )
+        assert denied.status_code == 409
+        assert denied.json()["error"]["code"] == "domain_gate"
+
+        enrolled = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants",
+            json={
+                "consent_policy_revision": C1_CONSENT_POLICY_REVISION,
+                "consent_scope_acknowledged": True,
+                "actor": "host-li",
+                "reason": "participant agreed",
+            },
+        )
+        assert enrolled.status_code == 201, enrolled.text
+        participant = enrolled.json()["participant"]
+        task_id = contract["tasks"][0]["task_id"]
+        presentation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/presentations",
+            json={"participant_id": participant["participant_id"], "task_id": task_id, "actor": "host-li", "reason": "begin task"},
+        )
+        assert presentation.status_code == 201, presentation.text
+        measure_id = plan["measures"][0]["measure_id"]
+        observation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations",
+            json={
+                "participant_id": participant["participant_id"],
+                "presentation_id": presentation.json()["presentation_id"],
+                "measure_id": measure_id,
+                "value": True,
+                "status": "observed",
+                "actor": "host-li",
+                "reason": "manual structured observation",
+            },
+        )
+        assert observation.status_code == 201, observation.text
+        assert observation.json()["source_layer"] == "research_observation"
+        review = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/reviews",
+            json={
+                "observation_ids": [observation.json()["observation_id"]],
+                "reviewer": "reviewer-li",
+                "decision": "accepted",
+                "evidence_level_after": "observed",
+                "rationale": "reviewed structured task record",
+            },
+        )
+        assert review.status_code == 201, review.text
+        assert review.json()["evidence_level_after"] == "observed"
+        withdrawn = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/withdrawals/{participant['participant_id']}",
+            json={"actor": "host-li", "reason": "participant withdrew"},
+        )
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.json()["deleted_observations"] == 1
+        assert client.get(f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations").json() == []
+
+    with TestClient(create_app(database_path=database)) as restarted:
+        assert restarted.get(f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations").json() == []
+        connection = sqlite3.connect(database)
+        rows = connection.execute("SELECT object_json FROM c1_records").fetchall()
+        audit_rows = connection.execute("SELECT audit_id, details_json FROM c1_audit_events").fetchall()
+        connection.close()
+        assert all(participant["participant_id"] not in row[0] for row in rows)
+        assert all(participant["participant_id"] not in str(row) for row in audit_rows)
+
+
