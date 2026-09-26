@@ -200,6 +200,17 @@ def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
         )
         assert review.status_code == 201, review.text
         assert review.json()["evidence_level_after"] == "observed"
+        rejected_promotion = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/reviews",
+            json={
+                "observation_ids": [observation.json()["observation_id"]],
+                "reviewer": "reviewer-li-2",
+                "decision": "rejected",
+                "evidence_level_after": "observed",
+                "rationale": "must remain none",
+            },
+        )
+        assert rejected_promotion.status_code == 409, rejected_promotion.text
         withdrawn = client.post(
             f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/withdrawals/{participant['participant_id']}",
             json={"actor": "host-li", "reason": "participant withdrew"},

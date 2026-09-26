@@ -757,6 +757,7 @@ export function recordC1Observation(input: {
   presentationId: string;
   measureId: string;
   value: string | number | boolean | null;
+  completionCause?: string;
   status: "observed" | "participant_withdrawal" | "task_abandonment" | "technical_failure" | "skipped_by_protocol" | "no_response" | "not_applicable" | "unknown";
 }): Promise<import("./types").C1OutcomeObservation> {
   return request(`/api/v1/projects/${encodeURIComponent(input.projectId)}/c1/envelopes/${encodeURIComponent(input.envelopeId)}/observations`, {
@@ -767,6 +768,7 @@ export function recordC1Observation(input: {
       measure_id: input.measureId,
       value: input.value,
       status: input.status,
+      completion_cause: input.completionCause ?? null,
       actor: "local-host",
       reason: "Recorded a structured manual C1 observation",
     }),
@@ -775,6 +777,10 @@ export function recordC1Observation(input: {
 
 export function listC1Observations(projectId: string, envelopeId: string): Promise<import("./types").C1OutcomeObservation[]> {
   return request(`/api/v1/projects/${encodeURIComponent(projectId)}/c1/envelopes/${encodeURIComponent(envelopeId)}/observations`);
+}
+
+export function listC1Reviews(projectId: string, envelopeId: string): Promise<import("./types").C1EvidenceReview[]> {
+  return request(`/api/v1/projects/${encodeURIComponent(projectId)}/c1/envelopes/${encodeURIComponent(envelopeId)}/reviews`);
 }
 
 export function reviewC1Evidence(input: {

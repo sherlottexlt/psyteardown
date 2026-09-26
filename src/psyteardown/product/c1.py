@@ -848,6 +848,8 @@ class ProductC1ObservationService:
             raise DomainStateError("review one measure at a time")
         if any(item.status != "observed" for item in concrete) and decision in {"accepted", "modified"}:
             raise DomainStateError("non-success paths cannot be promoted as outcome evidence")
+        if decision in {"rejected", "insufficient"} and evidence_level_after != "none":
+            raise DomainStateError("rejected or insufficient C1 reviews must retain evidence level none")
         if evidence_level_after not in {"none", "exploratory", "observed"}:
             raise DomainStateError("research_observation evidence ceiling is observed")
         review_id = self._id("evidence-review")

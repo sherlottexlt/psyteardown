@@ -492,3 +492,5 @@ select { cursor: pointer; }
 .c1-observations small { margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 8px; }
 .c1-withdraw { justify-self: start; color: var(--amber); }
 @media (max-width: 760px) { .c1-grid, .c1-actions { grid-template-columns: 1fr; } .c1-observations small { width: 100%; margin-left: 0; } }
+.c1-muted { color: var(--dim); font-size: 9px; line-height: 1.5; }
+.c1-grid input:disabled { opacity: .6; cursor: not-allowed; }

@@ -176,5 +176,7 @@ test("fake provider jobs form a human-confirmed Product Contract", async ({ page
   await page.getByRole("button", { name: "确认测量计划" }).click();
   await expect(page.getByText("已确认", { exact: true })).toBeVisible();
   await expect(page.getByText("尚未执行真实试用")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "只在明确同意后记录一条人工观察" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "开始本地 C1 试用" })).toBeDisabled();
   await expectNoSeriousAccessibilityViolations(page);
 });
