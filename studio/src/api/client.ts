@@ -3,10 +3,12 @@ import type {
   CollaborationMode,
   ConfirmRevisionRequest,
   CreateProjectRequest,
+  DeriveOutcomeMeasurementPlanRequest,
   EditableProductIntent,
   EditableProblemModel,
   EditableOutcomeContract,
   OutcomeContract,
+  OutcomeMeasurementPlan,
   ProblemModel,
   ProductProposalJob,
   ProductGenerationJob,
@@ -19,6 +21,7 @@ import type {
   SubmitProductIntentRequest,
   SubmitProblemModelRequest,
   SubmitOutcomeContractRequest,
+  SubmitOutcomeMeasurementPlanRequest,
   ThesisStatus,
   TransitionProductThesisRequest,
 } from "./types";
@@ -320,9 +323,59 @@ export function listProposalJobs(projectId: string): Promise<ProductProposalJob[
   );
 }
 
+export function deriveOutcomeMeasurementPlan(input: {
+  projectId: string;
+  measurementPlanId?: string;
+  expectedRevision?: number;
+}): Promise<OutcomeMeasurementPlan> {
+  const body: DeriveOutcomeMeasurementPlanRequest = {
+    actor: "local-user",
+    reason: "Derived measurement plan from confirmed contract in Product Studio",
+    measurement_plan_id: input.measurementPlanId ?? null,
+    expected_revision: input.expectedRevision ?? null,
+  };
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/outcome-measurement-plan/derive`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export function reviseOutcomeMeasurementPlan(input: {
+  projectId: string;
+  plan: OutcomeMeasurementPlan;
+  thresholds: Record<string, string>;
+}): Promise<OutcomeMeasurementPlan> {
+  const proposal: SubmitOutcomeMeasurementPlanRequest["proposal"] = {
+    outcome_contract_revision_id: input.plan.outcome_contract_revision_id,
+    measures: input.plan.measures.map(({ collectable: _collectable, evidence_ceiling: _ceiling, ...measure }) => ({
+      ...measure,
+      threshold_or_target: input.thresholds[measure.measure_id] ?? measure.threshold_or_target,
+    })),
+    guardrails: input.plan.guardrails.map(({ collectable: _collectable, evidence_ceiling: _ceiling, ...guardrail }) => guardrail),
+    stop_condition_ids: input.plan.stop_condition_ids,
+    sample_plan: input.plan.sample_plan,
+    observation_window: input.plan.observation_window,
+    consent_scope: input.plan.consent_scope,
+    withdrawal_policy: input.plan.withdrawal_policy,
+  };
+  return request(
+    `/api/v1/projects/${encodeURIComponent(input.projectId)}/outcome-measurement-plan/proposals`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        proposal,
+        measurement_plan_id: input.plan.measurement_plan_id,
+        expected_revision: input.plan.meta.revision,
+        actor: "local-user",
+        reason: "Corrected measurement thresholds in Product Studio",
+      }),
+    },
+  );
+}
+
 export function confirmRevision(input: {
   projectId: string;
-  objectType: "product-intent" | "problem-model" | "outcome-contract";
+  objectType: "product-intent" | "problem-model" | "outcome-contract" | "outcome-measurement-plan";
   objectId: string;
   revision: number;
   reason: string;
@@ -331,6 +384,7 @@ export function confirmRevision(input: {
     "product-intent": `product-intent/${input.objectId}`,
     "problem-model": `problem-model/${input.objectId}`,
     "outcome-contract": `outcome-contract/${input.objectId}`,
+    "outcome-measurement-plan": `outcome-measurement-plan/${input.objectId}`,
   } as const;
   const body: ConfirmRevisionRequest = {
     expected_revision: input.revision,

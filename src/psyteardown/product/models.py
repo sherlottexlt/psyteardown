@@ -17,7 +17,9 @@ from psyteardown.experience.models import (
     DependencyRef,
     FrozenModel,
     Identifier,
+    MeasureSpec,
     RevisionMeta,
+    SamplePlan,
 )
 
 
@@ -647,12 +649,210 @@ class WebProductGenerationContract(FrozenModel):
         return self
 
 
+# C2 turns a confirmed Outcome Contract into a measurement plan.  Source layers
+# keep what produced an observation apart; each layer caps the evidence level
+# a later human EvidenceReview may assign, and a model interpretation is never
+# a measurement source.  Planning metadata is not recruited data.
+MEASUREMENT_PLAN_VERSION = "c2-v1"
+MeasurementSourceLayer = Literal[
+    "software_check",
+    "runtime_event",
+    "user_report",
+    "research_observation",
+    "expert_review",
+]
+MEASUREMENT_SOURCE_LAYERS: tuple[str, ...] = (
+    "software_check",
+    "runtime_event",
+    "user_report",
+    "research_observation",
+    "expert_review",
+)
+MEASUREMENT_NON_EVIDENCE_LAYERS: tuple[str, ...] = ("model_interpretation",)
+MEASUREMENT_LAYER_CEILINGS: dict[str, str] = {
+    "software_check": "none",
+    "runtime_event": "observed",
+    "user_report": "exploratory",
+    "research_observation": "observed",
+    "expert_review": "exploratory",
+}
+MEASUREMENT_LAYER_COMPATIBILITY: dict[str, tuple[str, ...]] = {
+    "deterministic_check": ("software_check",),
+    "tool_result": ("software_check", "runtime_event"),
+    "expert_review": ("expert_review",),
+    "real_user_observation": ("research_observation", "user_report", "runtime_event"),
+    "operational_result": ("runtime_event", "research_observation"),
+}
+MEASUREMENT_REAL_WORLD_EVIDENCE: tuple[str, ...] = (
+    "real_user_observation",
+    "operational_result",
+)
+# The deterministic outcome proposal leaves thresholds to a human; a plan
+# carrying this text is not operational and cannot be confirmed.
+MEASUREMENT_THRESHOLD_PLACEHOLDER = "Must be set by a human before confirmation"
+_MEASUREMENT_THRESHOLD_PLACEHOLDERS = frozenset(
+    {
+        "tbd",
+        "todo",
+        "placeholder",
+        "not set",
+        "to be determined",
+        MEASUREMENT_THRESHOLD_PLACEHOLDER.casefold(),
+    }
+)
+
+
+def is_measurement_threshold_placeholder(value: str) -> bool:
+    """Reject blank or unresolved threshold text, independent of casing/spacing."""
+
+    normalized = " ".join(value.split()).casefold()
+    return (
+        not normalized
+        or normalized in _MEASUREMENT_THRESHOLD_PLACEHOLDERS
+        or "to be determined" in normalized
+        or normalized.startswith("must be set by a human")
+    )
+
+
+MEASUREMENT_RUNTIME_EVENT_BLOCKED_REASON = (
+    "PS-O007: the preview records only explicit user reports; "
+    "automatic event capture is not authorized"
+)
+
+
+class OutcomeMeasure(MeasureSpec):
+    """One operational measure for a contract indicator, bound to a source layer."""
+
+    indicator_id: Identifier
+    source_layer: MeasurementSourceLayer
+    value_kind: Literal[
+        "boolean",
+        "count",
+        "duration_seconds",
+        "ordinal_1_5",
+        "categorical",
+        "free_text",
+    ]
+    desired_direction: Identifier
+    threshold_or_target: Identifier
+    blocked_reason: str | None = None
+    on_contradiction: Literal["product_thesis", "outcome_contract", "problem_model"] = (
+        "product_thesis"
+    )
+
+    @model_validator(mode="after")
+    def runtime_events_stay_blocked(self) -> "OutcomeMeasure":
+        if self.source_layer == "runtime_event" and not self.blocked_reason:
+            raise ValueError(
+                "runtime_event measures must stay blocked until automatic capture is authorized"
+            )
+        return self
+
+    @property
+    def collectable(self) -> bool:
+        return self.blocked_reason is None
+
+    @property
+    def evidence_ceiling(self) -> str:
+        return MEASUREMENT_LAYER_CEILINGS[self.source_layer]
+
+
+class MeasurementGuardrail(FrozenModel):
+    """How a prohibited outcome is watched for during a trial."""
+
+    guardrail_id: Identifier
+    prohibited_outcome_id: Identifier
+    severity: Literal["hard", "strong_avoidance", "watch"]
+    detection_method: Identifier
+    source_layer: MeasurementSourceLayer
+    response: Identifier
+    blocked_reason: str | None = None
+
+    @model_validator(mode="after")
+    def runtime_events_stay_blocked(self) -> "MeasurementGuardrail":
+        if self.source_layer == "runtime_event" and not self.blocked_reason:
+            raise ValueError(
+                "runtime_event guardrails must stay blocked until automatic capture is authorized"
+            )
+        return self
+
+    @property
+    def collectable(self) -> bool:
+        return self.blocked_reason is None
+
+    @property
+    def evidence_ceiling(self) -> str:
+        return MEASUREMENT_LAYER_CEILINGS[self.source_layer]
+
+
+class OutcomeMeasurementPlan(FrozenModel):
+    """Human-confirmed plan for observing one Outcome Contract revision."""
+
+    measurement_plan_id: Identifier
+    revision_id: Identifier
+    meta: RevisionMeta
+    project_id: Identifier
+    outcome_contract_revision_id: Identifier
+    status: Literal["proposed", "confirmed"] = "proposed"
+    plan_version: Literal["c2-v1"] = MEASUREMENT_PLAN_VERSION
+    origin: Literal["deterministic_derivation", "human_revision"]
+    measures: tuple[OutcomeMeasure, ...] = Field(min_length=1, max_length=20)
+    guardrails: tuple[MeasurementGuardrail, ...] = Field(default=(), max_length=20)
+    stop_condition_ids: tuple[Identifier, ...] = ()
+    sample_plan: SamplePlan
+    observation_window: Identifier
+    consent_scope: Identifier
+    withdrawal_policy: Identifier
+    dependencies: tuple[DependencyRef, ...] = Field(min_length=1, max_length=1)
+    confirmation: HumanConfirmation | None = None
+
+    @model_validator(mode="after")
+    def validate_measurement_plan(self) -> "OutcomeMeasurementPlan":
+        _require_dependencies(self.dependencies, ("outcome_contract",))
+        dependency = self.dependencies[0]
+        if self.outcome_contract_revision_id != (
+            f"{dependency.object_id}.r{dependency.revision}"
+        ):
+            raise ValueError(
+                "measurement plan outcome contract dependency does not match its revision"
+            )
+        for label, values in (
+            ("measure", tuple(item.measure_id for item in self.measures)),
+            ("guardrail", tuple(item.guardrail_id for item in self.guardrails)),
+            ("stop condition reference", self.stop_condition_ids),
+        ):
+            duplicates = _duplicates(values)
+            if duplicates:
+                raise ValueError(f"duplicate {label} IDs: {sorted(duplicates)}")
+        if self.status == "confirmed":
+            if self.confirmation is None:
+                raise ValueError("confirmed measurement plan requires human confirmation")
+            if sum(1 for item in self.measures if item.primary) != 1:
+                raise ValueError("confirmed measurement plan requires exactly one primary measure")
+            if any(
+                is_measurement_threshold_placeholder(item.threshold_or_target)
+                for item in self.measures
+            ):
+                raise ValueError("confirmed measurement plan cannot carry placeholder thresholds")
+            if not self.sample_plan.target_population.strip():
+                raise ValueError("confirmed measurement plan requires a sample target population")
+            if not any(item.strip() for item in self.sample_plan.inclusion_criteria):
+                raise ValueError("confirmed measurement plan requires sample inclusion criteria")
+            for field_name in ("observation_window", "consent_scope", "withdrawal_policy"):
+                if not getattr(self, field_name).strip():
+                    raise ValueError(f"confirmed measurement plan requires {field_name}")
+        elif self.confirmation is not None:
+            raise ValueError("proposed measurement plan cannot carry confirmation")
+        return self
+
+
 class RevisionImpact(FrozenModel):
     dependent_type: Literal[
         "problem_model",
         "outcome_contract",
         "product_thesis",
         "web_generation_contract",
+        "outcome_measurement_plan",
     ]
     dependent_id: Identifier
     dependent_revision_id: Identifier
@@ -670,6 +870,9 @@ class ProductProjectView(FrozenModel):
     outcome_contract: OutcomeContract | None = None
     product_theses: tuple[ProductThesis, ...] = ()
     web_generation_contract: WebProductGenerationContract | None = None
+    outcome_measurement_plan: OutcomeMeasurementPlan | None = None
+    # Why the current measurement plan cannot be confirmed yet, if anything.
+    measurement_plan_blockers: tuple[str, ...] = ()
     recorded_impacts: tuple[RevisionImpact, ...] = ()
 
 

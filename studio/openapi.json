@@ -785,6 +785,50 @@
         "title": "DeliveryMaturity",
         "type": "string"
       },
+      "DeriveOutcomeMeasurementPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "measurement_plan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Plan Id"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "reason"
+        ],
+        "title": "DeriveOutcomeMeasurementPlanRequest",
+        "type": "object"
+      },
       "ExecutionBudget": {
         "additionalProperties": false,
         "description": "Boundaries for one install/build/run/browser execution attempt.",
@@ -1479,6 +1523,153 @@
         "title": "HumanConfirmation",
         "type": "object"
       },
+      "MeasurementGuardrail": {
+        "additionalProperties": false,
+        "description": "How a prohibited outcome is watched for during a trial.",
+        "properties": {
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "detection_method": {
+            "minLength": 1,
+            "title": "Detection Method",
+            "type": "string"
+          },
+          "guardrail_id": {
+            "minLength": 1,
+            "title": "Guardrail Id",
+            "type": "string"
+          },
+          "prohibited_outcome_id": {
+            "minLength": 1,
+            "title": "Prohibited Outcome Id",
+            "type": "string"
+          },
+          "response": {
+            "minLength": 1,
+            "title": "Response",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "hard",
+              "strong_avoidance",
+              "watch"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "source_layer": {
+            "enum": [
+              "software_check",
+              "runtime_event",
+              "user_report",
+              "research_observation",
+              "expert_review"
+            ],
+            "title": "Source Layer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guardrail_id",
+          "prohibited_outcome_id",
+          "severity",
+          "detection_method",
+          "source_layer",
+          "response"
+        ],
+        "title": "MeasurementGuardrail",
+        "type": "object"
+      },
+      "MeasurementGuardrailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "collectable": {
+            "title": "Collectable",
+            "type": "boolean"
+          },
+          "detection_method": {
+            "title": "Detection Method",
+            "type": "string"
+          },
+          "evidence_ceiling": {
+            "enum": [
+              "none",
+              "exploratory",
+              "observed",
+              "supported",
+              "replicated"
+            ],
+            "title": "Evidence Ceiling",
+            "type": "string"
+          },
+          "guardrail_id": {
+            "title": "Guardrail Id",
+            "type": "string"
+          },
+          "prohibited_outcome_id": {
+            "title": "Prohibited Outcome Id",
+            "type": "string"
+          },
+          "response": {
+            "title": "Response",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "hard",
+              "strong_avoidance",
+              "watch"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "source_layer": {
+            "enum": [
+              "software_check",
+              "runtime_event",
+              "user_report",
+              "research_observation",
+              "expert_review"
+            ],
+            "title": "Source Layer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guardrail_id",
+          "prohibited_outcome_id",
+          "severity",
+          "detection_method",
+          "source_layer",
+          "response",
+          "blocked_reason",
+          "collectable",
+          "evidence_ceiling"
+        ],
+        "title": "MeasurementGuardrailResponse",
+        "type": "object"
+      },
       "MechanismHypothesis": {
         "additionalProperties": false,
         "properties": {
@@ -1928,6 +2119,456 @@
           "content_hash"
         ],
         "title": "OutcomeContractResponse",
+        "type": "object"
+      },
+      "OutcomeMeasure": {
+        "additionalProperties": false,
+        "description": "One operational measure for a contract indicator, bound to a source layer.",
+        "properties": {
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "desired_direction": {
+            "minLength": 1,
+            "title": "Desired Direction",
+            "type": "string"
+          },
+          "indicator_id": {
+            "minLength": 1,
+            "title": "Indicator Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "measure_id": {
+            "minLength": 1,
+            "title": "Measure Id",
+            "type": "string"
+          },
+          "method": {
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "missingness_policy": {
+            "default": "record missingness and do not impute silently",
+            "minLength": 1,
+            "title": "Missingness Policy",
+            "type": "string"
+          },
+          "on_contradiction": {
+            "default": "product_thesis",
+            "enum": [
+              "product_thesis",
+              "outcome_contract",
+              "problem_model"
+            ],
+            "title": "On Contradiction",
+            "type": "string"
+          },
+          "operational_definition": {
+            "minLength": 1,
+            "title": "Operational Definition",
+            "type": "string"
+          },
+          "primary": {
+            "default": false,
+            "title": "Primary",
+            "type": "boolean"
+          },
+          "source_layer": {
+            "enum": [
+              "software_check",
+              "runtime_event",
+              "user_report",
+              "research_observation",
+              "expert_review"
+            ],
+            "title": "Source Layer",
+            "type": "string"
+          },
+          "threshold_or_target": {
+            "minLength": 1,
+            "title": "Threshold Or Target",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "enum": [
+              "boolean",
+              "count",
+              "duration_seconds",
+              "ordinal_1_5",
+              "categorical",
+              "free_text"
+            ],
+            "title": "Value Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measure_id",
+          "label",
+          "operational_definition",
+          "method",
+          "indicator_id",
+          "source_layer",
+          "value_kind",
+          "desired_direction",
+          "threshold_or_target"
+        ],
+        "title": "OutcomeMeasure",
+        "type": "object"
+      },
+      "OutcomeMeasureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "collectable": {
+            "title": "Collectable",
+            "type": "boolean"
+          },
+          "desired_direction": {
+            "title": "Desired Direction",
+            "type": "string"
+          },
+          "evidence_ceiling": {
+            "enum": [
+              "none",
+              "exploratory",
+              "observed",
+              "supported",
+              "replicated"
+            ],
+            "title": "Evidence Ceiling",
+            "type": "string"
+          },
+          "indicator_id": {
+            "title": "Indicator Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "measure_id": {
+            "title": "Measure Id",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "missingness_policy": {
+            "title": "Missingness Policy",
+            "type": "string"
+          },
+          "on_contradiction": {
+            "enum": [
+              "product_thesis",
+              "outcome_contract",
+              "problem_model"
+            ],
+            "title": "On Contradiction",
+            "type": "string"
+          },
+          "operational_definition": {
+            "title": "Operational Definition",
+            "type": "string"
+          },
+          "primary": {
+            "title": "Primary",
+            "type": "boolean"
+          },
+          "source_layer": {
+            "enum": [
+              "software_check",
+              "runtime_event",
+              "user_report",
+              "research_observation",
+              "expert_review"
+            ],
+            "title": "Source Layer",
+            "type": "string"
+          },
+          "threshold_or_target": {
+            "title": "Threshold Or Target",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "enum": [
+              "boolean",
+              "count",
+              "duration_seconds",
+              "ordinal_1_5",
+              "categorical",
+              "free_text"
+            ],
+            "title": "Value Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measure_id",
+          "label",
+          "operational_definition",
+          "method",
+          "unit",
+          "primary",
+          "missingness_policy",
+          "indicator_id",
+          "source_layer",
+          "value_kind",
+          "desired_direction",
+          "threshold_or_target",
+          "blocked_reason",
+          "on_contradiction",
+          "collectable",
+          "evidence_ceiling"
+        ],
+        "title": "OutcomeMeasureResponse",
+        "type": "object"
+      },
+      "OutcomeMeasurementPlanProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "consent_scope": {
+            "minLength": 1,
+            "title": "Consent Scope",
+            "type": "string"
+          },
+          "guardrails": {
+            "items": {
+              "$ref": "#/components/schemas/MeasurementGuardrail"
+            },
+            "maxItems": 20,
+            "title": "Guardrails",
+            "type": "array"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeMeasure"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Measures",
+            "type": "array"
+          },
+          "observation_window": {
+            "minLength": 1,
+            "title": "Observation Window",
+            "type": "string"
+          },
+          "outcome_contract_revision_id": {
+            "minLength": 1,
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "sample_plan": {
+            "$ref": "#/components/schemas/SamplePlan"
+          },
+          "stop_condition_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Stop Condition Ids",
+            "type": "array"
+          },
+          "withdrawal_policy": {
+            "minLength": 1,
+            "title": "Withdrawal Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome_contract_revision_id",
+          "measures",
+          "sample_plan",
+          "observation_window",
+          "consent_scope",
+          "withdrawal_policy"
+        ],
+        "title": "OutcomeMeasurementPlanProposal",
+        "type": "object"
+      },
+      "OutcomeMeasurementPlanResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HumanConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "consent_scope": {
+            "minLength": 1,
+            "title": "Consent Scope",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "guardrails": {
+            "items": {
+              "$ref": "#/components/schemas/MeasurementGuardrailResponse"
+            },
+            "title": "Guardrails",
+            "type": "array"
+          },
+          "measurement_plan_id": {
+            "title": "Measurement Plan Id",
+            "type": "string"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeMeasureResponse"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/RevisionMetaResponse"
+          },
+          "observation_window": {
+            "minLength": 1,
+            "title": "Observation Window",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "deterministic_derivation",
+              "human_revision"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "outcome_contract_revision_id": {
+            "minLength": 1,
+            "title": "Outcome Contract Revision Id",
+            "type": "string"
+          },
+          "plan_version": {
+            "const": "c2-v1",
+            "title": "Plan Version",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "sample_plan": {
+            "$ref": "#/components/schemas/SamplePlan"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stop_condition_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Stop Condition Ids",
+            "type": "array"
+          },
+          "withdrawal_policy": {
+            "minLength": 1,
+            "title": "Withdrawal Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome_contract_revision_id",
+          "measures",
+          "guardrails",
+          "sample_plan",
+          "observation_window",
+          "consent_scope",
+          "withdrawal_policy",
+          "project_id",
+          "measurement_plan_id",
+          "revision_id",
+          "meta",
+          "status",
+          "plan_version",
+          "origin",
+          "dependencies",
+          "confirmation",
+          "blockers",
+          "content_hash"
+        ],
+        "title": "OutcomeMeasurementPlanResponse",
         "type": "object"
       },
       "PreviewFeedbackAnchor": {
@@ -2915,10 +3556,27 @@
       "ProductProjectViewResponse": {
         "additionalProperties": false,
         "properties": {
+          "measurement_plan_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Measurement Plan Blockers",
+            "type": "array"
+          },
           "outcome_contract": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/OutcomeContractResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_measurement_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutcomeMeasurementPlanResponse"
               },
               {
                 "type": "null"
@@ -2978,6 +3636,8 @@
           "product_intent",
           "problem_model",
           "outcome_contract",
+          "outcome_measurement_plan",
+          "measurement_plan_blockers",
           "product_theses",
           "web_generation_contract",
           "recorded_impacts"
@@ -4002,7 +4662,8 @@
               "problem_model",
               "outcome_contract",
               "product_thesis",
-              "web_generation_contract"
+              "web_generation_contract",
+              "outcome_measurement_plan"
             ],
             "title": "Dependent Type",
             "type": "string"
@@ -4071,6 +4732,56 @@
           "reason"
         ],
         "title": "RevisionMetaResponse",
+        "type": "object"
+      },
+      "SamplePlan": {
+        "additionalProperties": false,
+        "description": "Bounded sample target; it is planning metadata, not recruited data.",
+        "properties": {
+          "allocation": {
+            "default": "balanced across conditions",
+            "minLength": 1,
+            "title": "Allocation",
+            "type": "string"
+          },
+          "exclusion_criteria": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclusion Criteria",
+            "type": "array"
+          },
+          "inclusion_criteria": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Inclusion Criteria",
+            "type": "array"
+          },
+          "maximum_n": {
+            "minimum": 1.0,
+            "title": "Maximum N",
+            "type": "integer"
+          },
+          "minimum_n": {
+            "minimum": 1.0,
+            "title": "Minimum N",
+            "type": "integer"
+          },
+          "target_population": {
+            "minLength": 1,
+            "title": "Target Population",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_population",
+          "minimum_n",
+          "maximum_n"
+        ],
+        "title": "SamplePlan",
         "type": "object"
       },
       "SourceModelPolicyResponse": {
@@ -4318,6 +5029,54 @@
           "reason"
         ],
         "title": "SubmitOutcomeContractRequest",
+        "type": "object"
+      },
+      "SubmitOutcomeMeasurementPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "measurement_plan_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Plan Id"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/OutcomeMeasurementPlanProposal"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal",
+          "actor",
+          "reason"
+        ],
+        "title": "SubmitOutcomeMeasurementPlanRequest",
         "type": "object"
       },
       "SubmitPreviewFeedbackRequest": {
@@ -7287,6 +8046,231 @@
           }
         },
         "summary": "Confirm Outcome Contract Revision",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/derive": {
+      "post": {
+        "operationId": "derive_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_derive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeriveOutcomeMeasurementPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeMeasurementPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Derive Outcome Measurement Plan",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/proposals": {
+      "post": {
+        "operationId": "submit_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitOutcomeMeasurementPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeMeasurementPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Submit Outcome Measurement Plan",
+        "tags": [
+          "product-projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/{measurement_plan_id}/confirmations": {
+      "post": {
+        "operationId": "confirm_outcome_measurement_plan_revision_api_v1_projects__project_id__outcome_measurement_plan__measurement_plan_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "measurement_plan_id",
+            "required": true,
+            "schema": {
+              "title": "Measurement Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRevisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeMeasurementPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Confirm Outcome Measurement Plan Revision",
         "tags": [
           "product-projects"
         ]

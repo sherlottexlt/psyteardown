@@ -6,13 +6,15 @@ from typing import Literal
 
 from pydantic import Field
 
-from psyteardown.experience.models import BoundaryModel, Identifier
+from psyteardown.experience.models import BoundaryModel, Identifier, SamplePlan
 from psyteardown.product.models import (
     CompetingExplanation,
     DeliveryEstimate,
     DeliveryMaturity,
     FalsifiablePrediction,
+    MeasurementGuardrail,
     MechanismHypothesis,
+    OutcomeMeasure,
     ProblemAssumption,
     ProblemFact,
     ProblemUnknown,
@@ -195,6 +197,44 @@ class SubmitWebProductGenerationContractProposal(BoundaryModel):
 class ConfirmWebProductGenerationContract(BoundaryModel):
     project_id: Identifier
     web_generation_contract_id: Identifier
+    expected_revision: int = Field(ge=1)
+    actor: Identifier
+    reason: Identifier
+
+
+class OutcomeMeasurementPlanProposal(BoundaryModel):
+    outcome_contract_revision_id: Identifier
+    measures: list[OutcomeMeasure] = Field(min_length=1, max_length=20)
+    guardrails: list[MeasurementGuardrail] = Field(default_factory=list, max_length=20)
+    stop_condition_ids: list[Identifier] = Field(default_factory=list)
+    sample_plan: SamplePlan
+    observation_window: Identifier
+    consent_scope: Identifier
+    withdrawal_policy: Identifier
+
+
+class DeriveOutcomeMeasurementPlan(BoundaryModel):
+    """Ask for a deterministic plan proposal from the current confirmed contract."""
+
+    project_id: Identifier
+    actor: Identifier
+    reason: Identifier
+    measurement_plan_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class SubmitOutcomeMeasurementPlanProposal(BoundaryModel):
+    project_id: Identifier
+    proposal: OutcomeMeasurementPlanProposal
+    actor: Identifier
+    reason: Identifier
+    measurement_plan_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class ConfirmOutcomeMeasurementPlan(BoundaryModel):
+    project_id: Identifier
+    measurement_plan_id: Identifier
     expected_revision: int = Field(ge=1)
     actor: Identifier
     reason: Identifier

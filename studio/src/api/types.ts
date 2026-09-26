@@ -47,6 +47,7 @@ export type OutcomeContract = RequiredKeys<
   | "target_outcomes"
   | "target_segments"
 >;
+export type OutcomeMeasurementPlan = Schemas["OutcomeMeasurementPlanResponse"];
 export type ProductThesis = Schemas["ProductThesisResponse"];
 export type WebProductGenerationContract = Schemas["WebProductGenerationContractResponse"];
 export type RevisionImpact = Schemas["RevisionImpactResponse"];
@@ -54,11 +55,12 @@ export type RevisionImpact = Schemas["RevisionImpactResponse"];
 export interface ProductProjectView
   extends Omit<
     Schemas["ProductProjectViewResponse"],
-    "product_intent" | "problem_model" | "outcome_contract" | "web_generation_contract"
+    "product_intent" | "problem_model" | "outcome_contract" | "outcome_measurement_plan" | "web_generation_contract"
   > {
   product_intent: ProductIntent | null;
   problem_model: ProblemModel | null;
   outcome_contract: OutcomeContract | null;
+  outcome_measurement_plan: OutcomeMeasurementPlan | null;
   web_generation_contract?: WebProductGenerationContract | null;
 }
 
@@ -82,6 +84,8 @@ export type DeliveryBundleDiff = Schemas["DeliveryBundleDiffResponse"];
 export type ProposalJobKind = Schemas["CreateProposalJobRequest"]["kind"];
 export type SubmitProblemModelRequest = Schemas["SubmitProblemModelRequest"];
 export type SubmitOutcomeContractRequest = Schemas["SubmitOutcomeContractRequest"];
+export type DeriveOutcomeMeasurementPlanRequest = Schemas["DeriveOutcomeMeasurementPlanRequest"];
+export type SubmitOutcomeMeasurementPlanRequest = Schemas["SubmitOutcomeMeasurementPlanRequest"];
 
 export interface EditableProductIntent {
   desiredChange: string;

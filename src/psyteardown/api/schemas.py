@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from psyteardown.product.commands import (
     OutcomeContractProposal,
+    OutcomeMeasurementPlanProposal,
     ProblemModelProposal,
     ProductIntentProposal,
     ProductThesisProposal,
@@ -16,6 +17,7 @@ from psyteardown.product.commands import (
 from psyteardown.product.models import (
     HumanConfirmation,
     OutcomeContract,
+    OutcomeMeasurementPlan,
     ProblemModel,
     ProductIntent,
     ProductProject,
@@ -134,6 +136,21 @@ class SubmitWebProductGenerationContractRequest(TransportModel):
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
     web_generation_contract_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class DeriveOutcomeMeasurementPlanRequest(TransportModel):
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    measurement_plan_id: str | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class SubmitOutcomeMeasurementPlanRequest(TransportModel):
+    proposal: OutcomeMeasurementPlanProposal
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    measurement_plan_id: str | None = None
     expected_revision: int | None = Field(default=None, ge=1)
 
 
@@ -351,6 +368,86 @@ class OutcomeContractResponse(OutcomeContractProposal):
         return cls.model_validate(_with_content_hash(value))
 
 
+class OutcomeMeasureResponse(TransportModel):
+    measure_id: str
+    label: str
+    operational_definition: str
+    method: str
+    unit: str | None
+    primary: bool
+    missingness_policy: str
+    indicator_id: str
+    source_layer: Literal[
+        "software_check", "runtime_event", "user_report", "research_observation", "expert_review"
+    ]
+    value_kind: Literal[
+        "boolean", "count", "duration_seconds", "ordinal_1_5", "categorical", "free_text"
+    ]
+    desired_direction: str
+    threshold_or_target: str
+    blocked_reason: str | None
+    on_contradiction: Literal["product_thesis", "outcome_contract", "problem_model"]
+    collectable: bool
+    evidence_ceiling: Literal["none", "exploratory", "observed", "supported", "replicated"]
+
+
+class MeasurementGuardrailResponse(TransportModel):
+    guardrail_id: str
+    prohibited_outcome_id: str
+    severity: Literal["hard", "strong_avoidance", "watch"]
+    detection_method: str
+    source_layer: Literal[
+        "software_check", "runtime_event", "user_report", "research_observation", "expert_review"
+    ]
+    response: str
+    blocked_reason: str | None
+    collectable: bool
+    evidence_ceiling: Literal["none", "exploratory", "observed", "supported", "replicated"]
+
+
+class OutcomeMeasurementPlanResponse(OutcomeMeasurementPlanProposal):
+    measures: list[OutcomeMeasureResponse]
+    guardrails: list[MeasurementGuardrailResponse]
+    project_id: str
+    measurement_plan_id: str
+    revision_id: str
+    meta: RevisionMetaResponse
+    status: Literal["proposed", "confirmed"]
+    plan_version: Literal["c2-v1"]
+    origin: Literal["deterministic_derivation", "human_revision"]
+    dependencies: list[dict[str, Any]]
+    confirmation: HumanConfirmation | None
+    blockers: list[str]
+    content_hash: str
+
+    @classmethod
+    def from_domain(
+        cls,
+        value: OutcomeMeasurementPlan,
+        *,
+        blockers: tuple[str, ...] = (),
+    ) -> "OutcomeMeasurementPlanResponse":
+        payload = _with_content_hash(value)
+        payload["measures"] = [
+            {
+                **measure,
+                "collectable": item.collectable,
+                "evidence_ceiling": item.evidence_ceiling,
+            }
+            for item, measure in zip(value.measures, payload["measures"], strict=True)
+        ]
+        payload["guardrails"] = [
+            {
+                **guardrail,
+                "collectable": item.collectable,
+                "evidence_ceiling": item.evidence_ceiling,
+            }
+            for item, guardrail in zip(value.guardrails, payload["guardrails"], strict=True)
+        ]
+        payload["blockers"] = list(blockers)
+        return cls.model_validate(payload)
+
+
 class ProductThesisResponse(ProductThesisProposal):
     project_id: str
     thesis_id: str
@@ -368,7 +465,11 @@ class ProductThesisResponse(ProductThesisProposal):
 
 class RevisionImpactResponse(TransportModel):
     dependent_type: Literal[
-        "problem_model", "outcome_contract", "product_thesis", "web_generation_contract"
+        "problem_model",
+        "outcome_contract",
+        "product_thesis",
+        "web_generation_contract",
+        "outcome_measurement_plan",
     ]
     dependent_id: str
     dependent_revision_id: str
@@ -625,6 +726,8 @@ class ProductProjectViewResponse(TransportModel):
     product_intent: ProductIntentResponse | None
     problem_model: ProblemModelResponse | None
     outcome_contract: OutcomeContractResponse | None
+    outcome_measurement_plan: OutcomeMeasurementPlanResponse | None
+    measurement_plan_blockers: list[str]
     product_theses: list[ProductThesisResponse]
     web_generation_contract: WebProductGenerationContractResponse | None
     recorded_impacts: list[RevisionImpactResponse]
@@ -648,6 +751,15 @@ class ProductProjectViewResponse(TransportModel):
                 if value.outcome_contract
                 else None
             ),
+            outcome_measurement_plan=(
+                OutcomeMeasurementPlanResponse.from_domain(
+                    value.outcome_measurement_plan,
+                    blockers=value.measurement_plan_blockers,
+                )
+                if value.outcome_measurement_plan
+                else None
+            ),
+            measurement_plan_blockers=list(value.measurement_plan_blockers),
             product_theses=[
                 ProductThesisResponse.from_domain(item)
                 for item in value.product_theses

@@ -133,6 +133,79 @@ def test_complete_http_command_chain_and_sqlite_restart(tmp_path):
         assert selected["status"] == "selected"
         assert selected["meta"]["revision"] == 2
 
+        derive_response = first_client.post(
+            f"/api/v1/projects/{project_id}/outcome-measurement-plan/derive",
+            json={
+                "actor": "studio",
+                "reason": "derive C2 measurement plan",
+            },
+        )
+        assert derive_response.status_code == 201
+        plan = derive_response.json()
+        assert plan["status"] == "proposed"
+        assert isinstance(plan["blockers"], list)
+        assert all(isinstance(measure["collectable"], bool) for measure in plan["measures"])
+        assert all(measure["evidence_ceiling"] for measure in plan["measures"])
+        assert all(isinstance(guardrail["collectable"], bool) for guardrail in plan["guardrails"])
+        assert all(guardrail["evidence_ceiling"] for guardrail in plan["guardrails"])
+        plan_view = first_client.get(f"/api/v1/projects/{project_id}").json()
+        assert plan_view["outcome_measurement_plan"]["blockers"] == plan["blockers"]
+        assert plan_view["measurement_plan_blockers"] == plan["blockers"]
+        edited_proposal = {
+            "outcome_contract_revision_id": plan["outcome_contract_revision_id"],
+            "measures": [
+                {
+                    **{
+                        key: value
+                        for key, value in measure.items()
+                        if key not in {"collectable", "evidence_ceiling"}
+                    },
+                    "threshold_or_target": (
+                        "at least 20% below baseline"
+                        if index == 0
+                        else "no more than 3 switches"
+                    ),
+                }
+                for index, measure in enumerate(plan["measures"])
+            ],
+            "guardrails": [
+                {
+                    key: value
+                    for key, value in guardrail.items()
+                    if key not in {"collectable", "evidence_ceiling"}
+                }
+                for guardrail in plan["guardrails"]
+            ],
+            "stop_condition_ids": plan["stop_condition_ids"],
+            "sample_plan": plan["sample_plan"],
+            "observation_window": plan["observation_window"],
+            "consent_scope": plan["consent_scope"],
+            "withdrawal_policy": plan["withdrawal_policy"],
+        }
+        revised_plan_response = first_client.post(
+            f"/api/v1/projects/{project_id}/outcome-measurement-plan/proposals",
+            json={
+                "proposal": edited_proposal,
+                "measurement_plan_id": plan["measurement_plan_id"],
+                "expected_revision": plan["meta"]["revision"],
+                "actor": "test-user",
+                "reason": "set human thresholds",
+            },
+        )
+        assert revised_plan_response.status_code == 201, revised_plan_response.text
+        revised_plan = revised_plan_response.json()
+        assert revised_plan["blockers"] == []
+        confirm_plan_response = first_client.post(
+            f"/api/v1/projects/{project_id}/outcome-measurement-plan/{revised_plan['measurement_plan_id']}/confirmations",
+            json={
+                "expected_revision": revised_plan["meta"]["revision"],
+                "actor": "test-user",
+                "reason": "confirm executable measurement plan",
+            },
+        )
+        assert confirm_plan_response.status_code == 201
+        assert confirm_plan_response.json()["status"] == "confirmed"
+
         stale_response = first_client.post(
             f"/api/v1/projects/{project_id}/product-theses/{selected['thesis_id']}/transitions",
             headers={"X-Request-ID": "stale-thesis-transition"},
@@ -164,6 +237,8 @@ def test_complete_http_command_chain_and_sqlite_restart(tmp_path):
         assert view["product_intent"]["status"] == "confirmed"
         assert view["problem_model"]["status"] == "confirmed"
         assert view["outcome_contract"]["status"] == "confirmed"
+        assert view["outcome_measurement_plan"]["status"] == "confirmed"
+        assert view["measurement_plan_blockers"] == []
         assert view["product_theses"][0]["status"] == "selected"
 
 
@@ -236,6 +311,9 @@ def test_openapi_exposes_every_product_command_schema():
         "SubmitProductIntentRequest",
         "SubmitProblemModelRequest",
         "SubmitOutcomeContractRequest",
+        "DeriveOutcomeMeasurementPlanRequest",
+        "SubmitOutcomeMeasurementPlanRequest",
+        "OutcomeMeasurementPlanResponse",
         "SubmitProductThesisRequest",
         "ConfirmRevisionRequest",
         "TransitionProductThesisRequest",
@@ -248,6 +326,8 @@ def test_openapi_exposes_every_product_command_schema():
 
     assert required <= set(components)
     assert schema["paths"]["/api/v1/projects/{project_id}"]["get"]["responses"]
+    assert schema["paths"]["/api/v1/projects/{project_id}/outcome-measurement-plan/derive"]["post"]
+    assert schema["paths"]["/api/v1/projects/{project_id}/outcome-measurement-plan/proposals"]["post"]
     assert schema["paths"]["/api/v1/projects/{project_id}/proposal-jobs"]["post"][
         "responses"
     ]["202"]

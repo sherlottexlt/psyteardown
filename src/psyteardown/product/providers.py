@@ -40,6 +40,7 @@ from psyteardown.product.models import (
     WebStateSpec,
     WebTaskSpec,
     WEB_TEMPLATE_VERSION,
+    MEASUREMENT_THRESHOLD_PLACEHOLDER,
 )
 
 
@@ -222,7 +223,7 @@ class DeterministicFakeProductContractProvider:
                     ),
                     observation_method="Consented real task observation and user report",
                     desired_direction="improve relative to the user's unaided baseline",
-                    threshold_or_target="Must be set by a human before confirmation",
+                    threshold_or_target=MEASUREMENT_THRESHOLD_PLACEHOLDER,
                     required_evidence="real_user_observation",
                 )
             ],

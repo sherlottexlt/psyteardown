@@ -432,6 +432,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/derive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Derive Outcome Measurement Plan */
+        post: operations["derive_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_derive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Outcome Measurement Plan */
+        post: operations["submit_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_proposals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/outcome-measurement-plan/{measurement_plan_id}/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Outcome Measurement Plan Revision */
+        post: operations["confirm_outcome_measurement_plan_revision_api_v1_projects__project_id__outcome_measurement_plan__measurement_plan_id__confirmations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/preview-feedback": {
         parameters: {
             query?: never;
@@ -1090,6 +1141,17 @@ export interface components {
          * @enum {string}
          */
         DeliveryMaturity: "concept" | "runnable_prototype" | "field_trial" | "operational_candidate" | "released_product";
+        /** DeriveOutcomeMeasurementPlanRequest */
+        DeriveOutcomeMeasurementPlanRequest: {
+            /** Actor */
+            actor: string;
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Measurement Plan Id */
+            measurement_plan_id?: string | null;
+            /** Reason */
+            reason: string;
+        };
         /**
          * ExecutionBudget
          * @description Boundaries for one install/build/run/browser execution attempt.
@@ -1462,6 +1524,62 @@ export interface components {
             /** Rationale */
             rationale: string;
         };
+        /**
+         * MeasurementGuardrail
+         * @description How a prohibited outcome is watched for during a trial.
+         */
+        MeasurementGuardrail: {
+            /** Blocked Reason */
+            blocked_reason?: string | null;
+            /** Detection Method */
+            detection_method: string;
+            /** Guardrail Id */
+            guardrail_id: string;
+            /** Prohibited Outcome Id */
+            prohibited_outcome_id: string;
+            /** Response */
+            response: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "hard" | "strong_avoidance" | "watch";
+            /**
+             * Source Layer
+             * @enum {string}
+             */
+            source_layer: "software_check" | "runtime_event" | "user_report" | "research_observation" | "expert_review";
+        };
+        /** MeasurementGuardrailResponse */
+        MeasurementGuardrailResponse: {
+            /** Blocked Reason */
+            blocked_reason: string | null;
+            /** Collectable */
+            collectable: boolean;
+            /** Detection Method */
+            detection_method: string;
+            /**
+             * Evidence Ceiling
+             * @enum {string}
+             */
+            evidence_ceiling: "none" | "exploratory" | "observed" | "supported" | "replicated";
+            /** Guardrail Id */
+            guardrail_id: string;
+            /** Prohibited Outcome Id */
+            prohibited_outcome_id: string;
+            /** Response */
+            response: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "hard" | "strong_avoidance" | "watch";
+            /**
+             * Source Layer
+             * @enum {string}
+             */
+            source_layer: "software_check" | "runtime_event" | "user_report" | "research_observation" | "expert_review";
+        };
         /** MechanismHypothesis */
         MechanismHypothesis: {
             /** Condition */
@@ -1618,6 +1736,170 @@ export interface components {
             target_outcomes?: components["schemas"]["TargetOutcome"][];
             /** Target Segments */
             target_segments?: string[];
+        };
+        /**
+         * OutcomeMeasure
+         * @description One operational measure for a contract indicator, bound to a source layer.
+         */
+        OutcomeMeasure: {
+            /** Blocked Reason */
+            blocked_reason?: string | null;
+            /** Desired Direction */
+            desired_direction: string;
+            /** Indicator Id */
+            indicator_id: string;
+            /** Label */
+            label: string;
+            /** Measure Id */
+            measure_id: string;
+            /** Method */
+            method: string;
+            /**
+             * Missingness Policy
+             * @default record missingness and do not impute silently
+             */
+            missingness_policy: string;
+            /**
+             * On Contradiction
+             * @default product_thesis
+             * @enum {string}
+             */
+            on_contradiction: "product_thesis" | "outcome_contract" | "problem_model";
+            /** Operational Definition */
+            operational_definition: string;
+            /**
+             * Primary
+             * @default false
+             */
+            primary: boolean;
+            /**
+             * Source Layer
+             * @enum {string}
+             */
+            source_layer: "software_check" | "runtime_event" | "user_report" | "research_observation" | "expert_review";
+            /** Threshold Or Target */
+            threshold_or_target: string;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Value Kind
+             * @enum {string}
+             */
+            value_kind: "boolean" | "count" | "duration_seconds" | "ordinal_1_5" | "categorical" | "free_text";
+        };
+        /** OutcomeMeasureResponse */
+        OutcomeMeasureResponse: {
+            /** Blocked Reason */
+            blocked_reason: string | null;
+            /** Collectable */
+            collectable: boolean;
+            /** Desired Direction */
+            desired_direction: string;
+            /**
+             * Evidence Ceiling
+             * @enum {string}
+             */
+            evidence_ceiling: "none" | "exploratory" | "observed" | "supported" | "replicated";
+            /** Indicator Id */
+            indicator_id: string;
+            /** Label */
+            label: string;
+            /** Measure Id */
+            measure_id: string;
+            /** Method */
+            method: string;
+            /** Missingness Policy */
+            missingness_policy: string;
+            /**
+             * On Contradiction
+             * @enum {string}
+             */
+            on_contradiction: "product_thesis" | "outcome_contract" | "problem_model";
+            /** Operational Definition */
+            operational_definition: string;
+            /** Primary */
+            primary: boolean;
+            /**
+             * Source Layer
+             * @enum {string}
+             */
+            source_layer: "software_check" | "runtime_event" | "user_report" | "research_observation" | "expert_review";
+            /** Threshold Or Target */
+            threshold_or_target: string;
+            /** Unit */
+            unit: string | null;
+            /**
+             * Value Kind
+             * @enum {string}
+             */
+            value_kind: "boolean" | "count" | "duration_seconds" | "ordinal_1_5" | "categorical" | "free_text";
+        };
+        /** OutcomeMeasurementPlanProposal */
+        OutcomeMeasurementPlanProposal: {
+            /** Consent Scope */
+            consent_scope: string;
+            /** Guardrails */
+            guardrails?: components["schemas"]["MeasurementGuardrail"][];
+            /** Measures */
+            measures: components["schemas"]["OutcomeMeasure"][];
+            /** Observation Window */
+            observation_window: string;
+            /** Outcome Contract Revision Id */
+            outcome_contract_revision_id: string;
+            sample_plan: components["schemas"]["SamplePlan"];
+            /** Stop Condition Ids */
+            stop_condition_ids?: string[];
+            /** Withdrawal Policy */
+            withdrawal_policy: string;
+        };
+        /** OutcomeMeasurementPlanResponse */
+        OutcomeMeasurementPlanResponse: {
+            /** Blockers */
+            blockers: string[];
+            confirmation: components["schemas"]["HumanConfirmation"] | null;
+            /** Consent Scope */
+            consent_scope: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Dependencies */
+            dependencies: {
+                [key: string]: unknown;
+            }[];
+            /** Guardrails */
+            guardrails: components["schemas"]["MeasurementGuardrailResponse"][];
+            /** Measurement Plan Id */
+            measurement_plan_id: string;
+            /** Measures */
+            measures: components["schemas"]["OutcomeMeasureResponse"][];
+            meta: components["schemas"]["RevisionMetaResponse"];
+            /** Observation Window */
+            observation_window: string;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "deterministic_derivation" | "human_revision";
+            /** Outcome Contract Revision Id */
+            outcome_contract_revision_id: string;
+            /**
+             * Plan Version
+             * @constant
+             */
+            plan_version: "c2-v1";
+            /** Project Id */
+            project_id: string;
+            /** Revision Id */
+            revision_id: string;
+            sample_plan: components["schemas"]["SamplePlan"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "confirmed";
+            /** Stop Condition Ids */
+            stop_condition_ids?: string[];
+            /** Withdrawal Policy */
+            withdrawal_policy: string;
         };
         /** PreviewFeedbackAnchor */
         PreviewFeedbackAnchor: {
@@ -1947,7 +2229,10 @@ export interface components {
         };
         /** ProductProjectViewResponse */
         ProductProjectViewResponse: {
+            /** Measurement Plan Blockers */
+            measurement_plan_blockers: string[];
             outcome_contract: components["schemas"]["OutcomeContractResponse"] | null;
+            outcome_measurement_plan: components["schemas"]["OutcomeMeasurementPlanResponse"] | null;
             problem_model: components["schemas"]["ProblemModelResponse"] | null;
             product_intent: components["schemas"]["ProductIntentResponse"] | null;
             /** Product Theses */
@@ -2309,7 +2594,7 @@ export interface components {
              * Dependent Type
              * @enum {string}
              */
-            dependent_type: "problem_model" | "outcome_contract" | "product_thesis" | "web_generation_contract";
+            dependent_type: "problem_model" | "outcome_contract" | "product_thesis" | "web_generation_contract" | "outcome_measurement_plan";
             /**
              * Impact
              * @enum {string}
@@ -2333,6 +2618,33 @@ export interface components {
             reason: string;
             /** Revision */
             revision: number;
+        };
+        /**
+         * SamplePlan
+         * @description Bounded sample target; it is planning metadata, not recruited data.
+         */
+        SamplePlan: {
+            /**
+             * Allocation
+             * @default balanced across conditions
+             */
+            allocation: string;
+            /**
+             * Exclusion Criteria
+             * @default []
+             */
+            exclusion_criteria: string[];
+            /**
+             * Inclusion Criteria
+             * @default []
+             */
+            inclusion_criteria: string[];
+            /** Maximum N */
+            maximum_n: number;
+            /** Minimum N */
+            minimum_n: number;
+            /** Target Population */
+            target_population: string;
         };
         /** SourceModelPolicyResponse */
         SourceModelPolicyResponse: {
@@ -2404,6 +2716,18 @@ export interface components {
             /** Outcome Contract Id */
             outcome_contract_id?: string | null;
             proposal: components["schemas"]["OutcomeContractProposal"];
+            /** Reason */
+            reason: string;
+        };
+        /** SubmitOutcomeMeasurementPlanRequest */
+        SubmitOutcomeMeasurementPlanRequest: {
+            /** Actor */
+            actor: string;
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Measurement Plan Id */
+            measurement_plan_id?: string | null;
+            proposal: components["schemas"]["OutcomeMeasurementPlanProposal"];
             /** Reason */
             reason: string;
         };
@@ -4109,6 +4433,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutcomeContractResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    derive_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_derive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeriveOutcomeMeasurementPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomeMeasurementPlanResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    submit_outcome_measurement_plan_api_v1_projects__project_id__outcome_measurement_plan_proposals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitOutcomeMeasurementPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomeMeasurementPlanResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_outcome_measurement_plan_revision_api_v1_projects__project_id__outcome_measurement_plan__measurement_plan_id__confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                measurement_plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutcomeMeasurementPlanResponse"];
                 };
             };
             /** @description Resource not found */

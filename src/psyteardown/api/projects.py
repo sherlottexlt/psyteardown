@@ -12,13 +12,16 @@ from psyteardown.api.schemas import (
     ChangeProjectStatusRequest,
     ConfirmRevisionRequest,
     CreateProjectRequest,
+    DeriveOutcomeMeasurementPlanRequest,
     OutcomeContractResponse,
+    OutcomeMeasurementPlanResponse,
     ProblemModelResponse,
     ProductIntentResponse,
     ProductProjectResponse,
     ProductProjectViewResponse,
     ProductThesisResponse,
     SubmitOutcomeContractRequest,
+    SubmitOutcomeMeasurementPlanRequest,
     SubmitProblemModelRequest,
     SubmitProductIntentRequest,
     SubmitProductThesisRequest,
@@ -29,11 +32,14 @@ from psyteardown.api.schemas import (
 from psyteardown.product import (
     ChangeProductProjectStatus,
     ConfirmOutcomeContract,
+    ConfirmOutcomeMeasurementPlan,
     ConfirmProblemModel,
     ConfirmProductIntent,
     CreateProductProject,
+    DeriveOutcomeMeasurementPlan,
     ProductApplicationService,
     SubmitOutcomeContractProposal,
+    SubmitOutcomeMeasurementPlanProposal,
     SubmitProblemModelProposal,
     SubmitProductIntentProposal,
     SubmitProductThesisProposal,
@@ -252,6 +258,86 @@ async def confirm_outcome_contract_revision(
         )
     )
     return OutcomeContractResponse.from_domain(value)
+
+
+@router.post(
+    "/{project_id}/outcome-measurement-plan/derive",
+    response_model=OutcomeMeasurementPlanResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+async def derive_outcome_measurement_plan(
+    project_id: str,
+    request: DeriveOutcomeMeasurementPlanRequest,
+    service: Service,
+) -> OutcomeMeasurementPlanResponse:
+    value = service.derive_outcome_measurement_plan(
+        DeriveOutcomeMeasurementPlan(
+            project_id=project_id,
+            actor=request.actor,
+            reason=request.reason,
+            measurement_plan_id=request.measurement_plan_id,
+            expected_revision=request.expected_revision,
+        )
+    )
+    return OutcomeMeasurementPlanResponse.from_domain(
+        value,
+        blockers=service.get_project_view(project_id).measurement_plan_blockers,
+    )
+
+
+@router.post(
+    "/{project_id}/outcome-measurement-plan/proposals",
+    response_model=OutcomeMeasurementPlanResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+async def submit_outcome_measurement_plan(
+    project_id: str,
+    request: SubmitOutcomeMeasurementPlanRequest,
+    service: Service,
+) -> OutcomeMeasurementPlanResponse:
+    value = service.submit_outcome_measurement_plan(
+        SubmitOutcomeMeasurementPlanProposal(
+            project_id=project_id,
+            proposal=request.proposal,
+            actor=request.actor,
+            reason=request.reason,
+            measurement_plan_id=request.measurement_plan_id,
+            expected_revision=request.expected_revision,
+        )
+    )
+    return OutcomeMeasurementPlanResponse.from_domain(
+        value,
+        blockers=service.get_project_view(project_id).measurement_plan_blockers,
+    )
+
+
+@router.post(
+    "/{project_id}/outcome-measurement-plan/{measurement_plan_id}/confirmations",
+    response_model=OutcomeMeasurementPlanResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERROR_RESPONSES,
+)
+async def confirm_outcome_measurement_plan_revision(
+    project_id: str,
+    measurement_plan_id: str,
+    request: ConfirmRevisionRequest,
+    service: Service,
+) -> OutcomeMeasurementPlanResponse:
+    value = service.confirm_outcome_measurement_plan(
+        ConfirmOutcomeMeasurementPlan(
+            project_id=project_id,
+            measurement_plan_id=measurement_plan_id,
+            expected_revision=request.expected_revision,
+            actor=request.actor,
+            reason=request.reason,
+        )
+    )
+    return OutcomeMeasurementPlanResponse.from_domain(
+        value,
+        blockers=service.get_project_view(project_id).measurement_plan_blockers,
+    )
 
 
 @router.post(

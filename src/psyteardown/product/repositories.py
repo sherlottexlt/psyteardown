@@ -8,6 +8,7 @@ from typing import Protocol, TypeVar
 from psyteardown.experience.models import AuditEvent, DomainEvent
 from psyteardown.product.models import (
     OutcomeContract,
+    OutcomeMeasurementPlan,
     ProblemModel,
     ProductIntent,
     ProductProject,
@@ -17,7 +18,15 @@ from psyteardown.product.models import (
 )
 
 
-ProductSnapshot = ProductProject | ProductIntent | ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
+ProductSnapshot = (
+    ProductProject
+    | ProductIntent
+    | ProblemModel
+    | OutcomeContract
+    | ProductThesis
+    | WebProductGenerationContract
+    | OutcomeMeasurementPlan
+)
 T = TypeVar("T", bound=ProductSnapshot)
 
 
@@ -28,6 +37,7 @@ PRODUCT_MODEL_TYPES: dict[str, type[ProductSnapshot]] = {
     "outcome_contract": OutcomeContract,
     "product_thesis": ProductThesis,
     "web_generation_contract": WebProductGenerationContract,
+    "outcome_measurement_plan": OutcomeMeasurementPlan,
 }
 
 
@@ -256,4 +266,6 @@ def _stable_id(value: ProductSnapshot) -> str:
         return value.outcome_contract_id
     if isinstance(value, WebProductGenerationContract):
         return value.web_generation_contract_id
+    if isinstance(value, OutcomeMeasurementPlan):
+        return value.measurement_plan_id
     return value.thesis_id

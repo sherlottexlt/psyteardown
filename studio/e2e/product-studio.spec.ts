@@ -162,4 +162,19 @@ test("fake provider jobs form a human-confirmed Product Contract", async ({ page
   await page.getByRole("button", { name: /产品工作台/ }).click();
   await expect(page.getByText("探索中", { exact: true })).toBeVisible();
   await expect(page.getByText("已选择", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: /证据与进度/ }).click();
+  await page.getByRole("button", { name: "生成测量计划" }).click();
+  await expect(page.getByRole("heading", { name: "怎样观察结果，而不把解释冒充证据" })).toBeVisible();
+  await expect(page.getByText("研究观察")).toBeVisible();
+  await expect(page.getByText("用户报告")).toBeVisible();
+  await page.getByRole("button", { name: "修改阈值" }).click();
+  const threshold = page.getByRole("textbox", { name: "Observed in a consented task session threshold" });
+  await threshold.fill("每位参与者非计划切换次数低于个人无辅助基线");
+  await page.getByRole("button", { name: "保存阈值" }).click();
+  await expect(page.getByText("每位参与者非计划切换次数低于个人无辅助基线")).toBeVisible();
+  await page.getByRole("button", { name: "确认测量计划" }).click();
+  await expect(page.getByText("已确认", { exact: true })).toBeVisible();
+  await expect(page.getByText("尚未执行真实试用")).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page);
 });

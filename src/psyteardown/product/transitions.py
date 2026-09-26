@@ -10,6 +10,7 @@ from psyteardown.experience.models import DependencyRef, DomainStateError, Revis
 from psyteardown.product.models import (
     HumanConfirmation,
     OutcomeContract,
+    OutcomeMeasurementPlan,
     ProblemModel,
     ProductIntent,
     ProductProject,
@@ -28,8 +29,11 @@ SnapshotT = TypeVar(
     OutcomeContract,
     ProductThesis,
     WebProductGenerationContract,
+    OutcomeMeasurementPlan,
 )
-ConfirmableT = TypeVar("ConfirmableT", ProductIntent, ProblemModel, OutcomeContract)
+ConfirmableT = TypeVar(
+    "ConfirmableT", ProductIntent, ProblemModel, OutcomeContract, OutcomeMeasurementPlan
+)
 ThesisStatus = Literal["exploring", "selected", "paused", "rejected"]
 ProjectStatus = Literal["active", "paused", "archived"]
 
@@ -269,6 +273,43 @@ def revise_outcome_contract(
     )
 
 
+def confirm_outcome_measurement_plan(
+    current: OutcomeMeasurementPlan,
+    *,
+    new_revision_id: str,
+    actor: str,
+    reason: str,
+    occurred_at: datetime,
+) -> OutcomeMeasurementPlan:
+    return _confirm(
+        current,
+        new_revision_id=new_revision_id,
+        actor=actor,
+        reason=reason,
+        occurred_at=occurred_at,
+    )
+
+
+def revise_outcome_measurement_plan(
+    current: OutcomeMeasurementPlan,
+    changes: Mapping[str, object],
+    *,
+    new_revision_id: str,
+    actor: str,
+    reason: str,
+    occurred_at: datetime,
+) -> OutcomeMeasurementPlan:
+    return _revise_to_proposal(
+        current,
+        changes,
+        stable_id_field="measurement_plan_id",
+        new_revision_id=new_revision_id,
+        actor=actor,
+        reason=reason,
+        occurred_at=occurred_at,
+    )
+
+
 def revise_product_thesis(
     current: ProductThesis,
     changes: Mapping[str, object],
@@ -338,7 +379,11 @@ def transition_product_thesis(
 def assess_revision_impacts(
     changed_dependency: DependencyRef,
     dependents: Iterable[
-        ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
+        ProblemModel
+        | OutcomeContract
+        | ProductThesis
+        | WebProductGenerationContract
+        | OutcomeMeasurementPlan
     ],
 ) -> tuple[RevisionImpact, ...]:
     """Return direct impacts for snapshots pinned to the changed revision.
@@ -363,6 +408,10 @@ def assess_revision_impacts(
         elif isinstance(dependent, ProductThesis):
             dependent_type = "product_thesis"
             dependent_id = dependent.thesis_id
+            impact = "stale"
+        elif isinstance(dependent, OutcomeMeasurementPlan):
+            dependent_type = "outcome_measurement_plan"
+            dependent_id = dependent.measurement_plan_id
             impact = "stale"
         else:
             dependent_type = "web_generation_contract"

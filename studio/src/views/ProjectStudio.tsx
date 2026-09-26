@@ -27,9 +27,11 @@ import {
   diffDeliveryBundles,
   confirmRevision,
   createProposalJob,
+  deriveOutcomeMeasurementPlan,
   getProject,
   listProposalJobs,
   reviseOutcomeContract,
+  reviseOutcomeMeasurementPlan,
   reviseProblemModel,
   reviseProductIntent,
   runProposalJob,
@@ -148,14 +150,24 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     }
   }
 
-  function handleConfirm(view: ProductProjectView, type: "product-intent" | "problem-model" | "outcome-contract") {
+  function handleConfirm(
+    view: ProductProjectView,
+    type: "product-intent" | "problem-model" | "outcome-contract" | "outcome-measurement-plan",
+  ) {
     const object = {
       "product-intent": view.product_intent,
       "problem-model": view.problem_model,
       "outcome-contract": view.outcome_contract,
+      "outcome-measurement-plan": view.outcome_measurement_plan,
     }[type];
     if (!object) return;
-    const objectId = "intent_id" in object ? object.intent_id : "problem_model_id" in object ? object.problem_model_id : object.outcome_contract_id;
+    const objectId = "intent_id" in object
+      ? object.intent_id
+      : "problem_model_id" in object
+        ? object.problem_model_id
+        : "outcome_contract_id" in object
+          ? object.outcome_contract_id
+          : object.measurement_plan_id;
     void refreshAfter(() => confirmRevision({
       projectId,
       objectType: type,
@@ -163,6 +175,38 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
       revision: object.meta.revision,
       reason: `Confirmed ${type} in Product Studio`,
     }));
+  }
+
+  function handleDeriveMeasurementPlan() {
+    const plan = query.data?.outcome_measurement_plan;
+    void refreshAfter(() => deriveOutcomeMeasurementPlan({
+      projectId,
+      measurementPlanId: plan?.measurement_plan_id,
+      expectedRevision: plan?.meta.revision,
+    }));
+  }
+
+  async function handleMeasurementPlanRevision(thresholds: Record<string, string>): Promise<RevisionWriteResult> {
+    const plan = query.data?.outcome_measurement_plan;
+    if (!plan) return { status: "error", message: "当前测量计划不可用，请刷新后重试。" };
+    setBusy(true);
+    setActionError(null);
+    try {
+      await reviseOutcomeMeasurementPlan({ projectId, plan, thresholds });
+      await query.refetch();
+      return { status: "saved" };
+    } catch (error) {
+      if (error instanceof ApiClientError && error.code === "revision_conflict") {
+        const refreshed = await query.refetch();
+        return {
+          status: "conflict",
+          latestRevision: refreshed.data?.outcome_measurement_plan?.meta.revision ?? plan.meta.revision,
+        };
+      }
+      return { status: "error", message: formatApiError(error) };
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handleThesisTransition(thesis: ProductThesis, status: "exploring" | "selected") {
@@ -445,7 +489,13 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));
           }} /> : null}
           {area === "decisions" ? <DecisionsView view={view} busy={busy} onConfirm={(type) => handleConfirm(view, type)} onThesisTransition={handleThesisTransition} /> : null}
-          {area === "evidence" ? <EvidenceView view={view} /> : null}
+          {area === "evidence" ? <EvidenceView
+            view={view}
+            busy={busy}
+            onDeriveMeasurementPlan={handleDeriveMeasurementPlan}
+            onReviseMeasurementPlan={handleMeasurementPlanRevision}
+            onConfirmMeasurementPlan={() => handleConfirm(view, "outcome-measurement-plan")}
+          /> : null}
         </div>
       </section>
     </main>

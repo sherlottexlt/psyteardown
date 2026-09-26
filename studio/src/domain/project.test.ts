@@ -16,6 +16,8 @@ const baseView = {
   product_intent: null,
   problem_model: null,
   outcome_contract: null,
+  outcome_measurement_plan: null,
+  measurement_plan_blockers: [],
   product_theses: [],
   recorded_impacts: [],
 } satisfies ProductProjectView;

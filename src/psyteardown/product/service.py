@@ -26,9 +26,19 @@ from psyteardown.product.commands import (
     TransitionProductThesis,
     ConfirmWebProductGenerationContract,
     SubmitWebProductGenerationContractProposal,
+    ConfirmOutcomeMeasurementPlan,
+    DeriveOutcomeMeasurementPlan,
+    OutcomeMeasurementPlanProposal,
+    SubmitOutcomeMeasurementPlanProposal,
+)
+from psyteardown.product.measurement import (
+    derive_measurement_plan_proposal,
+    measurement_plan_blockers,
+    measurement_plan_structure_errors,
 )
 from psyteardown.product.models import (
     OutcomeContract,
+    OutcomeMeasurementPlan,
     ProblemModel,
     ProductIntent,
     ProductProject,
@@ -46,9 +56,11 @@ from psyteardown.product.repositories import (
 from psyteardown.product.transitions import (
     assess_revision_impacts,
     confirm_outcome_contract,
+    confirm_outcome_measurement_plan,
     confirm_problem_model,
     confirm_product_intent,
     revise_outcome_contract,
+    revise_outcome_measurement_plan,
     revise_problem_model,
     revise_product_intent,
     revise_product_thesis,
@@ -693,18 +705,173 @@ class ProductApplicationService:
             reason=command.reason,
         )
 
+    def derive_outcome_measurement_plan(
+        self, command: DeriveOutcomeMeasurementPlan
+    ) -> OutcomeMeasurementPlan:
+        """Propose a plan copied from the current confirmed outcome contract."""
+
+        self._require_active_project(command.project_id)
+        contract = self._single_current("outcome_contract", command.project_id)
+        if not isinstance(contract, OutcomeContract) or contract.status != "confirmed":
+            raise DomainStateError(
+                "a measurement plan requires the current outcome contract to be human-confirmed"
+            )
+        return self._save_measurement_plan(
+            project_id=command.project_id,
+            proposal=derive_measurement_plan_proposal(contract),
+            origin="deterministic_derivation",
+            measurement_plan_id=command.measurement_plan_id,
+            expected_revision=command.expected_revision,
+            actor=command.actor,
+            reason=command.reason,
+        )
+
+    def submit_outcome_measurement_plan(
+        self, command: SubmitOutcomeMeasurementPlanProposal
+    ) -> OutcomeMeasurementPlan:
+        self._require_active_project(command.project_id)
+        return self._save_measurement_plan(
+            project_id=command.project_id,
+            proposal=command.proposal,
+            origin="human_revision",
+            measurement_plan_id=command.measurement_plan_id,
+            expected_revision=command.expected_revision,
+            actor=command.actor,
+            reason=command.reason,
+        )
+
+    def confirm_outcome_measurement_plan(
+        self, command: ConfirmOutcomeMeasurementPlan
+    ) -> OutcomeMeasurementPlan:
+        self._require_active_project(command.project_id)
+        current = self._require_current(
+            "outcome_measurement_plan", command.measurement_plan_id, command.project_id
+        )
+        assert isinstance(current, OutcomeMeasurementPlan)
+        self._check_expected(current, command.expected_revision)
+        contract = self._single_current("outcome_contract", command.project_id)
+        blockers = measurement_plan_blockers(
+            current, contract if isinstance(contract, OutcomeContract) else None
+        )
+        if blockers:
+            raise DomainStateError(
+                "measurement plan cannot be confirmed: " + "; ".join(blockers)
+            )
+        confirmed = confirm_outcome_measurement_plan(
+            current,
+            new_revision_id=self._revision_id(
+                current.measurement_plan_id, current.meta.revision + 1
+            ),
+            actor=command.actor,
+            reason=command.reason,
+            occurred_at=self._now(),
+        )
+        return self._persist(
+            "outcome_measurement_plan",
+            current.measurement_plan_id,
+            confirmed,
+            project_id=command.project_id,
+            expected_revision=command.expected_revision,
+            event_type="outcome_measurement_plan_confirmed",
+            actor=command.actor,
+            reason=command.reason,
+        )
+
+    def _save_measurement_plan(
+        self,
+        *,
+        project_id: str,
+        proposal: OutcomeMeasurementPlanProposal,
+        origin: str,
+        measurement_plan_id: str | None,
+        expected_revision: int | None,
+        actor: str,
+        reason: str,
+    ) -> OutcomeMeasurementPlan:
+        contract = self._require_revision(
+            "outcome_contract",
+            proposal.outcome_contract_revision_id,
+            project_id,
+            confirmed=True,
+        )
+        assert isinstance(contract, OutcomeContract)
+        errors = measurement_plan_structure_errors(proposal, contract)
+        if errors:
+            raise DomainStateError(
+                "measurement plan does not fit its outcome contract: " + "; ".join(errors)
+            )
+        current, plan_id = self._proposal_target(
+            "outcome_measurement_plan",
+            project_id,
+            measurement_plan_id,
+            expected_revision,
+            singleton=True,
+            id_prefix="measurement-plan",
+        )
+        now = self._now()
+        changes = proposal.model_dump(mode="python")
+        changes["origin"] = origin
+        changes["dependencies"] = (
+            DependencyRef(
+                object_type="outcome_contract",
+                object_id=contract.outcome_contract_id,
+                revision=contract.meta.revision,
+            ),
+        )
+        if current is None:
+            proposed = OutcomeMeasurementPlan(
+                measurement_plan_id=plan_id,
+                revision_id=self._revision_id(plan_id, 1),
+                meta=RevisionMeta(
+                    revision=1,
+                    created_at=now,
+                    created_by=actor,
+                    reason=reason,
+                ),
+                project_id=project_id,
+                **changes,
+            )
+        else:
+            assert isinstance(current, OutcomeMeasurementPlan)
+            proposed = revise_outcome_measurement_plan(
+                current,
+                changes,
+                new_revision_id=self._revision_id(plan_id, current.meta.revision + 1),
+                actor=actor,
+                reason=reason,
+                occurred_at=now,
+            )
+        return self._persist(
+            "outcome_measurement_plan",
+            plan_id,
+            proposed,
+            project_id=project_id,
+            expected_revision=expected_revision,
+            event_type="outcome_measurement_plan_proposed",
+            actor=actor,
+            reason=reason,
+        )
+
     def get_project_view(self, project_id: str) -> ProductProjectView:
         project = self._require_project(project_id)
+        contract = self._single_current("outcome_contract", project_id)
+        plan = self._single_current("outcome_measurement_plan", project_id)
         return ProductProjectView(
             project=project,
             product_intent=self._single_current("product_intent", project_id),
             problem_model=self._single_current("problem_model", project_id),
-            outcome_contract=self._single_current("outcome_contract", project_id),
+            outcome_contract=contract,
             product_theses=tuple(
                 self.repository.list_current("product_thesis", project_id=project_id)
             ),
             web_generation_contract=self._single_current(
                 "web_generation_contract", project_id
+            ),
+            outcome_measurement_plan=plan,
+            measurement_plan_blockers=(
+                measurement_plan_blockers(plan, contract)
+                if isinstance(plan, OutcomeMeasurementPlan)
+                else ()
             ),
             recorded_impacts=tuple(
                 self.repository.list_impacts(project_id=project_id)
@@ -895,13 +1062,18 @@ class ProductApplicationService:
             )
             return assess_revision_impacts(changed, web_contracts)
         dependents: list[
-            ProblemModel | OutcomeContract | ProductThesis | WebProductGenerationContract
+            ProblemModel
+            | OutcomeContract
+            | ProductThesis
+            | WebProductGenerationContract
+            | OutcomeMeasurementPlan
         ] = []
         for dependent_type in (
             "problem_model",
             "outcome_contract",
             "product_thesis",
             "web_generation_contract",
+            "outcome_measurement_plan",
         ):
             dependents.extend(
                 self.repository.list_current(
@@ -939,6 +1111,8 @@ class ProductApplicationService:
             return value.outcome_contract_id
         if isinstance(value, WebProductGenerationContract):
             return value.web_generation_contract_id
+        if isinstance(value, OutcomeMeasurementPlan):
+            return value.measurement_plan_id
         return value.thesis_id
 
     @staticmethod
