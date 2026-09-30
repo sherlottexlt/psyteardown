@@ -17,6 +17,7 @@ from psyteardown.api.schemas import (
     C1PolicyResponse,
     C1TaskPresentationResponse,
     C1TrialEnvelopeResponse,
+    EndC1EnvelopeRequest,
     C1WithdrawalTombstoneResponse,
     EnrollC1ParticipantRequest,
     PresentC1TaskRequest,
@@ -33,6 +34,7 @@ from psyteardown.product import (
     C1_EVIDENCE_CEILING,
     C1_RETENTION_POLICY,
     C1_SOURCE_LAYER,
+    C1_TRIAL_PAUSED_MESSAGE,
     C1_WITHDRAWAL_POLICY,
     ProductC1ObservationService,
 )
@@ -43,8 +45,10 @@ C1Service = Annotated[ProductC1ObservationService, Depends(get_product_c1_servic
 
 
 @router.get("/c1-policy", response_model=C1PolicyResponse)
-async def get_c1_policy() -> C1PolicyResponse:
+async def get_c1_policy(service: C1Service) -> C1PolicyResponse:
     return C1PolicyResponse(
+        trial_state="available" if service.trial_enabled else "paused",
+        trial_status_message="本地 C1 试用可启动。" if service.trial_enabled else C1_TRIAL_PAUSED_MESSAGE,
         consent_policy_revision=C1_CONSENT_POLICY_REVISION,
         statement=C1_CONSENT_STATEMENT,
         access_policy=list(C1_ACCESS_POLICY),
@@ -70,6 +74,7 @@ async def start_c1_envelope(project_id: str, request: StartC1EnvelopeRequest, se
         execution_job_revision_id=request.execution_job_revision_id,
         web_generation_contract_revision_id=request.web_generation_contract_revision_id,
         host=request.host,
+        product_usability_confirmed=request.product_usability_confirmed,
         actor=request.actor,
         reason=request.reason,
     ))
@@ -82,6 +87,28 @@ async def start_c1_envelope(project_id: str, request: StartC1EnvelopeRequest, se
 )
 async def list_c1_envelopes(project_id: str, service: C1Service) -> list[C1TrialEnvelopeResponse]:
     return [C1TrialEnvelopeResponse.from_domain(item) for item in service.list_envelopes(project_id)]
+
+
+@router.post(
+    "/projects/{project_id}/c1/envelopes/{envelope_id}/close",
+    response_model=C1TrialEnvelopeResponse,
+    responses=ERROR_RESPONSES,
+)
+async def close_c1_envelope(project_id: str, envelope_id: str, request: EndC1EnvelopeRequest, service: C1Service) -> C1TrialEnvelopeResponse:
+    return C1TrialEnvelopeResponse.from_domain(service.close_envelope(
+        project_id=project_id, envelope_id=envelope_id, actor=request.actor, reason=request.reason,
+    ))
+
+
+@router.post(
+    "/projects/{project_id}/c1/envelopes/{envelope_id}/stop",
+    response_model=C1TrialEnvelopeResponse,
+    responses=ERROR_RESPONSES,
+)
+async def stop_c1_envelope(project_id: str, envelope_id: str, request: EndC1EnvelopeRequest, service: C1Service) -> C1TrialEnvelopeResponse:
+    return C1TrialEnvelopeResponse.from_domain(service.stop_envelope(
+        project_id=project_id, envelope_id=envelope_id, actor=request.actor, reason=request.reason,
+    ))
 
 
 @router.get(

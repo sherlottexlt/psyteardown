@@ -572,12 +572,26 @@
             "title": "Statement",
             "type": "string"
           },
+          "trial_state": {
+            "enum": [
+              "paused",
+              "available"
+            ],
+            "title": "Trial State",
+            "type": "string"
+          },
+          "trial_status_message": {
+            "title": "Trial Status Message",
+            "type": "string"
+          },
           "withdrawal_policy": {
             "title": "Withdrawal Policy",
             "type": "string"
           }
         },
         "required": [
+          "trial_state",
+          "trial_status_message",
           "consent_policy_revision",
           "statement",
           "access_policy",
@@ -697,6 +711,29 @@
             "title": "Access Policy",
             "type": "array"
           },
+          "close_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close Reason"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
           "consent_policy_revision": {
             "title": "Consent Policy Revision",
             "type": "string"
@@ -739,9 +776,25 @@
           "meta": {
             "$ref": "#/components/schemas/RevisionMetaResponse"
           },
+          "product_usability_confirmed": {
+            "title": "Product Usability Confirmed",
+            "type": "boolean"
+          },
           "project_id": {
             "title": "Project Id",
             "type": "string"
+          },
+          "retention_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Expires At"
           },
           "retention_policy": {
             "title": "Retention Policy",
@@ -775,12 +828,16 @@
           "project_id",
           "meta",
           "status",
+          "closed_at",
+          "retention_expires_at",
+          "close_reason",
           "measurement_plan_revision_id",
           "delivery_bundle_id",
           "delivery_bundle_revision_id",
           "execution_job_revision_id",
           "web_generation_contract_revision_id",
           "host",
+          "product_usability_confirmed",
           "consent_policy_revision",
           "consent_statement",
           "access_policy",
@@ -1157,6 +1214,7 @@
           "raw_input": {
             "anyOf": [
               {
+                "maxLength": 4000,
                 "minLength": 1,
                 "type": "string"
               },
@@ -1610,6 +1668,27 @@
         "title": "DeriveOutcomeMeasurementPlanRequest",
         "type": "object"
       },
+      "EndC1EnvelopeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "reason"
+        ],
+        "title": "EndC1EnvelopeRequest",
+        "type": "object"
+      },
       "EnrollC1ParticipantRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1720,6 +1799,11 @@
             "minLength": 1,
             "title": "Actor",
             "type": "string"
+          },
+          "confirm_orphaned": {
+            "default": false,
+            "title": "Confirm Orphaned",
+            "type": "boolean"
           }
         },
         "required": [
@@ -2626,6 +2710,23 @@
             "title": "Sent Object Types",
             "type": "array"
           },
+          "static_gate_revalidated": {
+            "default": false,
+            "title": "Static Gate Revalidated",
+            "type": "boolean"
+          },
+          "static_gate_version": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Static Gate Version"
+          },
           "transcript_path": {
             "minLength": 1,
             "title": "Transcript Path",
@@ -2674,6 +2775,14 @@
             ],
             "title": "Gate"
           },
+          "gate_revalidations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Gate Revalidations",
+            "type": "array"
+          },
           "model": {
             "title": "Model",
             "type": "string"
@@ -2686,6 +2795,18 @@
             "title": "Provider",
             "type": "string"
           },
+          "provider_gate": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Gate"
+          },
           "response": {
             "anyOf": [
               {
@@ -2696,6 +2817,17 @@
               }
             ],
             "title": "Response"
+          },
+          "static_gate_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Static Gate Version"
           },
           "system": {
             "title": "System",
@@ -4040,7 +4172,8 @@
             "enum": [
               "template",
               "repair",
-              "model"
+              "model",
+              "saved_model"
             ],
             "title": "Materialization Kind",
             "type": "string"
@@ -4074,7 +4207,8 @@
             "enum": [
               "deterministic_template",
               "deterministic_repair",
-              "model_source"
+              "model_source",
+              "saved_model_revalidation"
             ],
             "title": "Provider",
             "type": "string"
@@ -4100,6 +4234,50 @@
           },
           "sandbox": {
             "$ref": "#/components/schemas/GenerationSandboxPolicy"
+          },
+          "source_generation_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Generation Job Id"
+          },
+          "source_generation_job_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Generation Job Revision Id"
+          },
+          "source_response_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Response Sha256"
+          },
+          "static_gate_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Static Gate Version"
           },
           "status": {
             "enum": [
@@ -5968,6 +6146,11 @@
             "title": "Measurement Plan Revision Id",
             "type": "string"
           },
+          "product_usability_confirmed": {
+            "default": false,
+            "title": "Product Usability Confirmed",
+            "type": "boolean"
+          },
           "reason": {
             "minLength": 1,
             "title": "Reason",
@@ -6747,6 +6930,14 @@
             "title": "Outcome Contract Revision Id",
             "type": "string"
           },
+          "primary_flow_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Primary Flow Task Ids",
+            "type": "array"
+          },
           "product_thesis_revision_id": {
             "title": "Product Thesis Revision Id",
             "type": "string"
@@ -6866,6 +7057,14 @@
               "type": "string"
             },
             "title": "Output Paths",
+            "type": "array"
+          },
+          "primary_flow_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Primary Flow Task Ids",
             "type": "array"
           },
           "product_thesis_revision_id": {
@@ -7208,6 +7407,59 @@
       }
     },
     "/api/v1/projects": {
+      "get": {
+        "operationId": "list_projects_api_v1_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductProjectResponse"
+                  },
+                  "title": "Response List Projects Api V1 Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "product-projects"
+        ]
+      },
       "post": {
         "operationId": "create_project_api_v1_projects_post",
         "requestBody": {
@@ -7461,6 +7713,87 @@
           }
         },
         "summary": "Start C1 Envelope",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/close": {
+      "post": {
+        "operationId": "close_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndC1EnvelopeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1TrialEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Close C1 Envelope",
         "tags": [
           "product-c1-observations"
         ]
@@ -8004,6 +8337,87 @@
           }
         },
         "summary": "Review C1 Evidence",
+        "tags": [
+          "product-c1-observations"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/stop": {
+      "post": {
+        "operationId": "stop_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "envelope_id",
+            "required": true,
+            "schema": {
+              "title": "Envelope Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndC1EnvelopeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/C1TrialEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Stop C1 Envelope",
         "tags": [
           "product-c1-observations"
         ]
@@ -8895,6 +9309,87 @@
         ]
       }
     },
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/recoveries": {
+      "post": {
+        "operationId": "recover_execution_job_api_v1_projects__project_id__execution_jobs__job_id__recoveries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Recover Execution Job",
+        "tags": [
+          "product-execution-jobs"
+        ]
+      }
+    },
     "/api/v1/projects/{project_id}/execution-jobs/{job_id}/retries": {
       "post": {
         "operationId": "retry_execution_job_api_v1_projects__project_id__execution_jobs__job_id__retries_post",
@@ -9668,6 +10163,88 @@
         ]
       }
     },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/revalidations": {
+      "post": {
+        "description": "Re-run the local static gate on a saved rejected draft without calling a provider.",
+        "operationId": "revalidate_saved_model_draft_api_v1_projects__project_id__generation_jobs__job_id__revalidations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Revalidate Saved Model Draft",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
     "/api/v1/projects/{project_id}/generation-jobs/{job_id}/runs": {
       "post": {
         "operationId": "run_generation_job_api_v1_projects__project_id__generation_jobs__job_id__runs_post",
@@ -9744,6 +10321,88 @@
           }
         },
         "summary": "Run Generation Job",
+        "tags": [
+          "product-generation-jobs"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/saved-source-materializations": {
+      "post": {
+        "description": "Create an independent B3 child job from a saved, locally revalidated source.",
+        "operationId": "create_saved_source_materialization_api_v1_projects__project_id__generation_jobs__job_id__saved_source_materializations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationJobActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductGenerationJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Revision or domain-state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request or domain validation failed"
+          }
+        },
+        "summary": "Create Saved Source Materialization",
         "tags": [
           "product-generation-jobs"
         ]

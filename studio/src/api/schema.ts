@@ -62,7 +62,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Projects */
+        get: operations["list_projects_api_v1_projects_get"];
         put?: never;
         /** Create Project */
         post: operations["create_project_api_v1_projects_post"];
@@ -101,6 +102,23 @@ export interface paths {
         put?: never;
         /** Start C1 Envelope */
         post: operations["start_c1_envelope_api_v1_projects__project_id__c1_envelopes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close C1 Envelope */
+        post: operations["close_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__close_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -172,6 +190,23 @@ export interface paths {
         put?: never;
         /** Review C1 Evidence */
         post: operations["review_c1_evidence_api_v1_projects__project_id__c1_envelopes__envelope_id__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/c1/envelopes/{envelope_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop C1 Envelope */
+        post: operations["stop_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -350,6 +385,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/execution-jobs/{job_id}/recoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recover Execution Job */
+        post: operations["recover_execution_job_api_v1_projects__project_id__execution_jobs__job_id__recoveries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/execution-jobs/{job_id}/retries": {
         parameters: {
             query?: never;
@@ -504,6 +556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/revalidations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revalidate Saved Model Draft
+         * @description Re-run the local static gate on a saved rejected draft without calling a provider.
+         */
+        post: operations["revalidate_saved_model_draft_api_v1_projects__project_id__generation_jobs__job_id__revalidations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/generation-jobs/{job_id}/runs": {
         parameters: {
             query?: never;
@@ -515,6 +587,26 @@ export interface paths {
         put?: never;
         /** Run Generation Job */
         post: operations["run_generation_job_api_v1_projects__project_id__generation_jobs__job_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/generation-jobs/{job_id}/saved-source-materializations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Saved Source Materialization
+         * @description Create an independent B3 child job from a saved, locally revalidated source.
+         */
+        post: operations["create_saved_source_materialization_api_v1_projects__project_id__generation_jobs__job_id__saved_source_materializations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1209,6 +1301,13 @@ export interface components {
             source_layer: "research_observation";
             /** Statement */
             statement: string;
+            /**
+             * Trial State
+             * @enum {string}
+             */
+            trial_state: "paused" | "available";
+            /** Trial Status Message */
+            trial_status_message: string;
             /** Withdrawal Policy */
             withdrawal_policy: string;
         };
@@ -1254,6 +1353,10 @@ export interface components {
         C1TrialEnvelopeResponse: {
             /** Access Policy */
             access_policy: string[];
+            /** Close Reason */
+            close_reason: string | null;
+            /** Closed At */
+            closed_at: string | null;
             /** Consent Policy Revision */
             consent_policy_revision: string;
             /** Consent Statement */
@@ -1273,8 +1376,12 @@ export interface components {
             /** Measurement Plan Revision Id */
             measurement_plan_revision_id: string;
             meta: components["schemas"]["RevisionMetaResponse"];
+            /** Product Usability Confirmed */
+            product_usability_confirmed: boolean;
             /** Project Id */
             project_id: string;
+            /** Retention Expires At */
+            retention_expires_at: string | null;
             /** Retention Policy */
             retention_policy: string;
             /** Revision Id */
@@ -1583,6 +1690,13 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** EndC1EnvelopeRequest */
+        EndC1EnvelopeRequest: {
+            /** Actor */
+            actor: string;
+            /** Reason */
+            reason: string;
+        };
         /** EnrollC1ParticipantRequest */
         EnrollC1ParticipantRequest: {
             /** Actor */
@@ -1647,6 +1761,11 @@ export interface components {
         ExecutionJobActionRequest: {
             /** Actor */
             actor: string;
+            /**
+             * Confirm Orphaned
+             * @default false
+             */
+            confirm_orphaned: boolean;
         };
         /** ExecutionJobResponse */
         ExecutionJobResponse: {
@@ -2078,6 +2197,13 @@ export interface components {
              *     ]
              */
             sent_object_types: "web_generation_contract"[];
+            /**
+             * Static Gate Revalidated
+             * @default false
+             */
+            static_gate_revalidated: boolean;
+            /** Static Gate Version */
+            static_gate_version?: string | null;
             /** Transcript Path */
             transcript_path: string;
         };
@@ -2091,14 +2217,24 @@ export interface components {
             gate: {
                 [key: string]: unknown;
             } | null;
+            /** Gate Revalidations */
+            gate_revalidations?: {
+                [key: string]: unknown;
+            }[];
             /** Model */
             model: string;
             /** Prompt */
             prompt: string;
             /** Provider */
             provider: string;
+            /** Provider Gate */
+            provider_gate?: {
+                [key: string]: unknown;
+            } | null;
             /** Response */
             response: string | null;
+            /** Static Gate Version */
+            static_gate_version?: string | null;
             /** System */
             system: string;
         };
@@ -2575,7 +2711,7 @@ export interface components {
              * Materialization Kind
              * @enum {string}
              */
-            materialization_kind: "template" | "repair" | "model";
+            materialization_kind: "template" | "repair" | "model" | "saved_model";
             meta: components["schemas"]["RevisionMetaResponse"];
             /** Model Calls */
             model_calls: components["schemas"]["ModelCallRecord"][];
@@ -2587,7 +2723,7 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "deterministic_template" | "deterministic_repair" | "model_source";
+            provider: "deterministic_template" | "deterministic_repair" | "model_source" | "saved_model_revalidation";
             /** Provider Version */
             provider_version: string;
             /** Repair Job Id */
@@ -2595,6 +2731,14 @@ export interface components {
             /** Revision Id */
             revision_id: string;
             sandbox: components["schemas"]["GenerationSandboxPolicy"];
+            /** Source Generation Job Id */
+            source_generation_job_id?: string | null;
+            /** Source Generation Job Revision Id */
+            source_generation_job_revision_id?: string | null;
+            /** Source Response Sha256 */
+            source_response_sha256?: string | null;
+            /** Static Gate Version */
+            static_gate_version?: string | null;
             /**
              * Status
              * @enum {string}
@@ -3204,6 +3348,11 @@ export interface components {
             host: string;
             /** Measurement Plan Revision Id */
             measurement_plan_revision_id: string;
+            /**
+             * Product Usability Confirmed
+             * @default false
+             */
+            product_usability_confirmed: boolean;
             /** Reason */
             reason: string;
             /** Web Generation Contract Revision Id */
@@ -3457,6 +3606,8 @@ export interface components {
             content_slots: components["schemas"]["WebContentSlot"][];
             /** Outcome Contract Revision Id */
             outcome_contract_revision_id: string;
+            /** Primary Flow Task Ids */
+            primary_flow_task_ids?: string[];
             /** Product Thesis Revision Id */
             product_thesis_revision_id: string;
             /** Screens */
@@ -3500,6 +3651,8 @@ export interface components {
             outcome_contract_revision_id: string;
             /** Output Paths */
             output_paths: string[];
+            /** Primary Flow Task Ids */
+            primary_flow_task_ids?: string[];
             /** Product Thesis Revision Id */
             product_thesis_revision_id: string;
             /** Project Id */
@@ -3650,6 +3803,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewFeedbackPolicyResponse"];
+                };
+            };
+        };
+    };
+    list_projects_api_v1_projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductProjectResponse"][];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -3820,6 +4020,60 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1TrialEnvelopeResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    close_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndC1EnvelopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4191,6 +4445,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["C1EvidenceReviewResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    stop_c1_envelope_api_v1_projects__project_id__c1_envelopes__envelope_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                envelope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndC1EnvelopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["C1TrialEnvelopeResponse"];
                 };
             };
             /** @description Resource not found */
@@ -4840,6 +5148,60 @@ export interface operations {
             };
         };
     };
+    recover_execution_job_api_v1_projects__project_id__execution_jobs__job_id__recoveries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutionJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     retry_execution_job_api_v1_projects__project_id__execution_jobs__job_id__retries_post: {
         parameters: {
             query?: never;
@@ -5367,6 +5729,60 @@ export interface operations {
             };
         };
     };
+    revalidate_saved_model_draft_api_v1_projects__project_id__generation_jobs__job_id__revalidations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerationJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductGenerationJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     run_generation_job_api_v1_projects__project_id__generation_jobs__job_id__runs_post: {
         parameters: {
             query?: never;
@@ -5385,6 +5801,60 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductGenerationJobResponse"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Revision or domain-state conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Request or domain validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    create_saved_source_materialization_api_v1_projects__project_id__generation_jobs__job_id__saved_source_materializations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerationJobActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -55,8 +55,8 @@ class FakeRunner:
         )
 
 
-def build_execution_service(tmp_path, *, runner=None):
-    application, _, generation, project, _ = build_generation_services(tmp_path / "workspaces")
+def build_execution_service(tmp_path, *, runner=None, broken_template=False):
+    application, _, generation, project, _ = build_generation_services(tmp_path / "workspaces", broken_template=broken_template)
     generated = generation.create_job(project_id=project.project_id, actor="user", reason="generate")
     generated = generation.run_job(project.project_id, generated.job_id, actor="worker")
     assert generated.status == "succeeded"
@@ -143,7 +143,15 @@ def test_generation_template_contains_b4_validation_hooks(tmp_path):
     files = generation._render_files(contract)
     assert "preview" in files["package.json"]
     assert "@axe-core/playwright" in files["package.json"]
-    assert "Show error" in files["src/App.tsx"]
+    assert "data-task-id" in files["src/App.tsx"]
+    assert "data-slot-id" in files["src/App.tsx"]
+    assert "comparison-grid" in files["src/App.tsx"]
+    assert "data-option-key" in files["src/App.tsx"]
+    assert "updateOption" in files["src/App.tsx"]
+    assert "decision-brief.v1" in files["src/App.tsx"]
+    assert "data-export-brief" in files["src/App.tsx"]
+    assert "FileReader" in files["src/App.tsx"]
+    assert "我的当前倾向（不是工具推荐）" in files["src/App.tsx"]
     assert "AxeBuilder" in files["tests/generated-contract.spec.ts"]
     assert "screenshot" in files["tests/generated-contract.spec.ts"]
 
@@ -189,6 +197,10 @@ def test_browser_failure_is_classified_without_retaining_output():
 
     assert _classify_browser_failure(b"expect(locator).toBeVisible()", "browser_command_failed") == "browser_assertion_failed"
     assert _classify_browser_failure(b"axe violations: 2", "browser_command_failed") == "browser_accessibility_failed"
+    assert _classify_browser_failure(
+        b"TypeError: Cannot read properties of undefined (reading 'length')\n at generated-contract.spec.ts:77",
+        "browser_command_failed",
+    ) == "browser_test_harness_failed"
     assert _classify_browser_failure(b"browserType.launch: executable doesn't exist", "browser_command_failed") == "browser_launch_failed"
     assert _classify_browser_failure(b"unknown failure", "browser_command_failed") == "browser_command_failed"
     assert _classify_browser_failure(b"expect(locator)", "command_failed") == "command_failed"
@@ -348,3 +360,22 @@ def test_workspace_validation_tolerates_real_build_byproducts(tmp_path):
     (workspace / "src" / "extra.ts").write_text("export {};\n", encoding="utf-8")
     with pytest.raises(Exception, match="integrity"):
         validate_generated_workspace(workspace, generated)
+
+
+def test_execution_falls_back_when_default_preview_port_is_busy(tmp_path, monkeypatch):
+    import psyteardown.product.execution as execution_module
+
+    runner = FakeRunner()
+    service, project, generated = build_execution_service(tmp_path, runner=runner)
+    monkeypatch.setattr(execution_module, "_loopback_port_open", lambda port: port == 4173)
+    queued = service.create_job(
+        project_id=project.project_id,
+        generation_job_id=generated.job_id,
+        actor="user",
+        reason="validate with occupied default port",
+    )
+    completed = service.run_job(project.project_id, queued.job_id, actor="worker")
+    assert completed.status == "succeeded"
+    preview_command = next(call for call in runner.calls if "preview" in call)
+    port = int(preview_command[preview_command.index("--port") + 1])
+    assert port != 4173

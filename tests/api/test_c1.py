@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -121,9 +122,30 @@ def test_c1_domain_requires_explicit_consent_and_enforces_source_ceiling():
     assert C1_WITHDRAWAL_POLICY
 
 
+def test_c1_rejects_software_only_readiness_without_product_usability_confirmation(tmp_path):
+    database = tmp_path / "product-studio.sqlite3"
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True)) as client:
+        project_id, plan, bundle, contract = _c1_setup(client)
+        response = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes",
+            json={
+                "measurement_plan_revision_id": plan["revision_id"],
+                "delivery_bundle_id": bundle["bundle_id"],
+                "execution_job_revision_id": bundle["execution_job_revision_id"],
+                "web_generation_contract_revision_id": contract["revision_id"],
+                "product_usability_confirmed": False,
+                "host": "host-li",
+                "actor": "research-lead",
+                "reason": "do not start a software-only trial",
+            },
+        )
+        assert response.status_code == 409, response.text
+        assert "B4/B6 software verification is not enough" in response.json()["error"]["message"]
+
+
 def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
     database = tmp_path / "product.sqlite3"
-    with TestClient(create_app(database_path=database)) as client:
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True)) as client:
         project_id, plan, bundle, contract = _c1_setup(client)
         start = client.post(
             f"/api/v1/projects/{project_id}/c1/envelopes",
@@ -132,6 +154,7 @@ def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
                 "delivery_bundle_id": bundle["bundle_id"],
                 "execution_job_revision_id": bundle["execution_job_revision_id"],
                 "web_generation_contract_revision_id": contract["revision_id"],
+                "product_usability_confirmed": True,
                 "host": "host-li",
                 "actor": "research-lead",
                 "reason": "start consented local trial",
@@ -219,7 +242,7 @@ def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
         assert withdrawn.json()["deleted_observations"] == 1
         assert client.get(f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations").json() == []
 
-    with TestClient(create_app(database_path=database)) as restarted:
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True)) as restarted:
         assert restarted.get(f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations").json() == []
         connection = sqlite3.connect(database)
         rows = connection.execute("SELECT object_json FROM c1_records").fetchall()
@@ -229,3 +252,132 @@ def test_c1_api_pins_plan_and_delivery_then_withdraws_source_rows(tmp_path):
         assert all(participant["participant_id"] not in str(row) for row in audit_rows)
 
 
+
+
+def test_c1_trial_is_paused_by_default(tmp_path):
+    with TestClient(create_app(database_path=tmp_path / "product.sqlite3")) as client:
+        policy = client.get("/api/v1/c1-policy")
+        assert policy.status_code == 200
+        assert policy.json()["trial_state"] == "paused"
+        assert "暂缓" in policy.json()["trial_status_message"]
+
+
+def test_c1_rejects_placeholder_reviewer(tmp_path):
+    database = tmp_path / "product.sqlite3"
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True)) as client:
+        project_id, plan, bundle, contract = _c1_setup(client)
+        envelope = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes",
+            json={"measurement_plan_revision_id": plan["revision_id"], "delivery_bundle_id": bundle["bundle_id"], "execution_job_revision_id": bundle["execution_job_revision_id"], "web_generation_contract_revision_id": contract["revision_id"], "product_usability_confirmed": True, "host": "host-li", "actor": "host-li", "reason": "start"},
+        ).json()
+        enrolled = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants",
+            json={"consent_policy_revision": "c1-local-v1", "consent_scope_acknowledged": True, "actor": "host-li", "reason": "consent"},
+        ).json()
+        presentation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/presentations",
+            json={"participant_id": enrolled["participant"]["participant_id"], "task_id": contract["tasks"][0]["task_id"], "actor": "host-li", "reason": "present"},
+        ).json()
+        observation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations",
+            json={"participant_id": enrolled["participant"]["participant_id"], "presentation_id": presentation["presentation_id"], "measure_id": plan["measures"][0]["measure_id"], "value": True, "status": "observed", "actor": "host-li", "reason": "observe"},
+        ).json()
+        review = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/reviews",
+            json={"observation_ids": [observation["observation_id"]], "reviewer": "named-reviewer", "decision": "accepted", "evidence_level_after": "observed", "rationale": "review"},
+        )
+        assert review.status_code == 409
+
+
+@pytest.mark.parametrize("action", ["close", "stop"])
+def test_c1_envelope_end_blocks_new_presentations_and_observations(tmp_path, action):
+    database = tmp_path / f"{action}.sqlite3"
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True)) as client:
+        project_id, plan, bundle, contract = _c1_setup(client)
+        envelope = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes",
+            json={
+                "measurement_plan_revision_id": plan["revision_id"],
+                "delivery_bundle_id": bundle["bundle_id"],
+                "execution_job_revision_id": bundle["execution_job_revision_id"],
+                "web_generation_contract_revision_id": contract["revision_id"],
+                "product_usability_confirmed": True,
+                "host": "host-li",
+                "actor": "host-li",
+                "reason": "start",
+            },
+        ).json()
+        enrolled = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants",
+            json={"consent_policy_revision": C1_CONSENT_POLICY_REVISION, "consent_scope_acknowledged": True, "actor": "host-li", "reason": "consent"},
+        ).json()
+        existing_presentation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/presentations",
+            json={"participant_id": enrolled["participant"]["participant_id"], "task_id": contract["tasks"][0]["task_id"], "actor": "host-li", "reason": "before end"},
+        ).json()
+        ended = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/{action}",
+            json={"actor": "host-li", "reason": f"{action} local trial"},
+        )
+        assert ended.status_code == 200, ended.text
+        assert ended.json()["status"] == ("closed" if action == "close" else "stopped")
+        closed_at = datetime.fromisoformat(ended.json()["closed_at"].replace("Z", "+00:00"))
+        expires_at = datetime.fromisoformat(ended.json()["retention_expires_at"].replace("Z", "+00:00"))
+        assert expires_at == closed_at + timedelta(days=30)
+
+        presentation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/presentations",
+            json={"participant_id": enrolled["participant"]["participant_id"], "task_id": contract["tasks"][0]["task_id"], "actor": "host-li", "reason": "must be blocked"},
+        )
+        assert presentation.status_code == 409
+        observation = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/observations",
+            json={"participant_id": enrolled["participant"]["participant_id"], "presentation_id": existing_presentation["presentation_id"], "measure_id": plan["measures"][0]["measure_id"], "value": True, "status": "observed", "actor": "host-li", "reason": "must be blocked"},
+        )
+        assert observation.status_code == 409
+
+
+def test_c1_sqlite_retention_cleanup_runs_on_restart_after_30_days(tmp_path):
+    database = tmp_path / "retention.sqlite3"
+    current = {"value": datetime(2026, 9, 27, tzinfo=timezone.utc)}
+
+    def clock():
+        return current["value"]
+
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True, clock=clock)) as client:
+        project_id, plan, bundle, contract = _c1_setup(client)
+        envelope = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes",
+            json={
+                "measurement_plan_revision_id": plan["revision_id"],
+                "delivery_bundle_id": bundle["bundle_id"],
+                "execution_job_revision_id": bundle["execution_job_revision_id"],
+                "web_generation_contract_revision_id": contract["revision_id"],
+                "product_usability_confirmed": True,
+                "host": "host-li",
+                "actor": "host-li",
+                "reason": "start",
+            },
+        ).json()
+        enrolled = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants",
+            json={"consent_policy_revision": C1_CONSENT_POLICY_REVISION, "consent_scope_acknowledged": True, "actor": "host-li", "reason": "consent"},
+        ).json()
+        await_close = client.post(
+            f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/close",
+            json={"actor": "host-li", "reason": "retention test"},
+        )
+        assert await_close.status_code == 200, await_close.text
+        participant_id = enrolled["participant"]["participant_id"]
+        current["value"] = datetime(2026, 10, 27, tzinfo=timezone.utc)
+
+    with TestClient(create_app(database_path=database, c1_trial_enabled=True, clock=clock)) as restarted:
+        envelopes = restarted.get(f"/api/v1/projects/{project_id}/c1/envelopes")
+        assert envelopes.status_code == 200
+        assert envelopes.json()[0]["status"] == "closed"
+        assert restarted.get(f"/api/v1/projects/{project_id}/c1/envelopes/{envelope['envelope_id']}/participants").json() == []
+        connection = sqlite3.connect(database)
+        rows = connection.execute("SELECT object_type, object_json FROM c1_records").fetchall()
+        connection.close()
+        assert [kind for kind, _ in rows] == ["c1_trial_envelope"]
+        assert all(participant_id not in payload for _, payload in rows)

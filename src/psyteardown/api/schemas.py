@@ -48,6 +48,7 @@ from psyteardown.product.models import (
     PreviewFeedback,
     PreviewFeedbackAnchor,
     PREVIEW_FEEDBACK_MAX_TEXT,
+    PRODUCT_INTENT_MAX_INPUT_CHARS,
     GenerationBudget,
     GenerationManifest,
     ModelCallRecord,
@@ -142,6 +143,7 @@ class StartC1EnvelopeRequest(TransportModel):
     execution_job_revision_id: str = Field(min_length=1)
     web_generation_contract_revision_id: str = Field(min_length=1)
     host: str = Field(min_length=1)
+    product_usability_confirmed: bool = False
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
 
@@ -149,6 +151,11 @@ class StartC1EnvelopeRequest(TransportModel):
 class EnrollC1ParticipantRequest(TransportModel):
     consent_policy_revision: str = Field(min_length=1)
     consent_scope_acknowledged: bool
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class EndC1EnvelopeRequest(TransportModel):
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
 
@@ -194,6 +201,7 @@ class WebProductGenerationContractProposalRequest(TransportModel):
     app_title: str
     screens: list[WebScreenSpec]
     tasks: list[WebTaskSpec]
+    primary_flow_task_ids: list[str] = Field(default_factory=list, max_length=8)
     states: list[WebStateSpec]
     content_slots: list[WebContentSlot]
     acceptance_checks: list[WebAcceptanceCheck]
@@ -236,6 +244,7 @@ class WebProductGenerationContractResponse(TransportModel):
     app_title: str
     screens: list[WebScreenSpec]
     tasks: list[WebTaskSpec]
+    primary_flow_task_ids: list[str] = Field(default_factory=list, max_length=8)
     states: list[WebStateSpec]
     content_slots: list[WebContentSlot]
     acceptance_checks: list[WebAcceptanceCheck]
@@ -266,7 +275,7 @@ class CreateProposalJobRequest(TransportModel):
     ]
     actor: str = Field(min_length=1)
     reason: str = Field(min_length=1)
-    raw_input: str | None = Field(default=None, min_length=1)
+    raw_input: str | None = Field(default=None, min_length=1, max_length=PRODUCT_INTENT_MAX_INPUT_CHARS)
     feedback_id: str | None = None
     provider: Literal["deterministic_fake", "real"] = "deterministic_fake"
 
@@ -312,6 +321,9 @@ class ModelCallTranscriptResponse(TransportModel):
     prompt: str
     response: str | None
     gate: dict[str, Any] | None
+    provider_gate: dict[str, Any] | None = None
+    gate_revalidations: list[dict[str, Any]] = Field(default_factory=list)
+    static_gate_version: str | None = None
     error: str | None
 
 
@@ -335,6 +347,7 @@ class CreateExecutionJobRequest(TransportModel):
 
 class ExecutionJobActionRequest(TransportModel):
     actor: str = Field(min_length=1)
+    confirm_orphaned: bool = False
 
 
 class RevisionMetaResponse(TransportModel):
@@ -346,6 +359,8 @@ class RevisionMetaResponse(TransportModel):
 
 
 class C1PolicyResponse(TransportModel):
+    trial_state: Literal["paused", "available"]
+    trial_status_message: str
     consent_policy_revision: str
     statement: str
     access_policy: list[str]
@@ -362,12 +377,16 @@ class C1TrialEnvelopeResponse(TransportModel):
     project_id: str
     meta: RevisionMetaResponse
     status: Literal["active", "closed", "stopped"]
+    closed_at: datetime | None
+    retention_expires_at: datetime | None
+    close_reason: str | None
     measurement_plan_revision_id: str
     delivery_bundle_id: str
     delivery_bundle_revision_id: str
     execution_job_revision_id: str
     web_generation_contract_revision_id: str
     host: str
+    product_usability_confirmed: bool
     consent_policy_revision: str
     consent_statement: str
     access_policy: list[str]
@@ -774,7 +793,7 @@ class ProductGenerationJobResponse(TransportModel):
     status: Literal[
         "queued", "running", "paused", "succeeded", "failed", "stale_input", "budget_exhausted", "cancelled"
     ]
-    provider: Literal["deterministic_template", "deterministic_repair", "model_source"]
+    provider: Literal["deterministic_template", "deterministic_repair", "model_source", "saved_model_revalidation"]
     provider_version: str
     input_dependencies: list[dict[str, Any]]
     web_generation_contract_revision_id: str
@@ -783,9 +802,13 @@ class ProductGenerationJobResponse(TransportModel):
     budget: GenerationBudget
     sandbox: GenerationSandboxPolicy
     fingerprint: str
-    materialization_kind: Literal["template", "repair", "model"]
+    materialization_kind: Literal["template", "repair", "model", "saved_model"]
     parent_generation_job_id: str | None
     repair_job_id: str | None
+    source_generation_job_id: str | None = None
+    source_generation_job_revision_id: str | None = None
+    source_response_sha256: str | None = None
+    static_gate_version: str | None = None
     model_calls: list[ModelCallRecord]
     attempt: int
     checkpoint_step: Literal["prepare", "generate", "validate"] | None

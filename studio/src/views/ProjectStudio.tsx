@@ -9,7 +9,16 @@ import {
   listExecutionJobs,
   runGenerationJob,
   retryGenerationJob,
+  revalidateSavedModelDraft,
+  retryProposalJob,
   getSourceModelPolicy,
+  cancelExecutionJob,
+  createSavedSourceMaterialization,
+  recoverExecutionJob,
+  retryExecutionJob,
+  pauseGenerationJob,
+  resumeGenerationJob,
+  cancelGenerationJob,
   runExecutionJob,
   createRepairJob,
   listRepairJobs,
@@ -55,6 +64,7 @@ import { ContractView } from "./ContractView";
 import { DecisionsView } from "./DecisionsView";
 import { EvidenceView } from "./EvidenceView";
 import { C1Panel } from "./C1Panel";
+import { MainlineGuide } from "../components/MainlineGuide";
 import { WorkbenchView } from "./WorkbenchView";
 import type { PreviewFeedbackDraft } from "./PreviewFeedbackPanel";
 
@@ -76,9 +86,11 @@ function modeLabel(mode: string): string {
 
 export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit: () => void }) {
   const [area, setArea] = useState<Area>("contract");
+  // Keep the local path deterministic; real DeepSeek remains an explicit provider choice.
   const [proposalProvider, setProposalProvider] = useState<ProposalProvider>("deterministic_fake");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resumingPending, setResumingPending] = useState(false);
   const query = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => getProject(projectId),
@@ -125,6 +137,27 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     queryFn: () => listPreviewFeedback(projectId),
     retry: false,
   });
+  const generationJobs = generationJobsQuery.data ?? [];
+  const currentContractRevisionId = query.data?.web_generation_contract?.revision_id;
+  const currentGenerationJobs = currentContractRevisionId
+    ? generationJobs.filter((job) => job.web_generation_contract_revision_id === currentContractRevisionId)
+    : generationJobs;
+  const pendingGenerationJob = [...currentGenerationJobs].reverse().find((job) => ["queued", "running", "paused"].includes(job.status));
+  const successfulTemplateJob = [...currentGenerationJobs].reverse().find((job) => job.status === "succeeded" && job.materialization_kind === "template");
+  // Prefer a live job, then the latest successful template. Historical model
+  // failures must not hide a usable deterministic workspace for this contract.
+  const selectedGenerationJob = pendingGenerationJob ?? successfulTemplateJob ?? currentGenerationJobs.at(-1) ?? generationJobs.at(-1) ?? null;
+  const latestModelJob = [...currentGenerationJobs].reverse().find((job) => job.materialization_kind === "model") ?? null;
+  const latestSavedSourceJob = [...currentGenerationJobs].reverse().find((job) => job.materialization_kind === "model" && job.status === "succeeded" && job.model_calls.at(-1)?.static_gate_revalidated) ?? null;
+  const executionJobs = executionJobsQuery.data ?? [];
+  const selectedExecutionJob = selectedGenerationJob
+    ? [...executionJobs].reverse().find((job) => job.generation_job_id === selectedGenerationJob.job_id) ?? null
+    : executionJobs.at(-1) ?? null;
+  const repairJobs = repairJobsQuery.data ?? [];
+  const selectedRepairJob = selectedExecutionJob
+    ? [...repairJobs].reverse().find((job) => job.execution_job_id === selectedExecutionJob.job_id) ?? null
+    : repairJobs.at(-1) ?? null;
+
   const bundles = deliveryBundlesQuery.data ?? [];
   const diffBase = bundles.length >= 2 ? bundles[bundles.length - 2] : null;
   const diffTarget = bundles.length >= 2 ? bundles[bundles.length - 1] : null;
@@ -149,6 +182,45 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resumePendingWork() {
+    const pendingGeneration = selectedGenerationJob;
+    const pendingExecution = selectedExecutionJob;
+    const pendingProposal = jobsQuery.data?.at(-1);
+    setResumingPending(true);
+    setActionError(null);
+    try {
+      if (pendingProposal && ["queued", "running"].includes(pendingProposal.status)) {
+        await runProposalJob({ projectId, jobId: pendingProposal.job_id });
+      } else if (pendingGeneration && pendingGeneration.status === "paused") {
+        await resumeGenerationJob({ projectId, jobId: pendingGeneration.job_id });
+        await runGenerationJob({ projectId, jobId: pendingGeneration.job_id });
+      } else if (pendingGeneration && ["queued", "running"].includes(pendingGeneration.status)) {
+        await runGenerationJob({ projectId, jobId: pendingGeneration.job_id });
+      } else if (pendingExecution && pendingExecution.status === "queued") {
+        await runExecutionJob({ projectId, jobId: pendingExecution.job_id });
+      } else if (pendingExecution && pendingExecution.status === "running") {
+        await recoverExecutionJob({ projectId, jobId: pendingExecution.job_id });
+        await runExecutionJob({ projectId, jobId: pendingExecution.job_id });
+      }
+      await Promise.all([query.refetch(), jobsQuery.refetch(), generationJobsQuery.refetch(), executionJobsQuery.refetch(), deliveryBundlesQuery.refetch()]);
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally {
+      setResumingPending(false);
+    }
+  }
+
+  function pendingWorkLabel(): string | null {
+    const proposal = jobsQuery.data?.at(-1);
+    if (proposal && ["queued", "running"].includes(proposal.status)) return `提案 Job（${proposal.kind}）`;
+    const generation = selectedGenerationJob;
+    if (generation && ["queued", "running", "paused"].includes(generation.status)) return `产品生成 Job（${generation.status}）`;
+    const execution = selectedExecutionJob;
+    if (execution && execution.status === "queued") return "本地验证 Job（queued）";
+    if (execution && execution.status === "running") return "本地验证 Job（上次中断，需确认恢复）";
+    return null;
   }
 
   function handleConfirm(
@@ -276,6 +348,22 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
+  async function handleRetryProposal() {
+    const job = jobsQuery.data?.at(-1);
+    if (!job || !["failed", "stale_input"].includes(job.status)) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await retryProposalJob({ projectId, jobId: job.job_id });
+      await jobsQuery.refetch();
+      const completed = await runProposalJob({ projectId, jobId: queued.job_id });
+      await Promise.all([query.refetch(), jobsQuery.refetch()]);
+      if (completed.status !== "succeeded") setActionError(completed.error_summary ?? "提案重试没有成功完成。");
+    } catch (error) {
+      setActionError(formatApiError(error));
+    } finally { setBusy(false); }
+  }
+
   async function handleGenerate(kind: ProposalJobKind) {
     setBusy(true);
     setActionError(null);
@@ -312,8 +400,56 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
     } finally { setBusy(false); }
   }
 
+  async function handleRevalidateSavedModelDraft() {
+    const job = latestModelJob;
+    if (!job || job.materialization_kind !== "model" || !["failed", "succeeded"].includes(job.status)) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const completed = await revalidateSavedModelDraft({ projectId, jobId: job.job_id });
+      await generationJobsQuery.refetch();
+      if (completed.status !== "succeeded") {
+        setActionError(completed.error_summary ?? "本地草稿校验未通过；没有再次调用模型。");
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+      await generationJobsQuery.refetch();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMaterializeSavedSource(sourceJobId?: string) {
+    const sourceJob = sourceJobId
+      ? generationJobsQuery.data?.find((job) => job.job_id === sourceJobId)
+      : [...(generationJobsQuery.data ?? [])].reverse().find((job) =>
+          job.materialization_kind === "model" &&
+          job.status === "succeeded" &&
+          job.model_calls.at(-1)?.static_gate_revalidated,
+        );
+    if (!sourceJob || sourceJob.materialization_kind !== "model" || sourceJob.status !== "succeeded" || !sourceJob.model_calls.at(-1)?.static_gate_revalidated) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const queued = await createSavedSourceMaterialization({ projectId, sourceJobId: sourceJob.job_id });
+      await generationJobsQuery.refetch();
+      const completed = queued.status === "queued"
+        ? await runGenerationJob({ projectId, jobId: queued.job_id })
+        : queued;
+      await generationJobsQuery.refetch();
+      if (completed.status !== "succeeded") {
+        setActionError(completed.error_summary ?? "新 workspace lineage 未完成；原源码及旧 workspace 均保留。没有调用模型。");
+      }
+    } catch (error) {
+      setActionError(formatApiError(error));
+      await generationJobsQuery.refetch();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRetryModelSource() {
-    const job = generationJobsQuery.data?.at(-1);
+    const job = latestModelJob;
     if (!job || job.materialization_kind !== "model") return;
     setBusy(true);
     setActionError(null);
@@ -330,7 +466,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   }
 
   async function handleExecuteProduct() {
-    const generationJob = generationJobsQuery.data?.at(-1);
+    const generationJob = selectedGenerationJob;
     if (!generationJob || generationJob.status !== "succeeded") {
       setActionError("请先完成成功的 Web workspace 生成。");
       return;
@@ -349,7 +485,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   }
 
   async function handleRepairProduct() {
-    const executionJob = executionJobsQuery.data?.at(-1);
+    const executionJob = selectedExecutionJob;
     if (!executionJob || !["failed", "budget_exhausted"].includes(executionJob.status)) {
       setActionError("请先完成一个失败的 B4 执行 Job。");
       return;
@@ -373,7 +509,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
   }
 
   async function handleExportProduct() {
-    const executionJob = executionJobsQuery.data?.at(-1);
+    const executionJob = selectedExecutionJob;
     if (!executionJob || executionJob.status !== "succeeded") {
       setActionError("只有成功完成 B4 验证的执行才能导出交付包。");
       return;
@@ -471,11 +607,21 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
           <div><button className="icon-button" onClick={() => void query.refetch()} title="刷新" aria-label="刷新项目">↻</button><span className="topbar-separator" /><span className="save-status">所有结构化更改由后端保存</span></div>
         </header>
         <nav className="mobile-nav" aria-label="移动端产品工作区">{navigation.map((item) => <button className={area === item.id ? "is-active" : ""} onClick={() => setArea(item.id)} key={item.id}>{item.label}</button>)}</nav>
+        <MainlineGuide
+          view={view}
+          generationJob={selectedGenerationJob}
+          executionJob={selectedExecutionJob}
+          deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null}
+          onNavigate={setArea}
+          pendingWorkLabel={pendingWorkLabel()}
+          onResumePending={() => void resumePendingWork()}
+          pendingWorkBusy={resumingPending}
+        />
         {actionError ? <div className="action-error" role="alert"><span>{actionError}</span><button onClick={() => setActionError(null)}>关闭</button></div> : null}
         <div className="studio-content">
           {area === "command" ? <CommandView view={view} /> : null}
-          {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} proposalProvider={proposalProvider} onProposalProviderChange={setProposalProvider} onGenerate={handleGenerate} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
-          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={generationJobsQuery.data?.at(-1) ?? null} executionJob={executionJobsQuery.data?.at(-1) ?? null} repairJob={repairJobsQuery.data?.at(-1) ?? null} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} preview={{
+          {area === "contract" ? <ContractView view={view} busy={busy} latestJob={jobsQuery.data?.at(-1) ?? null} proposalProvider={proposalProvider} onProposalProviderChange={setProposalProvider} onGenerate={handleGenerate} onRetryLatest={() => void handleRetryProposal()} onReviseIntent={handleIntentRevision} onReviseProblem={handleProblemRevision} onReviseOutcome={handleOutcomeRevision} /> : null}
+          {area === "workbench" ? <WorkbenchView view={view} busy={busy} generationJob={selectedGenerationJob} executionJob={selectedExecutionJob} repairJob={selectedRepairJob} deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null} deliveryArchiveUrl={(bundleId) => deliveryBundleArchiveUrl(projectId, bundleId)} preview={{
             url: (bundleId) => deliveryBundlePreviewUrl(projectId, bundleId),
             policy: feedbackPolicyQuery.data ?? null,
             feedback: previewFeedbackQuery.data ?? [],
@@ -484,7 +630,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             onIterate: (item) => void handleIterateFromFeedback(item),
             onDisposition: handleFeedbackDisposition,
             diff: bundleDiffQuery.data ?? null,
-          }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} sourceModel={{ policy: sourceModelPolicyQuery.data ?? null, onGenerate: () => void handleGenerateProduct("model"), onRetry: () => void handleRetryModelSource() }} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
+          }} onExportProduct={() => void handleExportProduct()} onGenerateProduct={() => void handleGenerateProduct()} onPauseGeneration={async () => { const job = selectedGenerationJob; if (job) await refreshAfter(() => pauseGenerationJob({ projectId, jobId: job.job_id })); }} onResumeGeneration={async () => { const job = selectedGenerationJob; if (job) await refreshAfter(async () => { await resumeGenerationJob({ projectId, jobId: job.job_id }); await runGenerationJob({ projectId, jobId: job.job_id }); }); }} onCancelGeneration={async () => { const job = selectedGenerationJob; if (job) await refreshAfter(() => cancelGenerationJob({ projectId, jobId: job.job_id })); }} onCancelExecution={async () => { const job = selectedExecutionJob; if (job) await refreshAfter(() => cancelExecutionJob({ projectId, jobId: job.job_id })); }} onRetryExecution={async () => { const job = selectedExecutionJob; if (job) await refreshAfter(async () => { await retryExecutionJob({ projectId, jobId: job.job_id }); await runExecutionJob({ projectId, jobId: job.job_id }); }); }} sourceModel={{ policy: sourceModelPolicyQuery.data ?? null, savedSourceJob: latestSavedSourceJob, onGenerate: () => void handleGenerateProduct("model"), onRetry: () => void handleRetryModelSource(), onRevalidateSavedDraft: () => void handleRevalidateSavedModelDraft(), onMaterializeSavedSource: (sourceJobId) => void handleMaterializeSavedSource(sourceJobId) }} onExecuteProduct={() => void handleExecuteProduct()} onRepairProduct={() => void handleRepairProduct()} onGenerate={() => handleGenerate("product_theses")} onGenerateWeb={() => handleGenerate("web_generation_contract")} onConfirmWeb={() => {
             const contract = view.web_generation_contract;
             if (!contract) return;
             void refreshAfter(() => confirmWebGenerationContract({ projectId, contractId: contract.web_generation_contract_id, revision: contract.meta.revision }));
@@ -502,7 +648,7 @@ export function ProjectStudio({ projectId, onExit }: { projectId: string; onExit
             view={view}
             plan={view.outcome_measurement_plan}
             deliveryBundle={deliveryBundlesQuery.data?.at(-1) ?? null}
-            executionJob={executionJobsQuery.data?.at(-1) ?? null}
+            executionJob={selectedExecutionJob}
             busy={busy}
             onChanged={async () => { await Promise.all([query.refetch(), deliveryBundlesQuery.refetch(), executionJobsQuery.refetch()]); }}
             onError={setActionError}
